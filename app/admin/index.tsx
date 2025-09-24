@@ -19,6 +19,12 @@ import {
   Activity,
   Bell,
   LogOut,
+  Store,
+  FileText,
+  BarChart3,
+  Truck,
+  Flag,
+  ClipboardList,
 } from 'lucide-react-native';
 import { useAdmin } from '@/providers/AdminProvider';
 import { trpc } from '@/lib/trpc';
@@ -168,6 +174,60 @@ export default function AdminDashboard() {
                 <Text style={styles.badgeText}>{unreadNotifications}</Text>
               </View>
             )}
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/admin/restaurants')}
+          >
+            <Store size={20} color="#8b5cf6" />
+            <Text style={styles.actionTitle}>Restaurant Management</Text>
+            <Text style={styles.actionSubtitle}>Manage restaurants and claims</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/admin/posts')}
+          >
+            <FileText size={20} color="#10b981" />
+            <Text style={styles.actionTitle}>Post Management</Text>
+            <Text style={styles.actionSubtitle}>Monitor and moderate posts</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/admin/analytics')}
+          >
+            <BarChart3 size={20} color="#f59e0b" />
+            <Text style={styles.actionTitle}>Analytics Dashboard</Text>
+            <Text style={styles.actionSubtitle}>View platform insights and metrics</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/admin/suppliers')}
+          >
+            <Truck size={20} color="#06b6d4" />
+            <Text style={styles.actionTitle}>Supplier Management</Text>
+            <Text style={styles.actionSubtitle}>Manage suppliers and partnerships</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/admin/claims')}
+          >
+            <ClipboardList size={20} color="#84cc16" />
+            <Text style={styles.actionTitle}>Restaurant Claims</Text>
+            <Text style={styles.actionSubtitle}>Review ownership claims</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/admin/reports')}
+          >
+            <Flag size={20} color="#ef4444" />
+            <Text style={styles.actionTitle}>User Reports</Text>
+            <Text style={styles.actionSubtitle}>Handle user reports and complaints</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 

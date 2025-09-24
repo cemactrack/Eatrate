@@ -61,31 +61,54 @@ export const updateAdminSettingsProcedure = publicProcedure
 
 export const getAnalyticsProcedure = publicProcedure
   .input(z.object({
-    period: z.enum(['day', 'week', 'month', 'year']).default('week'),
-    metric: z.enum(['users', 'posts', 'engagement', 'revenue']).default('users'),
+    timeRange: z.enum(['7d', '30d', '90d', '1y']).default('30d'),
   }))
   .query(async ({ input }) => {
-    // Mock analytics data - replace with real analytics service
-    const generateData = (days: number) => {
-      return Array.from({ length: days }, (_, i) => ({
-        date: new Date(Date.now() - (days - i - 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        value: Math.floor(Math.random() * 1000) + 100,
-      }));
-    };
-
-    const periodDays = {
-      day: 24, // hours
-      week: 7,
-      month: 30,
-      year: 12, // months
-    };
-
+    // Mock comprehensive analytics data - replace with real analytics service
     return {
-      data: generateData(periodDays[input.period]),
-      total: Math.floor(Math.random() * 50000) + 10000,
-      growth: (Math.random() - 0.5) * 20, // -10% to +10%
-      period: input.period,
-      metric: input.metric,
+      users: {
+        total: 15420,
+        active: 8932,
+        growth: 12.5,
+        activeGrowth: 8.3,
+      },
+      posts: {
+        total: 45678,
+        growth: 15.2,
+      },
+      restaurants: {
+        total: 2341,
+        growth: 6.8,
+      },
+      engagement: {
+        avgSessionDuration: '4m 32s',
+        postsPerUser: 2.96,
+        likesPerPost: 12.4,
+        commentsPerPost: 3.8,
+      },
+      topUsers: [
+        { id: '1', name: 'John Smith', posts: 89 },
+        { id: '2', name: 'Maria Rodriguez', posts: 76 },
+        { id: '3', name: 'David Chen', posts: 65 },
+        { id: '4', name: 'Sarah Johnson', posts: 58 },
+        { id: '5', name: 'Ahmed Hassan', posts: 52 },
+      ],
+      topRestaurants: [
+        { id: '1', name: 'Pizza Palace', reviews: 234 },
+        { id: '2', name: 'Sushi Zen', reviews: 189 },
+        { id: '3', name: 'Burger Junction', reviews: 156 },
+        { id: '4', name: 'Taco Fiesta', reviews: 143 },
+        { id: '5', name: 'Pasta Corner', reviews: 128 },
+      ],
+      revenue: {
+        total: 125000,
+      },
+      retention: {
+        rate: 68,
+      },
+      conversion: {
+        rate: 3.2,
+      },
     };
   });
 

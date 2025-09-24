@@ -52,6 +52,48 @@ export default function AdminLayout() {
           headerShown: true,
         }} 
       />
+      <Stack.Screen 
+        name="restaurants" 
+        options={{ 
+          title: 'Restaurant Management',
+          headerShown: true,
+        }} 
+      />
+      <Stack.Screen 
+        name="posts" 
+        options={{ 
+          title: 'Post Management',
+          headerShown: true,
+        }} 
+      />
+      <Stack.Screen 
+        name="analytics" 
+        options={{ 
+          title: 'Analytics Dashboard',
+          headerShown: true,
+        }} 
+      />
+      <Stack.Screen 
+        name="suppliers" 
+        options={{ 
+          title: 'Supplier Management',
+          headerShown: true,
+        }} 
+      />
+      <Stack.Screen 
+        name="claims" 
+        options={{ 
+          title: 'Restaurant Claims',
+          headerShown: true,
+        }} 
+      />
+      <Stack.Screen 
+        name="reports" 
+        options={{ 
+          title: 'User Reports',
+          headerShown: true,
+        }} 
+      />
     </Stack>
   );
 }

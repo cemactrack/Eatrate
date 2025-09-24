@@ -44,6 +44,22 @@ import {
   getAnalyticsProcedure, 
   exportDataProcedure 
 } from "./routes/admin/settings";
+import {
+  getAdminRestaurantsProcedure,
+  updateRestaurantStatusProcedure,
+  deleteRestaurantProcedure,
+  getRestaurantDetailsProcedure,
+} from "./routes/admin/restaurants";
+import {
+  getAdminPostsProcedure,
+  deletePostProcedure,
+  getPostDetailsProcedure,
+} from "./routes/admin/posts";
+import {
+  getAdminSuppliersProcedure,
+  updateSupplierStatusProcedure,
+  deleteSupplierProcedure,
+} from "./routes/admin/suppliers";
 
 export const appRouter = createTRPCRouter({
   example: createTRPCRouter({
@@ -111,6 +127,22 @@ export const appRouter = createTRPCRouter({
       update: updateAdminSettingsProcedure,
       analytics: getAnalyticsProcedure,
       export: exportDataProcedure,
+    }),
+    restaurants: createTRPCRouter({
+      list: getAdminRestaurantsProcedure,
+      updateStatus: updateRestaurantStatusProcedure,
+      delete: deleteRestaurantProcedure,
+      details: getRestaurantDetailsProcedure,
+    }),
+    posts: createTRPCRouter({
+      list: getAdminPostsProcedure,
+      delete: deletePostProcedure,
+      details: getPostDetailsProcedure,
+    }),
+    suppliers: createTRPCRouter({
+      list: getAdminSuppliersProcedure,
+      updateStatus: updateSupplierStatusProcedure,
+      delete: deleteSupplierProcedure,
     }),
   }),
 });
