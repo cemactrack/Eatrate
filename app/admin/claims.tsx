@@ -35,14 +35,14 @@ export default function ClaimsManagement() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [showFilters, setShowFilters] = useState<boolean>(false);
 
-  const claimsQuery = trpc.restaurants.claims.list.useQuery({
+  const claimsQuery = trpc.admin.claims.list.useQuery({
     search: searchQuery,
-    status: statusFilter,
+    status: statusFilter === 'all' ? undefined : statusFilter,
     limit: 20,
     offset: 0,
   });
 
-  const updateClaimMutation = trpc.restaurants.claims.adminUpdate.useMutation({
+  const updateClaimMutation = trpc.admin.claims.update.useMutation({
     onSuccess: () => {
       claimsQuery.refetch();
     },

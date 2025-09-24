@@ -64,6 +64,16 @@ import {
   updateSupplierStatusProcedure,
   deleteSupplierProcedure,
 } from "./routes/admin/suppliers";
+import {
+  getAdminClaimsProcedure,
+  updateAdminClaimProcedure,
+  deleteAdminClaimProcedure,
+} from "./routes/admin/claims";
+import {
+  getAdminReportsProcedure,
+  updateAdminReportProcedure,
+  deleteAdminReportProcedure,
+} from "./routes/admin/reports";
 
 export const appRouter = createTRPCRouter({
   example: createTRPCRouter({
@@ -151,6 +161,16 @@ export const appRouter = createTRPCRouter({
       list: getAdminSuppliersProcedure,
       updateStatus: updateSupplierStatusProcedure,
       delete: deleteSupplierProcedure,
+    }),
+    claims: createTRPCRouter({
+      list: getAdminClaimsProcedure,
+      update: updateAdminClaimProcedure,
+      delete: deleteAdminClaimProcedure,
+    }),
+    reports: createTRPCRouter({
+      list: getAdminReportsProcedure,
+      update: updateAdminReportProcedure,
+      delete: deleteAdminReportProcedure,
     }),
   }),
 });

@@ -35,13 +35,14 @@ export default function ReportsManagement() {
   const [typeFilter, setTypeFilter] = useState<'all' | 'user' | 'restaurant' | 'post' | 'comment'>('all');
   const [showFilters, setShowFilters] = useState<boolean>(false);
 
-  const reportsQuery = trpc.admin.moderation.reports.useQuery({
+  const reportsQuery = trpc.admin.reports.list.useQuery({
     status: statusFilter === 'all' ? undefined : statusFilter,
+    type: typeFilter === 'all' ? undefined : typeFilter,
     limit: 20,
     offset: 0,
   });
 
-  const updateReportMutation = trpc.admin.moderation.updateReport.useMutation({
+  const updateReportMutation = trpc.admin.reports.update.useMutation({
     onSuccess: () => {
       reportsQuery.refetch();
     },
@@ -226,13 +227,13 @@ export default function ReportsManagement() {
                 style={styles.actionButton}
                 onPress={() => {
                   // Navigate to the reported content
-                  if (report.type === 'post') {
-                    router.push(`/posts/${report.targetId}`);
+                  if (report.type === 'restaurant') {
+                    router.push(`/restaurants/${report.targetId}`);
                   } else if (report.type === 'user') {
                     router.push(`/users/${report.targetId}`);
-                  } else if (report.type === 'restaurant') {
-                    router.push(`/restaurants/${report.targetId}`);
                   }
+                  // For posts and comments, we could navigate to a details page
+                  // but those routes don't exist in the current structure
                 }}
               >
                 <Eye size={16} color={Colors.light.tint} />
