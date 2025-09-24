@@ -1,0 +1,733 @@
+import React, { useState, useCallback, useMemo } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
+  TouchableOpacity,
+  FlatList,
+  Image,
+  Modal,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Award, MapPin, Users, Flame, Plus, UserPlus, Check, Heart, MessageSquare } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+
+import LoadingSpinner from '@/components/LoadingSpinner';
+import { trpc } from '@/lib/trpc';
+import { Restaurant, Post, Dish, User } from '@/types/restaurant';
+import RestaurantCard from '@/components/RestaurantCard';
+import DishCard from '@/components/DishCard';
+import SearchBar from '@/components/SearchBar';
+import Colors, { gradients } from '@/constants/colors';
+import PostComposer from '@/components/PostComposer';
+
+interface TrendingPostProps {
+  post: Post;
+  onPress: () => void;
+  onLike: (postId: string) => void;
+  onComments: (postId: string) => void;
+}
+
+const TrendingPost = React.memo(function TrendingPost({ post, onPress, onLike, onComments }: TrendingPostProps) {
+  return (
+    <TouchableOpacity style={styles.trendingPost} onPress={onPress}>
+      <Image
+        source={{ uri: post.content.images?.[0] || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&h=200&fit=crop' }}
+        style={styles.trendingImage}
+        resizeMode="cover"
+      />
+      <View style={styles.trendingContent}>
+        <View style={styles.trendingHeader}>
+          <Image source={{ uri: post.user.avatar }} style={styles.trendingAvatar} />
+          <View style={styles.trendingUserInfo}>
+            <Text style={styles.trendingUsername}>{post.user.displayName}</Text>
+            {post.restaurant && (
+              <Text style={styles.trendingRestaurant}>{post.restaurant.name}</Text>
+            )}
+          </View>
+        </View>
+        <Text style={styles.trendingText} numberOfLines={2}>
+          {post.content.text}
+        </Text>
+        <View style={styles.trendingStats}>
+          <TouchableOpacity
+            testID={`post-like-${post.id}`}
+            style={styles.trendingStatBtn}
+            onPress={() => onLike(post.id)}
+            activeOpacity={0.8}
+          >
+            <Heart size={14} color={Colors.light.tint} />
+            <Text style={styles.trendingLikes}>{post.likesCount} likes</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            testID={`post-comments-${post.id}`}
+            style={styles.trendingStatBtn}
+            onPress={() => onComments(post.id)}
+            activeOpacity={0.8}
+          >
+            <MessageSquare size={14} color={Colors.light.secondary} />
+            <Text style={styles.trendingComments}>{post.commentsCount} comments</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
+export default function HomeScreen() {
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showComposer, setShowComposer] = useState<boolean>(false);
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+
+  // Load restaurants first, then other data
+  const { data: restaurantsData, isLoading: isLoadingRestaurants, error: restaurantsError } = trpc.restaurants.list.useQuery(
+    undefined,
+    { 
+      staleTime: 1000 * 60 * 10,
+      retry: 1,
+      refetchOnMount: false,
+    }
+  );
+
+  // Fallback to Yaoundé restaurants if main list fails
+  const { data: yaoundeData, isLoading: isLoadingYaounde } = trpc.restaurants.yaounde.useQuery(
+    { page: 1 },
+    { 
+      staleTime: 1000 * 60 * 10,
+      enabled: !restaurantsData?.restaurants?.length && !isLoadingRestaurants,
+      retry: 1,
+    }
+  );
+
+  // Load other data after restaurants are loaded or failed
+  const shouldLoadOtherData = !isLoadingRestaurants && !isLoadingYaounde;
+  
+  const { data: postsData, isLoading: isLoadingPosts, error: postsError } = trpc.posts.list.useQuery(
+    undefined,
+    { 
+      staleTime: 1000 * 60 * 10,
+      enabled: shouldLoadOtherData,
+      retry: 1,
+    }
+  );
+
+  const { data: dishesData, isLoading: isLoadingDishes, error: dishesError } = trpc.dishes.list.useQuery(
+    undefined,
+    { 
+      staleTime: 1000 * 60 * 10,
+      enabled: shouldLoadOtherData,
+      retry: 1,
+    }
+  );
+
+  const { data: usersData, isLoading: isLoadingUsers, error: usersError } = trpc.users.list.useQuery(
+    undefined,
+    { 
+      staleTime: 1000 * 60 * 10,
+      enabled: shouldLoadOtherData,
+      retry: 1,
+    }
+  );
+
+  const featuredRestaurants = useMemo(() => {
+    // Try main restaurants list first, then fallback to Yaoundé
+    const mainList = restaurantsData?.restaurants ?? [];
+    const fallbackList = yaoundeData?.restaurants ?? [];
+    const list = mainList.length > 0 ? mainList : fallbackList;
+    return list.slice(0, 3);
+  }, [restaurantsData?.restaurants, yaoundeData?.restaurants]);
+  
+  const trendingPosts = useMemo(() => {
+    if (!postsData?.posts) return [] as Post[];
+    return postsData.posts.slice(0, 2) as Post[];
+  }, [postsData?.posts]);
+  
+  const trendingDishes: Dish[] = useMemo(() => {
+    const list = dishesData?.dishes ?? [];
+    return list.slice(0, 10) as Dish[];
+  }, [dishesData?.dishes]);
+
+  const topFoodies: User[] = useMemo(() => {
+    const list = usersData?.users ?? [];
+    return list.slice(0, 10) as User[];
+  }, [usersData?.users]);
+
+  const followUser = trpc.users.follow.useMutation();
+
+  const onToggleFollow = useCallback(async (userId: string) => {
+    try {
+      const res = await followUser.mutateAsync({ targetUserId: userId });
+      console.log('[Home] toggled follow', userId, res);
+    } catch (e) {
+      console.log('[Home] follow error', e);
+    }
+  }, [followUser]);
+
+  const handleRestaurantPress = useCallback((restaurantId: string) => {
+    console.log('Restaurant pressed:', restaurantId);
+    router.push(`/restaurants/${restaurantId}` as const);
+  }, [router]);
+
+  const handleDishPress = useCallback((dishId: string) => {
+    console.log('Dish pressed:', dishId);
+  }, []);
+
+  const handlePostPress = useCallback((postId: string) => {
+    console.log('Post pressed:', postId);
+  }, []);
+
+  const likeMutation = trpc.posts.like.useMutation();
+
+  const handlePostLike = useCallback(async (postId: string) => {
+    try {
+      const res = await likeMutation.mutateAsync({ postId });
+      console.log('[Home] like toggled', postId, res);
+      // In a real app, we would update the specific post in cache.
+    } catch (e) {
+      console.log('[Home] like error', e);
+    }
+  }, [likeMutation]);
+
+  const handlePostComments = useCallback((postId: string) => {
+    router.push(`/comments/${postId}` as const);
+  }, [router]);
+
+  const handleUserPress = useCallback((userId: string) => {
+    console.log('User pressed:', userId);
+  }, []);
+
+  const handleFilterPress = useCallback(() => {
+    console.log('Filter pressed');
+  }, []);
+
+  const handleSeeAllRestaurants = useCallback(() => {
+    router.push('/restaurants' as const);
+  }, [router]);
+
+  const handleSeeAllFeed = useCallback(() => {
+    console.log('See all feed pressed');
+  }, []);
+
+  const handleSeeAllSearch = useCallback(() => {
+    console.log('See all search pressed');
+  }, []);
+
+  if ((isLoadingRestaurants || isLoadingYaounde) || isLoadingPosts || isLoadingDishes || isLoadingUsers) {
+    return <LoadingSpinner text="Loading content..." showGradient />;
+  }
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}> 
+      {(restaurantsError || postsError || dishesError || usersError) ? (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>
+            {restaurantsError ? 'Failed to load restaurants. ' : ''}
+            {postsError ? 'Failed to load posts. ' : ''}
+            {dishesError ? 'Failed to load dishes. ' : ''}
+            {usersError ? 'Failed to load users.' : ''}
+          </Text>
+        </View>
+      ) : null}
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <LinearGradient colors={gradients.primary} style={styles.header}>
+          <View style={styles.headerContent}>
+            <Text style={styles.greeting}>Good evening!</Text>
+            <Text style={styles.title}>What are you craving?</Text>
+          </View>
+        </LinearGradient>
+
+        {/* Search Bar */}
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          onFilterPress={handleFilterPress}
+        />
+
+        {/* Create Post/Status Entry */}
+        <TouchableOpacity
+          testID="open-composer"
+          onPress={() => setShowComposer(true)}
+          activeOpacity={0.9}
+          style={styles.createPostCard}
+        >
+          <View style={styles.createPostRow}>
+            <View style={styles.createPostAvatar} />
+            <Text style={styles.createPostPlaceholder}>Share a review, photo, status…</Text>
+          </View>
+          <View style={styles.createPostActions}>
+            <View style={styles.createActionChip}>
+              <Plus size={16} color={Colors.light.tint} />
+              <Text style={styles.createActionText}>Create Post</Text>
+            </View>
+            <TouchableOpacity
+              testID="open-status"
+              onPress={() => router.push('/status' as const)}
+              style={[styles.createActionChip, { marginLeft: 8 }]}
+            >
+              <Plus size={16} color={Colors.light.success} />
+              <Text style={[styles.createActionText, { color: Colors.light.success }]}>Post Status</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+
+        {/* Quick Stats */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <Flame size={24} color={Colors.light.tint} />
+            <Text style={styles.statNumber}>2.4K</Text>
+            <Text style={styles.statLabel}>Hot Posts</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Users size={24} color={Colors.light.success} />
+            <Text style={styles.statNumber}>15K</Text>
+            <Text style={styles.statLabel}>Foodies</Text>
+          </View>
+          <View style={styles.statCard}>
+            <MapPin size={24} color={Colors.light.warning} />
+            <Text style={styles.statNumber}>850</Text>
+            <Text style={styles.statLabel}>Restaurants</Text>
+          </View>
+        </View>
+
+        {/* Featured Restaurants */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Featured Restaurants</Text>
+            <TouchableOpacity onPress={handleSeeAllRestaurants}>
+              <Text style={styles.seeAll}>See All</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {featuredRestaurants.length === 0 ? (
+            <View style={styles.emptySection}>
+              <Text style={styles.emptySectionText}>No restaurants available</Text>
+              <Text style={styles.emptySectionSubtext}>
+                {isLoadingRestaurants || isLoadingYaounde ? 'Loading...' : 'Try refreshing the app'}
+              </Text>
+            </View>
+          ) : (
+            featuredRestaurants.map((restaurant: Restaurant) => (
+              <RestaurantCard
+                key={restaurant.id}
+                restaurant={restaurant}
+                onPress={() => handleRestaurantPress(restaurant.id)}
+              />
+            ))
+          )}
+        </View>
+
+        {/* Trending Posts */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Trending Posts</Text>
+            <TouchableOpacity onPress={handleSeeAllFeed}>
+              <Text style={styles.seeAll}>See All</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {trendingPosts.length === 0 ? (
+            <View style={styles.emptySection}>
+              <Text style={styles.emptySectionText}>No trending posts</Text>
+            </View>
+          ) : (
+            trendingPosts.map((post) => (
+              <TrendingPost
+                key={post.id}
+                post={post}
+                onPress={() => handlePostPress(post.id)}
+                onLike={handlePostLike}
+                onComments={handlePostComments}
+              />
+            ))
+          )}
+        </View>
+
+        {/* Top Foodies */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Top Foodies</Text>
+            <TouchableOpacity>
+              <Text style={styles.seeAll}>See All</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {topFoodies.length === 0 ? (
+            <View style={styles.emptySection}>
+              <Text style={styles.emptySectionText}>No top foodies</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={topFoodies}
+              renderItem={({ item }) => (
+                <View style={styles.foodieCard}>
+                  <TouchableOpacity onPress={() => handleUserPress(item.id)} activeOpacity={0.9}>
+                    <Image source={{ uri: item.avatar }} style={styles.foodieAvatar} />
+                  </TouchableOpacity>
+                  <Text style={styles.foodieName}>{item.displayName}</Text>
+                  <Text style={styles.foodieStats}>{item.followersCount.toLocaleString()} followers</Text>
+                  <View style={styles.foodieBadges}>
+                    {item.badges.slice(0, 1).map((badge: string) => (
+                      <View key={`${item.id}-${badge}`} style={styles.foodieBadge}>
+                        <Award size={10} color={Colors.light.warning} />
+                        <Text style={styles.foodieBadgeText}>{badge}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <TouchableOpacity
+                    testID={`follow-user-${item.id}`}
+                    onPress={() => onToggleFollow(item.id)}
+                    style={styles.followChip}
+                    activeOpacity={0.9}
+                  >
+                    <UserPlus size={14} color={Colors.light.tint} />
+                    <Text style={styles.followChipText}>Follow</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.foodieList}
+            />
+          )}
+        </View>
+
+        {/* Trending Dishes */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Trending Dishes</Text>
+            <TouchableOpacity onPress={handleSeeAllSearch}>
+              <Text style={styles.seeAll}>See All</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {trendingDishes.length === 0 ? (
+            <View style={styles.emptySection}>
+              <Text style={styles.emptySectionText}>No trending dishes</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={trendingDishes}
+              renderItem={({ item }) => (
+                <DishCard
+                  dish={item}
+                  onPress={() => handleDishPress(item.id)}
+                />
+              )}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.dishList}
+            />
+          )}
+        </View>
+
+
+        {/* Bottom spacing */}
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
+
+      <Modal visible={showComposer} animationType="slide" presentationStyle="pageSheet">
+        <PostComposer />
+        <TouchableOpacity
+          testID="close-composer"
+          onPress={() => setShowComposer(false)}
+          style={styles.closeComposerOverlay}
+        />
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.light.background,
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingVertical: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  headerContent: {
+    marginTop: 8,
+  },
+  greeting: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 4,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: 'white',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    justifyContent: 'space-between',
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: Colors.light.card,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    marginHorizontal: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.light.text,
+    marginTop: 8,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: Colors.light.secondary,
+    marginTop: 4,
+  },
+  section: {
+    marginTop: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.light.text,
+  },
+  seeAll: {
+    fontSize: 14,
+    color: Colors.light.tint,
+    fontWeight: '600',
+  },
+  dishList: {
+    paddingHorizontal: 16,
+  },
+  trendingPost: {
+    backgroundColor: Colors.light.card,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  trendingImage: {
+    width: '100%',
+    height: 200,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+  },
+  trendingContent: {
+    padding: 16,
+  },
+  trendingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  trendingAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 8,
+  },
+  trendingUserInfo: {
+    flex: 1,
+  },
+  trendingUsername: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.light.text,
+  },
+  trendingRestaurant: {
+    fontSize: 12,
+    color: Colors.light.tint,
+  },
+  trendingText: {
+    fontSize: 14,
+    color: Colors.light.text,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  trendingStats: {
+    flexDirection: 'row',
+    gap: 16,
+    alignItems: 'center',
+  },
+  trendingStatBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  trendingLikes: {
+    fontSize: 12,
+    color: Colors.light.secondary,
+    fontWeight: '500',
+  },
+  trendingComments: {
+    fontSize: 12,
+    color: Colors.light.secondary,
+    fontWeight: '500',
+  },
+  foodieList: {
+    paddingHorizontal: 16,
+  },
+  foodieCard: {
+    backgroundColor: Colors.light.card,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginRight: 12,
+    width: 140,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  foodieAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginBottom: 8,
+  },
+  foodieName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.light.text,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  foodieStats: {
+    fontSize: 12,
+    color: Colors.light.secondary,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  foodieBadges: {
+    alignItems: 'center',
+  },
+  foodieBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.light.accent,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  foodieBadgeText: {
+    fontSize: 10,
+    color: Colors.light.warning,
+    marginLeft: 2,
+    fontWeight: '500',
+  },
+  followChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+    backgroundColor: Colors.light.accent,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  followChipText: {
+    color: Colors.light.tint,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  bottomSpacing: {
+    height: 32,
+  },
+  createPostCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    backgroundColor: Colors.light.card,
+    borderRadius: 16,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  createPostRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  createPostAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.light.border,
+    marginRight: 10,
+  },
+  createPostPlaceholder: {
+    flex: 1,
+    color: Colors.light.secondary,
+    fontSize: 14,
+  },
+  createPostActions: {
+    flexDirection: 'row',
+    marginTop: 10,
+  },
+  createActionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.light.accent,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  createActionText: {
+    marginLeft: 6,
+    color: Colors.light.tint,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  closeComposerOverlay: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  errorBox: {
+    padding: 16,
+  },
+  errorText: {
+    color: Colors.light.secondary,
+  },
+  emptySection: {
+    paddingHorizontal: 16,
+  },
+  emptySectionText: {
+    color: Colors.light.secondary,
+  },
+  emptySectionSubtext: {
+    color: Colors.light.secondary,
+    fontSize: 12,
+    marginTop: 4,
+  },
+});
