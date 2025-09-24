@@ -59,6 +59,21 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const storage = useStorage();
 
+  // Helper function to map notification types
+  const mapNotificationType = useCallback((type: string): 'info' | 'warning' | 'error' | 'success' => {
+    switch (type) {
+      case 'system':
+      case 'user_activity':
+        return 'info';
+      case 'report':
+        return 'warning';
+      case 'claim':
+        return 'success';
+      default:
+        return 'info';
+    }
+  }, []);
+
   // Admin notifications query
   const notificationsQuery = trpc.admin.dashboard.notifications.useQuery(undefined, {
     enabled: !!adminUser,
@@ -68,7 +83,9 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
 
   const markNotificationMutation = trpc.admin.dashboard.markNotificationRead.useMutation({
     onSuccess: () => {
-      notificationsQuery.refetch();
+      if (notificationsQuery.refetch) {
+        notificationsQuery.refetch();
+      }
     },
   });
 
@@ -148,8 +165,10 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
   }, [notifications, markNotificationMutation]);
 
   const refreshNotifications = useCallback(() => {
-    notificationsQuery.refetch();
-  }, [notificationsQuery]);
+    if (notificationsQuery.refetch) {
+      notificationsQuery.refetch();
+    }
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -189,22 +208,9 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
       }));
       setNotifications(mappedNotifications);
     }
-  }, [notificationsQuery.data]);
+  }, [notificationsQuery.data, mapNotificationType]);
 
-  // Helper function to map notification types
-  const mapNotificationType = (type: string): 'info' | 'warning' | 'error' | 'success' => {
-    switch (type) {
-      case 'system':
-      case 'user_activity':
-        return 'info';
-      case 'report':
-        return 'warning';
-      case 'claim':
-        return 'success';
-      default:
-        return 'info';
-    }
-  };
+
 
   return useMemo(() => ({
     adminUser,
