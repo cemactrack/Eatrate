@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import NotificationToast, { ToastType } from '@/components/NotificationToast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Camera, Image as ImageIcon, MapPin, Star, X, Search, Check } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import Colors from '@/constants/colors';
@@ -85,6 +86,7 @@ function QuickReactions({ value, onChange }: { value: number; onChange: (v: numb
 }
 
 export default function PostComposer() {
+  const router = useRouter();
   const [postText, setPostText] = useState<string>('');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
@@ -116,8 +118,46 @@ export default function PostComposer() {
   });
 
   const insets = useSafeAreaInsets();
+  const utils = trpc.useUtils();
 
-  const createPost = trpc.posts.createNew.useMutation();
+  const createPost = trpc.posts.createNew.useMutation({
+    onSuccess: (data) => {
+      // Invalidate and refetch feed data
+      utils.posts.feed.invalidate();
+      utils.posts.list.invalidate();
+      
+      setToast({
+        visible: true,
+        type: 'success',
+        title: 'Post Shared!',
+        message: 'Your food review has been shared with the community.',
+      });
+      
+      // Reset form
+      setPostText('');
+      setSelectedImages([]);
+      setSelectedRestaurant(null);
+      setSelectedDish('');
+      setTags('');
+      setRatings({ food: 0, service: 0, ambiance: 0, cleanliness: 0 });
+      setQuickRating(0);
+      setRatingMode('quick');
+      
+      // Navigate to feed after a short delay
+      setTimeout(() => {
+        router.push('/posts/feed');
+      }, 1500);
+    },
+    onError: (error) => {
+      console.error('[PostComposer] Post failed:', error);
+      setToast({ 
+        visible: true, 
+        type: 'error', 
+        title: 'Post failed', 
+        message: error.message || 'Please try again.' 
+      });
+    }
+  });
   const createStatus = trpc.status.create.useMutation();
 
   const pickImage = async () => {
@@ -241,23 +281,9 @@ export default function PostComposer() {
         ratings,
         tags: tagList,
       });
-      setToast({
-        visible: true,
-        type: 'success',
-        title: 'Post Shared!',
-        message: 'Your food review has been shared with the community.',
-      });
-      setPostText('');
-      setSelectedImages([]);
-      setSelectedRestaurant(null);
-      setSelectedDish('');
-      setTags('');
-      setRatings({ food: 0, service: 0, ambiance: 0, cleanliness: 0 });
-      setQuickRating(0);
-      setRatingMode('quick');
     } catch (e) {
-      console.log('[PostComposer] Post failed', e);
-      setToast({ visible: true, type: 'error', title: 'Post failed', message: 'Please try again.' });
+      // Error handling is done in the mutation's onError callback
+      console.error('[PostComposer] Post submission error:', e);
     } finally {
       setIsPosting(false);
     }
@@ -267,18 +293,18 @@ export default function PostComposer() {
     const list = douala?.restaurants ?? [];
     if (!restaurantSearch.trim()) return list;
     return list.filter(
-      (restaurant) =>
+      (restaurant: Restaurant) =>
         restaurant.name.toLowerCase().includes(restaurantSearch.toLowerCase()) ||
         restaurant.cuisine.toLowerCase().includes(restaurantSearch.toLowerCase())
     );
   }, [douala?.restaurants, restaurantSearch]);
 
-  const handleRestaurantSelect = (restaurant: Restaurant) => {
+  const handleRestaurantSelect = useCallback((restaurant: Restaurant) => {
     if (!restaurant?.id || !restaurant?.name) return;
     setSelectedRestaurant(restaurant);
     setShowRestaurantModal(false);
     setRestaurantSearch('');
-  };
+  }, []);
 
   const handleLocationPress = () => {
     setShowRestaurantModal(true);

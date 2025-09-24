@@ -210,8 +210,73 @@ export default function PostFeedScreen() {
     return feedData?.posts ?? [];
   }, [feedData]);
 
-  const likeMutation = trpc.posts.like.useMutation();
-  const bookmarkMutation = trpc.posts.bookmark.useMutation();
+  const utils = trpc.useUtils();
+  
+  const likeMutation = trpc.posts.like.useMutation({
+    onMutate: async ({ postId }) => {
+      // Cancel outgoing refetches
+      await utils.posts.feed.cancel();
+      
+      // Snapshot the previous value
+      const previousFeed = utils.posts.feed.getData({ type: feedType, limit: 20 });
+      
+      // Optimistically update
+      utils.posts.feed.setData({ type: feedType, limit: 20 }, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          posts: old.posts.map(post => 
+            post.id === postId 
+              ? { 
+                  ...post, 
+                  isLiked: !post.isLiked, 
+                  likesCount: post.isLiked ? post.likesCount - 1 : post.likesCount + 1 
+                }
+              : post
+          )
+        };
+      });
+      
+      return { previousFeed };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousFeed) {
+        utils.posts.feed.setData({ type: feedType, limit: 20 }, context.previousFeed);
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      utils.posts.feed.invalidate();
+    }
+  });
+  
+  const bookmarkMutation = trpc.posts.bookmark.useMutation({
+    onMutate: async ({ postId }) => {
+      await utils.posts.feed.cancel();
+      const previousFeed = utils.posts.feed.getData({ type: feedType, limit: 20 });
+      
+      utils.posts.feed.setData({ type: feedType, limit: 20 }, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          posts: old.posts.map(post => 
+            post.id === postId 
+              ? { ...post, isBookmarked: !post.isBookmarked }
+              : post
+          )
+        };
+      });
+      
+      return { previousFeed };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousFeed) {
+        utils.posts.feed.setData({ type: feedType, limit: 20 }, context.previousFeed);
+      }
+    }
+  });
+  
   const shareMutation = trpc.posts.share.useMutation();
   const recordViewMutation = trpc.posts.recordView.useMutation();
 
@@ -294,7 +359,7 @@ export default function PostFeedScreen() {
         style={[styles.feedTypeButton, feedType === type && styles.activeFeedType]}
         onPress={() => setFeedType(type)}
       >
-        {icon}
+        <Text>{icon}</Text>
         <Text style={[styles.feedTypeText, feedType === type && styles.activeFeedTypeText]}>
           {label}
         </Text>
