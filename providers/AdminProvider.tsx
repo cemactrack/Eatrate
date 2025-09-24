@@ -86,7 +86,10 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
 
   const markNotificationMutation = trpc.admin.dashboard.markNotificationRead.useMutation({
     onSuccess: () => {
-      notificationsQuery.refetch();
+      // Use setTimeout to prevent immediate re-render during mutation
+      setTimeout(() => {
+        notificationsQuery.refetch();
+      }, 0);
     },
   });
 
@@ -166,8 +169,10 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
   }, [notifications, markNotificationMutation]);
 
   const refreshNotifications = useCallback(() => {
-    notificationsQuery.refetch();
-  }, [notificationsQuery]);
+    if (adminUser) {
+      notificationsQuery.refetch();
+    }
+  }, [notificationsQuery, adminUser]);
 
   useEffect(() => {
     let isMounted = true;
@@ -208,9 +213,22 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
       
       // Only update if the data has actually changed to prevent infinite re-renders
       setNotifications(prev => {
-        if (JSON.stringify(prev) === JSON.stringify(mappedNotifications)) {
-          return prev;
+        // Use a more efficient comparison to prevent unnecessary re-renders
+        const prevIds = prev.map(n => n.id).sort().join(',');
+        const newIds = mappedNotifications.map((n: any) => n.id).sort().join(',');
+        
+        if (prevIds === newIds && prev.length === mappedNotifications.length) {
+          // Check if read status has changed
+          const hasReadStatusChanged = prev.some((prevNotif, index) => {
+            const newNotif = mappedNotifications.find((n: any) => n.id === prevNotif.id);
+            return newNotif && prevNotif.isRead !== newNotif.isRead;
+          });
+          
+          if (!hasReadStatusChanged) {
+            return prev;
+          }
         }
+        
         return mappedNotifications;
       });
     }
