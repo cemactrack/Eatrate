@@ -183,8 +183,8 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
         message
       });
     },
-    retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
+    retry: 1,
+    retryDelay: 1000,
   });
 
 

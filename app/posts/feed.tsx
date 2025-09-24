@@ -209,10 +209,10 @@ export default function PostFeedScreen() {
   } = trpc.posts.feed.useInfiniteQuery(
     { type: feedType, limit: 20 },
     {
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      getNextPageParam: (lastPage) => lastPage?.nextCursor,
       staleTime: 1000 * 60 * 5,
       retry: 1,
-      retryDelay: 2000,
+      retryDelay: 1000,
       refetchOnWindowFocus: false,
       refetchOnMount: false,
     }

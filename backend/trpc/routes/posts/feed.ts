@@ -10,8 +10,7 @@ export const getPostFeedProcedure = publicProcedure
     cursor: z.string().optional(),
   }))
   .query(async ({ input }) => {
-    // Remove artificial delay to prevent timeouts
-    // await new Promise(resolve => setTimeout(resolve, 50));
+    console.log('[tRPC] getPostFeedProcedure called with:', input);
     
     const offset = input.cursor ? parseInt(input.cursor) : 0;
     

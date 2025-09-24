@@ -31,9 +31,6 @@ export const createPostProcedure = protectedProcedure
   .mutation(async ({ input, ctx }) => {
     console.log('[tRPC] Creating post:', { textLength: input.text.length, imagesCount: input.images?.length || 0 });
     
-    // Remove artificial delay to prevent timeouts
-    // await new Promise(resolve => setTimeout(resolve, 100));
-    
     // Validate input
     if (!input.text?.trim() && (!input.images || input.images.length === 0)) {
       throw new Error('Post must contain text or images');
