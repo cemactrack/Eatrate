@@ -145,8 +145,9 @@ export default function PostComposer() {
       setQuickRating(0);
       setRatingMode('quick');
       
-      // Navigate to feed after a short delay
+      // Close modal and navigate to feed after a short delay
       setTimeout(() => {
+        router.back(); // Close the modal
         router.push('/posts/feed');
       }, 1500);
     }, [utils.posts.feed, utils.posts.list, router]),

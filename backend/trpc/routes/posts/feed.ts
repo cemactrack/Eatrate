@@ -7,13 +7,13 @@ export const getPostFeedProcedure = publicProcedure
     category: z.enum(['all', 'review', 'photo', 'video', 'story']).default('all'),
     location: z.string().optional(),
     limit: z.number().min(1).max(50).default(20),
-    offset: z.number().min(0).default(0),
     cursor: z.string().optional(),
   }))
   .query(async ({ input }) => {
+    const offset = input.cursor ? parseInt(input.cursor) : 0;
     // Mock feed data
     const mockPosts = Array.from({ length: input.limit }, (_, i) => {
-      const postId = input.offset + i + 1;
+      const postId = offset + i + 1;
       return {
         id: String(postId),
         userId: String((postId % 10) + 1),
@@ -75,12 +75,12 @@ export const getPostFeedProcedure = publicProcedure
       };
     });
 
-    const nextCursor = input.offset + input.limit < 1000 ? String(input.offset + input.limit) : undefined;
+    const nextCursor = offset + input.limit < 1000 ? String(offset + input.limit) : undefined;
     
     return {
       posts: mockPosts,
       total: 1000, // Mock total
-      hasMore: input.offset + input.limit < 1000,
+      hasMore: offset + input.limit < 1000,
       nextCursor,
       type: input.type,
       category: input.category,

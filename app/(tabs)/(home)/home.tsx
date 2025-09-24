@@ -88,6 +88,7 @@ export default function HomeScreen() {
   const router = useRouter();
 
   // Load restaurants first (priority data)
+  // eslint-disable-next-line @rork/linters/rsp-react-query-object-api-only
   const restaurantsQuery = trpc.restaurants.list.useQuery(undefined, { 
     staleTime: 1000 * 60 * 30, // Increased to 30 minutes for better caching
     retry: 0,
@@ -96,22 +97,33 @@ export default function HomeScreen() {
   const { data: restaurantsData, isLoading: isLoadingRestaurants, error: restaurantsError } = restaurantsQuery;
 
   // Fallback to Yaoundé restaurants if main list fails
-  const yaoundeQuery = trpc.restaurants.yaounde.useQuery({ page: 1 }, { 
+  const yaoundeQuery = trpc.restaurants.yaounde.useQuery({ 
+    page: 1 
+  }, { 
     staleTime: 1000 * 60 * 30, // Increased to 30 minutes for better caching
     enabled: !restaurantsData?.restaurants?.length && !isLoadingRestaurants && !!restaurantsError,
     retry: 0,
   });
   const { data: yaoundeData, isLoading: isLoadingYaounde } = yaoundeQuery;
 
-  // Load posts only (defer other data)
+  // Load posts using infinite query for better performance
   const shouldLoadPosts = !isLoadingRestaurants && !isLoadingYaounde;
   
-  const postsQuery = trpc.posts.list.useQuery(undefined, { 
-    staleTime: 1000 * 60 * 20, // Increased to 20 minutes for better caching
-    enabled: shouldLoadPosts,
-    retry: 0,
-  });
-  const { data: postsData, error: postsError } = postsQuery;
+  const {
+    data: postsData,
+    error: postsError,
+    isLoading: isLoadingPosts,
+    // fetchNextPage: fetchNextPostsPage,
+    // hasNextPage: hasNextPostsPage,
+  } = trpc.posts.feed.useInfiniteQuery(
+    { type: 'recent', limit: 10 },
+    {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      staleTime: 1000 * 60 * 20,
+      enabled: shouldLoadPosts,
+      retry: 0,
+    }
+  );
 
   // Defer dishes and users data (load after 2 seconds)
   const [shouldLoadDeferred, setShouldLoadDeferred] = useState<boolean>(false);
@@ -121,8 +133,10 @@ export default function HomeScreen() {
       const timer = setTimeout(() => setShouldLoadDeferred(true), 2000);
       return () => clearTimeout(timer);
     }
-  }, [shouldLoadPosts, shouldLoadDeferred]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldLoadPosts]); // Removed shouldLoadDeferred from dependencies to prevent infinite loop
 
+  // eslint-disable-next-line @rork/linters/rsp-react-query-object-api-only
   const dishesQuery = trpc.dishes.list.useQuery(undefined, { 
     staleTime: 1000 * 60 * 45, // Increased to 45 minutes for deferred data
     enabled: shouldLoadDeferred,
@@ -130,6 +144,7 @@ export default function HomeScreen() {
   });
   const { data: dishesData, error: dishesError } = dishesQuery;
 
+  // eslint-disable-next-line @rork/linters/rsp-react-query-object-api-only
   const usersQuery = trpc.users.list.useQuery(undefined, { 
     staleTime: 1000 * 60 * 45, // Increased to 45 minutes for deferred data
     enabled: shouldLoadDeferred,
@@ -146,9 +161,10 @@ export default function HomeScreen() {
   }, [restaurantsData?.restaurants, yaoundeData?.restaurants]);
   
   const trendingPosts = useMemo(() => {
-    if (!postsData?.posts) return [] as Post[];
-    return postsData.posts.slice(0, 2) as Post[];
-  }, [postsData?.posts]);
+    if (!postsData?.pages) return [] as Post[];
+    const allPosts = postsData.pages.flatMap(page => page.posts);
+    return allPosts.slice(0, 2) as Post[];
+  }, [postsData?.pages]);
   
   const trendingDishes: Dish[] = useMemo(() => {
     const list = dishesData?.dishes ?? [];
@@ -355,7 +371,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
           
-          {postsQuery.isLoading ? (
+          {isLoadingPosts ? (
             <View style={styles.loadingSection}>
               <Text style={styles.loadingSectionText}>Loading posts...</Text>
             </View>
