@@ -11,6 +11,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { StorageProvider } from "@/providers/StorageProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { SettingsProvider } from "@/providers/SettingsProvider";
+import { AdminProvider } from "@/providers/AdminProvider";
 import Colors from "@/constants/colors";
 
 if (Platform.OS !== 'web') {
@@ -86,6 +87,17 @@ function RootLayoutNav() {
         headerTintColor: Colors.light.text,
         headerTitleStyle: { fontWeight: '700' }
       }} />
+      <Stack.Screen name="admin" options={{ 
+        headerShown: false,
+        gestureEnabled: false
+      }} />
+      <Stack.Screen name="users/[id]" options={{ 
+        title: "User Profile",
+        headerStyle: { backgroundColor: Colors.light.background },
+        headerTintColor: Colors.light.text,
+        headerTitleStyle: { fontWeight: '700' },
+        headerBackTitle: "Back"
+      }} />
     </Stack>
   );
 }
@@ -127,9 +139,11 @@ export default function RootLayout() {
             <ErrorBoundary>
               <StorageProvider>
                 <AuthProvider>
-                  <SettingsProvider>
-                    <RootLayoutNav />
-                  </SettingsProvider>
+                  <AdminProvider>
+                    <SettingsProvider>
+                      <RootLayoutNav />
+                    </SettingsProvider>
+                  </AdminProvider>
                 </AuthProvider>
               </StorageProvider>
             </ErrorBoundary>

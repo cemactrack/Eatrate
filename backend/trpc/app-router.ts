@@ -17,6 +17,33 @@ import { listSuppliersProcedure } from "./routes/suppliers/list";
 import { toggleUserFollowProcedure, toggleRestaurantFollowProcedure } from "./routes/social/follow";
 import { submitClaimProcedure, listClaimsProcedure, adminUpdateClaimProcedure } from "./routes/restaurants/claims";
 import { toggleLikeProcedure } from "./routes/posts/like";
+import { 
+  getAdminStatsProcedure, 
+  getAdminActivitiesProcedure, 
+  getAdminNotificationsProcedure, 
+  getSystemHealthProcedure, 
+  markNotificationReadProcedure 
+} from "./routes/admin/dashboard";
+import { 
+  getAllUsersProcedure, 
+  getUserDetailsProcedure, 
+  updateUserStatusProcedure, 
+  deleteUserProcedure, 
+  getUserActivityProcedure 
+} from "./routes/admin/users";
+import { 
+  getFlaggedContentProcedure, 
+  getReportsProcedure, 
+  updateReportStatusProcedure, 
+  moderateContentProcedure, 
+  bulkModerateProcedure 
+} from "./routes/admin/moderation";
+import { 
+  getAdminSettingsProcedure, 
+  updateAdminSettingsProcedure, 
+  getAnalyticsProcedure, 
+  exportDataProcedure 
+} from "./routes/admin/settings";
 
 export const appRouter = createTRPCRouter({
   example: createTRPCRouter({
@@ -56,6 +83,35 @@ export const appRouter = createTRPCRouter({
   comments: createTRPCRouter({
     list: getCommentsProcedure,
     create: createCommentProcedure,
+  }),
+  admin: createTRPCRouter({
+    dashboard: createTRPCRouter({
+      stats: getAdminStatsProcedure,
+      activities: getAdminActivitiesProcedure,
+      notifications: getAdminNotificationsProcedure,
+      systemHealth: getSystemHealthProcedure,
+      markNotificationRead: markNotificationReadProcedure,
+    }),
+    users: createTRPCRouter({
+      list: getAllUsersProcedure,
+      details: getUserDetailsProcedure,
+      updateStatus: updateUserStatusProcedure,
+      delete: deleteUserProcedure,
+      activity: getUserActivityProcedure,
+    }),
+    moderation: createTRPCRouter({
+      flaggedContent: getFlaggedContentProcedure,
+      reports: getReportsProcedure,
+      updateReport: updateReportStatusProcedure,
+      moderateContent: moderateContentProcedure,
+      bulkModerate: bulkModerateProcedure,
+    }),
+    settings: createTRPCRouter({
+      get: getAdminSettingsProcedure,
+      update: updateAdminSettingsProcedure,
+      analytics: getAnalyticsProcedure,
+      export: exportDataProcedure,
+    }),
   }),
 });
 

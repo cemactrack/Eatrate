@@ -10,11 +10,12 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Settings, Grid, Heart, Bookmark, Award, Users, MapPin, LogOut } from 'lucide-react-native';
+import { Settings, Grid, Heart, Bookmark, Award, Users, MapPin, LogOut, Shield } from 'lucide-react-native';
 import { Stack, useRouter } from 'expo-router';
 import Colors from '@/constants/colors';
 import { Post } from '@/types/restaurant';
 import { useAuth } from '@/providers/AuthProvider';
+import { useAdmin } from '@/providers/AdminProvider';
 
 interface TabButtonProps {
   icon: React.ReactNode;
@@ -72,6 +73,7 @@ export default function ProfileScreen() {
   const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'saved'>('posts');
   const insets = useSafeAreaInsets();
   const { logout } = useAuth();
+  const { isAdmin } = useAdmin();
   const router = useRouter();
   
   // Using the first user as the current user for display
@@ -122,6 +124,10 @@ export default function ProfileScreen() {
     }
   }, [logout, router]);
 
+  const handleAdminPanel = useCallback(() => {
+    router.push('/admin');
+  }, [router]);
+
   const handleTabChange = useCallback((tab: 'posts' | 'liked' | 'saved') => {
     setActiveTab(tab);
   }, []);
@@ -135,6 +141,11 @@ export default function ProfileScreen() {
         <View style={styles.header}>
           <Text style={styles.username}>@{currentUser.username}</Text>
           <View style={styles.headerActions}>
+            {isAdmin && (
+              <TouchableOpacity onPress={handleAdminPanel} style={styles.headerButton}>
+                <Shield size={24} color={Colors.light.tint} />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity onPress={handleSettings} style={styles.headerButton}>
               <Settings size={24} color={Colors.light.text} />
             </TouchableOpacity>
