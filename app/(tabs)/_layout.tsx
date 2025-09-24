@@ -1,15 +1,29 @@
 import { Tabs, useRouter } from "expo-router";
 import { Home, Search, User, Truck } from "lucide-react-native";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/providers/AuthProvider";
 
 export default function TabsLayout() {
-  const { user, isLoading } = useAuth();
+  const [isMounted, setIsMounted] = useState<boolean>(false);
   const router = useRouter();
 
+  // Ensure component is mounted before accessing auth context
   useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Always call hooks in the same order
+  const authContext = useAuth();
+
+  useEffect(() => {
+    if (!isMounted || !authContext) {
+      return;
+    }
+    
+    const { user, isLoading } = authContext;
+    
     if (!isLoading && !user) {
       try {
         router.replace('/login' as const);
@@ -17,7 +31,25 @@ export default function TabsLayout() {
         console.log('[Tabs/_layout] redirect error', e);
       }
     }
-  }, [isLoading, user, router]);
+  }, [isMounted, authContext, router]);
+
+  if (!isMounted) {
+    return (
+      <View style={styles.loadingContainer} testID="tabs-mounting">
+        <ActivityIndicator size="large" color={Colors.light.tint} />
+      </View>
+    );
+  }
+
+  if (!authContext) {
+    return (
+      <View style={styles.loadingContainer} testID="tabs-no-auth-context">
+        <ActivityIndicator size="large" color={Colors.light.tint} />
+      </View>
+    );
+  }
+
+  const { user, isLoading } = authContext;
 
   if (isLoading) {
     return (

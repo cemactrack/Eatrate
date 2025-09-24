@@ -157,30 +157,37 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
 
   const markAllNotificationsRead = useCallback(async () => {
     try {
-      const unreadIds = notifications.filter(n => !n.isRead).map(n => n.id);
-      if (unreadIds.length === 0) return;
-      
-      // Optimistically update UI first
-      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-      
-      await Promise.all(
-        unreadIds.map(id => markNotificationMutation.mutateAsync({ notificationId: id }))
-      );
+      setNotifications(prev => {
+        const unreadIds = prev.filter(n => !n.isRead).map(n => n.id);
+        if (unreadIds.length === 0) return prev;
+        
+        // Store original state for potential revert
+        const originalNotifications = prev;
+        
+        // Optimistically update UI first
+        const updatedNotifications = prev.map(n => ({ ...n, isRead: true }));
+        
+        // Perform async operation
+        Promise.all(
+          unreadIds.map(id => markNotificationMutation.mutateAsync({ notificationId: id }))
+        ).catch(error => {
+          // Revert optimistic update on error
+          setNotifications(originalNotifications);
+          console.error('[AdminProvider] Failed to mark all notifications as read:', error);
+        });
+        
+        return updatedNotifications;
+      });
     } catch (error) {
-      // Revert optimistic update on error
-      setNotifications(prev => prev.map(n => {
-        const wasUnread = notifications.find(orig => orig.id === n.id && !orig.isRead);
-        return wasUnread ? { ...n, isRead: false } : n;
-      }));
       console.error('[AdminProvider] Failed to mark all notifications as read:', error);
     }
-  }, [notifications, markNotificationMutation]);
+  }, [markNotificationMutation]);
 
   const refreshNotifications = useCallback(() => {
     if (adminUser && notificationsQuery.refetch) {
       notificationsQuery.refetch();
     }
-  }, [adminUser, notificationsQuery]);
+  }, [adminUser, notificationsQuery.refetch]);
 
   useEffect(() => {
     let isMounted = true;
