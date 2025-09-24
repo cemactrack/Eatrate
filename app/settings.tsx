@@ -86,7 +86,8 @@ function SettingSection({ title, children }: SettingSectionProps) {
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const authContext = useAuth();
+  const { user, logout } = authContext || { user: null, logout: async () => {} };
   const { settings, updateSettings } = useSettings();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 

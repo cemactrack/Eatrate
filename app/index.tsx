@@ -5,7 +5,8 @@ import { useAuth } from '@/providers/AuthProvider';
 import Colors from '@/constants/colors';
 
 export default function Index() {
-  const { user, isLoading } = useAuth();
+  const authContext = useAuth();
+  const { user, isLoading } = authContext || { user: null, isLoading: true };
   const [shouldRedirect, setShouldRedirect] = useState<boolean>(false);
 
   useEffect(() => {

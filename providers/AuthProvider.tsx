@@ -22,7 +22,7 @@ interface AuthContextValue {
 
 const AUTH_KEY = 'eatrate_auth_user_v1';
 
-export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() => {
+export const [AuthProvider, useAuthInternal] = createContextHook<AuthContextValue>(() => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const storage = useStorage();
@@ -128,3 +128,13 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
     logout,
   }), [user, isLoading, loginWithEmail, loginWithPhone, updateProfile, logout]);
 });
+
+export const useAuth = (): AuthContextValue | null => {
+  try {
+    const context = useAuthInternal();
+    return context || null;
+  } catch (error) {
+    console.error('[useAuth] Context error:', error);
+    return null;
+  }
+};

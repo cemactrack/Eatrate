@@ -10,7 +10,8 @@ import { Camera, Image as ImageIcon } from 'lucide-react-native';
 export default function EditProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, updateProfile } = useAuth();
+  const authContext = useAuth();
+  const { user, updateProfile } = authContext || { user: null, updateProfile: async () => {} };
 
   const initialDisplayName = useMemo<string>(() => user?.displayName ?? '', [user?.displayName]);
   const initialAvatar = useMemo<string>(() => user?.avatar ?? '', [user?.avatar]);

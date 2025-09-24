@@ -25,7 +25,8 @@ interface CommentItem {
 
 export default function CommentsSheet() {
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const authContext = useAuth();
+  const { user } = authContext || { user: null };
   const { postId } = useLocalSearchParams<{ postId: string }>();
   const [text, setText] = useState<string>('');
   const [comments, setComments] = useState<CommentItem[]>([]);
