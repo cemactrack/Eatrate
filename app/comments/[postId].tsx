@@ -49,7 +49,13 @@ export default function CommentsSheet() {
         likesCount: comment.likesCount,
         isLiked: comment.isLiked,
       }));
-      setComments(mappedComments);
+      setComments(prev => {
+        // Only update if the data has actually changed
+        if (JSON.stringify(prev) !== JSON.stringify(mappedComments)) {
+          return mappedComments;
+        }
+        return prev;
+      });
     }
   }, [commentsData?.comments]);
 

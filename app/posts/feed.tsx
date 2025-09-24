@@ -22,6 +22,7 @@ import {
   Clock,
   Users,
   MapPin,
+  Plus,
 } from 'lucide-react-native';
 
 import { trpc } from '@/lib/trpc';
@@ -252,11 +253,13 @@ export default function PostFeedScreen() {
   const handlePostPress = useCallback(async (postId: string) => {
     try {
       await recordViewMutation.mutateAsync({ postId });
-      console.log('Navigating to post:', postId);
+      router.push(`/posts/${postId}`);
     } catch (error) {
       console.error('Failed to record view:', error);
+      // Still navigate even if view recording fails
+      router.push(`/posts/${postId}`);
     }
-  }, [recordViewMutation]);
+  }, [recordViewMutation, router]);
 
   const handleMorePress = useCallback((post: Post) => {
     setSelectedPost(post);
@@ -346,10 +349,18 @@ export default function PostFeedScreen() {
         data={posts}
         renderItem={renderPost}
         keyExtractor={(item) => item.id}
-
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
       />
+
+      {/* Floating Action Button */}
+      <TouchableOpacity 
+        style={styles.fab}
+        onPress={() => router.push('/(tabs)/(home)/create-post')}
+        activeOpacity={0.8}
+      >
+        <Plus size={24} color="white" />
+      </TouchableOpacity>
 
       {/* Post Options Modal */}
       <Modal
@@ -655,5 +666,21 @@ const styles = StyleSheet.create({
   cancelText: {
     color: Colors.light.error,
     fontWeight: '600',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.light.tint,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });

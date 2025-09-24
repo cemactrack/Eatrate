@@ -117,7 +117,7 @@ export default function PostComposer() {
 
   const insets = useSafeAreaInsets();
 
-  const createPost = trpc.posts.create.useMutation();
+  const createPost = trpc.posts.createNew.useMutation();
   const createStatus = trpc.status.create.useMutation();
 
   const pickImage = async () => {
