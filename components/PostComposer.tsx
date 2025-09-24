@@ -122,8 +122,10 @@ export default function PostComposer() {
 
   const createPost = trpc.posts.createNew.useMutation({
     onSuccess: (data) => {
-      // Invalidate and refetch feed data
-      utils.posts.feed.invalidate();
+      console.log('[PostComposer] Post created successfully:', data);
+      
+      // Invalidate specific queries to refresh feed
+      utils.posts.feed.invalidate({ type: 'recent' });
       utils.posts.list.invalidate();
       
       setToast({
@@ -230,27 +232,30 @@ export default function PostComposer() {
       return;
     }
 
+    // Validate ratings based on current mode
+    let finalRatings = ratings;
+    
     if (ratingMode === 'quick') {
       if (quickRating <= 0) {
         Alert.alert('Add a rating', 'Pick a quick reaction to continue.');
         return;
       }
+      // Auto-expand to detailed mode and set ratings
       setRatingMode('detailed');
-      if (Object.values(ratings).every((r) => r === 0)) {
-        setRatings({
-          food: quickRating,
-          service: quickRating,
-          ambiance: quickRating,
-          cleanliness: quickRating,
-        });
-      }
+      finalRatings = {
+        food: quickRating,
+        service: quickRating,
+        ambiance: quickRating,
+        cleanliness: quickRating,
+      };
+      setRatings(finalRatings);
       Alert.alert(
         'Detailed breakdown required',
         'Please rate Food, Service, Ambiance, and Cleanliness, then tap Post again.'
       );
       return;
     } else {
-      const values = Object.values(ratings);
+      const values = Object.values(finalRatings);
       if (values.some((r) => r <= 0)) {
         Alert.alert(
           'Complete breakdown',
@@ -266,7 +271,7 @@ export default function PostComposer() {
       images: selectedImages.length,
       ratingMode,
       quickRating,
-      ratings,
+      ratings: finalRatings,
     });
 
     try {
@@ -278,7 +283,7 @@ export default function PostComposer() {
         text: postText.trim(),
         restaurantId: selectedRestaurant?.id,
         images: selectedImages,
-        ratings,
+        ratings: finalRatings,
         tags: tagList,
       });
     } catch (e) {
@@ -292,15 +297,20 @@ export default function PostComposer() {
   const filteredRestaurants = useMemo(() => {
     const list = douala?.restaurants ?? [];
     if (!restaurantSearch.trim()) return list;
+    const searchTerm = restaurantSearch.toLowerCase().trim();
     return list.filter(
       (restaurant: Restaurant) =>
-        restaurant.name.toLowerCase().includes(restaurantSearch.toLowerCase()) ||
-        restaurant.cuisine.toLowerCase().includes(restaurantSearch.toLowerCase())
+        restaurant.name?.toLowerCase().includes(searchTerm) ||
+        restaurant.cuisine?.toLowerCase().includes(searchTerm)
     );
   }, [douala?.restaurants, restaurantSearch]);
 
   const handleRestaurantSelect = useCallback((restaurant: Restaurant) => {
-    if (!restaurant?.id || !restaurant?.name) return;
+    if (!restaurant?.id || !restaurant?.name) {
+      console.warn('[PostComposer] Invalid restaurant selected:', restaurant);
+      return;
+    }
+    console.log('[PostComposer] Restaurant selected:', restaurant.name);
     setSelectedRestaurant(restaurant);
     setShowRestaurantModal(false);
     setRestaurantSearch('');

@@ -181,7 +181,8 @@ export default function HomeScreen() {
 
   const handlePostPress = useCallback((postId: string) => {
     console.log('Post pressed:', postId);
-  }, []);
+    router.push(`/posts/${postId}` as const);
+  }, [router]);
 
   const likeMutation = trpc.posts.like.useMutation();
 
@@ -213,7 +214,8 @@ export default function HomeScreen() {
 
   const handleSeeAllFeed = useCallback(() => {
     console.log('See all feed pressed');
-  }, []);
+    router.push('/posts/feed' as const);
+  }, [router]);
 
   const handleSeeAllSearch = useCallback(() => {
     console.log('See all search pressed');

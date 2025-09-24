@@ -33,13 +33,30 @@ export default function PostDetailScreen() {
   
   const [showShareModal, setShowShareModal] = useState(false);
 
-  const { data: postData, isLoading } = trpc.posts.details.useQuery(
+  const { data: postData, isLoading, error } = trpc.posts.details.useQuery(
     { postId: postId || '' },
-    { enabled: !!postId }
+    { 
+      enabled: !!postId,
+      retry: 2,
+      staleTime: 1000 * 60 * 5
+    }
   );
 
-  const likeMutation = trpc.posts.like.useMutation();
-  const bookmarkMutation = trpc.posts.bookmark.useMutation();
+  const utils = trpc.useUtils();
+  
+  const likeMutation = trpc.posts.like.useMutation({
+    onSuccess: () => {
+      // Invalidate post details to refresh data
+      utils.posts.details.invalidate({ postId: postId || '' });
+    }
+  });
+  
+  const bookmarkMutation = trpc.posts.bookmark.useMutation({
+    onSuccess: () => {
+      utils.posts.details.invalidate({ postId: postId || '' });
+    }
+  });
+  
   const shareMutation = trpc.posts.share.useMutation();
 
   const handleLike = useCallback(async () => {
@@ -88,7 +105,7 @@ export default function PostDetailScreen() {
     return <LoadingSpinner text="Loading post..." showGradient />;
   }
 
-  if (!postData?.post) {
+  if (error || !postData?.post) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
@@ -99,7 +116,15 @@ export default function PostDetailScreen() {
           <View style={styles.headerSpacer} />
         </View>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Post not found</Text>
+          <Text style={styles.errorText}>
+            {error ? 'Failed to load post' : 'Post not found'}
+          </Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.retryButtonText}>Go Back</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -671,5 +696,17 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 24,
+  },
+  retryButton: {
+    backgroundColor: Colors.light.tint,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

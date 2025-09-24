@@ -215,7 +215,7 @@ export default function PostFeedScreen() {
   const likeMutation = trpc.posts.like.useMutation({
     onMutate: async ({ postId }) => {
       // Cancel outgoing refetches
-      await utils.posts.feed.cancel();
+      await utils.posts.feed.cancel({ type: feedType, limit: 20 });
       
       // Snapshot the previous value
       const previousFeed = utils.posts.feed.getData({ type: feedType, limit: 20 });
@@ -246,14 +246,14 @@ export default function PostFeedScreen() {
       }
     },
     onSettled: () => {
-      // Always refetch after error or success
-      utils.posts.feed.invalidate();
+      // Refetch only the current feed type to avoid infinite loops
+      utils.posts.feed.invalidate({ type: feedType, limit: 20 });
     }
   });
   
   const bookmarkMutation = trpc.posts.bookmark.useMutation({
     onMutate: async ({ postId }) => {
-      await utils.posts.feed.cancel();
+      await utils.posts.feed.cancel({ type: feedType, limit: 20 });
       const previousFeed = utils.posts.feed.getData({ type: feedType, limit: 20 });
       
       utils.posts.feed.setData({ type: feedType, limit: 20 }, (old) => {
@@ -274,6 +274,10 @@ export default function PostFeedScreen() {
       if (context?.previousFeed) {
         utils.posts.feed.setData({ type: feedType, limit: 20 }, context.previousFeed);
       }
+    },
+    onSettled: () => {
+      // Only invalidate the specific query to avoid loops
+      utils.posts.feed.invalidate({ type: feedType, limit: 20 });
     }
   });
   
