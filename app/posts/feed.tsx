@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -195,19 +196,40 @@ export default function PostFeedScreen() {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [showPostOptions, setShowPostOptions] = useState(false);
 
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
   const { 
     data: feedData, 
     isLoading,
-  } = trpc.posts.feed.useQuery(
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = trpc.posts.feed.useInfiniteQuery(
     { type: feedType, limit: 20 },
     {
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
       staleTime: 1000 * 60 * 5,
     }
   );
 
   const posts = useMemo(() => {
-    return feedData?.posts ?? [];
+    return feedData?.pages.flatMap(page => page.posts) ?? [];
   }, [feedData]);
+
+
+
+  const handleLoadMore = useCallback(async () => {
+    if (hasNextPage && !isFetchingNextPage && !isLoadingMore) {
+      setIsLoadingMore(true);
+      try {
+        await fetchNextPage();
+      } catch (error) {
+        console.error('Failed to load more posts:', error);
+      } finally {
+        setIsLoadingMore(false);
+      }
+    }
+  }, [hasNextPage, isFetchingNextPage, isLoadingMore, fetchNextPage]);
 
   const utils = trpc.useUtils();
   
@@ -417,6 +439,44 @@ export default function PostFeedScreen() {
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
+
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={() => {
+          if (isFetchingNextPage || isLoadingMore) {
+            return (
+              <View style={styles.loadingFooter}>
+                <ActivityIndicator size="small" color={Colors.light.tint} />
+                <Text style={styles.loadingFooterText}>Loading more posts...</Text>
+              </View>
+            );
+          }
+          if (!hasNextPage && posts.length > 0) {
+            return (
+              <View style={styles.endFooter}>
+                <Text style={styles.endFooterText}>You&apos;ve reached the end!</Text>
+              </View>
+            );
+          }
+          return null;
+        }}
+        ListEmptyComponent={() => {
+          if (isLoading) {
+            return null; // Loading spinner is shown separately
+          }
+          return (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyTitle}>No posts yet</Text>
+              <Text style={styles.emptySubtitle}>Be the first to share your food experience!</Text>
+              <TouchableOpacity 
+                style={styles.createPostButton}
+                onPress={() => router.push('/(tabs)/(home)/create-post')}
+              >
+                <Text style={styles.createPostButtonText}>Create Post</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        }}
       />
 
       {/* Floating Action Button */}
@@ -702,6 +762,50 @@ const styles = StyleSheet.create({
   },
   loadingFooter: {
     paddingVertical: 20,
+    alignItems: 'center',
+  },
+  loadingFooterText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: Colors.light.secondary,
+  },
+  endFooter: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  endFooterText: {
+    fontSize: 14,
+    color: Colors.light.secondary,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 64,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: Colors.light.text,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    color: Colors.light.secondary,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  createPostButton: {
+    backgroundColor: Colors.light.tint,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+  },
+  createPostButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,

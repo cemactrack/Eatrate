@@ -8,6 +8,7 @@ export const getPostFeedProcedure = publicProcedure
     location: z.string().optional(),
     limit: z.number().min(1).max(50).default(20),
     offset: z.number().min(0).default(0),
+    cursor: z.string().optional(),
   }))
   .query(async ({ input }) => {
     // Mock feed data
@@ -74,10 +75,13 @@ export const getPostFeedProcedure = publicProcedure
       };
     });
 
+    const nextCursor = input.offset + input.limit < 1000 ? String(input.offset + input.limit) : undefined;
+    
     return {
       posts: mockPosts,
       total: 1000, // Mock total
       hasMore: input.offset + input.limit < 1000,
+      nextCursor,
       type: input.type,
       category: input.category,
     };

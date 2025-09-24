@@ -12,7 +12,9 @@ export const bookmarkPostProcedure = protectedProcedure
     const userId = ctx.user!.id;
     const userBookmarks = bookmarksStorage.get(userId) ?? new Set<string>();
     
-    if (userBookmarks.has(input.postId)) {
+    const wasBookmarked = userBookmarks.has(input.postId);
+    
+    if (wasBookmarked) {
       userBookmarks.delete(input.postId);
     } else {
       userBookmarks.add(input.postId);
@@ -21,8 +23,8 @@ export const bookmarkPostProcedure = protectedProcedure
     bookmarksStorage.set(userId, userBookmarks);
     
     return { 
-      bookmarked: userBookmarks.has(input.postId),
-      message: userBookmarks.has(input.postId) ? 'Post bookmarked' : 'Bookmark removed'
+      bookmarked: !wasBookmarked,
+      message: !wasBookmarked ? 'Post bookmarked' : 'Bookmark removed'
     };
   });
 

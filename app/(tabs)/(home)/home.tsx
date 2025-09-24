@@ -83,6 +83,7 @@ export default function HomeScreen() {
   const { isAdmin, unreadCount } = useAdmin();
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showComposer, setShowComposer] = useState<boolean>(false);
+
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -120,7 +121,7 @@ export default function HomeScreen() {
       const timer = setTimeout(() => setShouldLoadDeferred(true), 2000);
       return () => clearTimeout(timer);
     }
-  }, [shouldLoadPosts]); // Fixed: removed shouldLoadDeferred to prevent infinite loop
+  }, [shouldLoadPosts, shouldLoadDeferred]);
 
   const dishesQuery = trpc.dishes.list.useQuery(undefined, { 
     staleTime: 1000 * 60 * 45, // Increased to 45 minutes for deferred data
@@ -221,6 +222,8 @@ export default function HomeScreen() {
     console.log('See all search pressed');
   }, []);
 
+
+
   // Only show loading for critical data
   if (isLoadingRestaurants || isLoadingYaounde) {
     return <LoadingSpinner text="Loading restaurants..." showGradient />;
@@ -238,7 +241,9 @@ export default function HomeScreen() {
           </Text>
         </View>
       ) : null}
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+      >
         <LinearGradient colors={gradients.primary} style={styles.header}>
           <View style={styles.headerContent}>
             <View style={styles.headerTop}>
@@ -350,9 +355,14 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
           
-          {trendingPosts.length === 0 ? (
+          {postsQuery.isLoading ? (
+            <View style={styles.loadingSection}>
+              <Text style={styles.loadingSectionText}>Loading posts...</Text>
+            </View>
+          ) : trendingPosts.length === 0 ? (
             <View style={styles.emptySection}>
               <Text style={styles.emptySectionText}>No trending posts</Text>
+              <Text style={styles.emptySectionSubtext}>Be the first to share your food experience!</Text>
             </View>
           ) : (
             trendingPosts.map((post) => (
@@ -376,9 +386,14 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
           
-          {topFoodies.length === 0 ? (
+          {usersQuery.isLoading ? (
+            <View style={styles.loadingSection}>
+              <Text style={styles.loadingSectionText}>Loading foodies...</Text>
+            </View>
+          ) : topFoodies.length === 0 ? (
             <View style={styles.emptySection}>
               <Text style={styles.emptySectionText}>No top foodies</Text>
+              <Text style={styles.emptySectionSubtext}>Start following food enthusiasts!</Text>
             </View>
           ) : (
             <FlatList
@@ -426,9 +441,14 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
           
-          {trendingDishes.length === 0 ? (
+          {dishesQuery.isLoading ? (
+            <View style={styles.loadingSection}>
+              <Text style={styles.loadingSectionText}>Loading dishes...</Text>
+            </View>
+          ) : trendingDishes.length === 0 ? (
             <View style={styles.emptySection}>
               <Text style={styles.emptySectionText}>No trending dishes</Text>
+              <Text style={styles.emptySectionSubtext}>Discover amazing dishes from local restaurants!</Text>
             </View>
           ) : (
             <FlatList
@@ -788,5 +808,14 @@ const styles = StyleSheet.create({
     color: Colors.light.secondary,
     fontSize: 12,
     marginTop: 4,
+  },
+  loadingSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  loadingSectionText: {
+    color: Colors.light.secondary,
+    fontSize: 14,
   },
 });

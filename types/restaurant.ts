@@ -63,6 +63,7 @@ export interface Post {
   content: {
     text?: string;
     images?: string[];
+    videos?: string[];
     video?: string;
   };
   restaurant?: {
@@ -98,6 +99,15 @@ export interface Post {
   scheduledFor?: string;
   isDraft?: boolean;
   status?: 'draft' | 'scheduled' | 'published';
+}
+
+export interface FeedResponse {
+  posts: Post[];
+  total: number;
+  hasMore: boolean;
+  nextCursor?: string;
+  type: string;
+  category: string;
 }
 
 export interface Comment {
