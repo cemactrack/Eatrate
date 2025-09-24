@@ -212,7 +212,7 @@ export default function PostFeedScreen() {
   const utils = trpc.useUtils();
   
   const likeMutation = trpc.posts.like.useMutation({
-    onMutate: async ({ postId }) => {
+    onMutate: useCallback(async ({ postId }: { postId: string }) => {
       // Cancel outgoing refetches
       await utils.posts.feed.cancel({ type: feedType, limit: 20 });
       
@@ -237,21 +237,21 @@ export default function PostFeedScreen() {
       });
       
       return { previousFeed };
-    },
-    onError: (err, variables, context) => {
+    }, [utils.posts.feed, feedType]),
+    onError: useCallback((err: any, variables: any, context: any) => {
       // Rollback on error
       if (context?.previousFeed) {
         utils.posts.feed.setData({ type: feedType, limit: 20 }, context.previousFeed);
       }
-    },
-    onSettled: () => {
+    }, [utils.posts.feed, feedType]),
+    onSettled: useCallback(() => {
       // Invalidate to ensure consistency
       utils.posts.feed.invalidate({ type: feedType, limit: 20 });
-    }
+    }, [utils.posts.feed, feedType])
   });
   
   const bookmarkMutation = trpc.posts.bookmark.useMutation({
-    onMutate: async ({ postId }) => {
+    onMutate: useCallback(async ({ postId }: { postId: string }) => {
       await utils.posts.feed.cancel({ type: feedType, limit: 20 });
       const previousFeed = utils.posts.feed.getData({ type: feedType, limit: 20 });
       
@@ -268,16 +268,16 @@ export default function PostFeedScreen() {
       });
       
       return { previousFeed };
-    },
-    onError: (err, variables, context) => {
+    }, [utils.posts.feed, feedType]),
+    onError: useCallback((err: any, variables: any, context: any) => {
       console.error('Bookmark error:', err);
       if (context?.previousFeed) {
         utils.posts.feed.setData({ type: feedType, limit: 20 }, context.previousFeed);
       }
-    },
-    onSettled: () => {
+    }, [utils.posts.feed, feedType]),
+    onSettled: useCallback(() => {
       utils.posts.feed.invalidate({ type: feedType, limit: 20 });
-    }
+    }, [utils.posts.feed, feedType])
   });
   
   const shareMutation = trpc.posts.share.useMutation();

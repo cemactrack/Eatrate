@@ -105,7 +105,7 @@ export default function PostComposer() {
     const c = ratings.cleanliness ?? 0;
     const weighted = f * 0.4 + s * 0.3 + a * 0.2 + c * 0.1;
     return Math.round(weighted * 10) / 10;
-  }, [ratings.food, ratings.service, ratings.ambiance, ratings.cleanliness]);
+  }, [ratings]);
   const [isPosting, setIsPosting] = useState<boolean>(false);
   const [ratingMode, setRatingMode] = useState<RatingMode>('quick');
   const [quickRating, setQuickRating] = useState<number>(0);
@@ -121,7 +121,7 @@ export default function PostComposer() {
   const utils = trpc.useUtils();
 
   const createPost = trpc.posts.createNew.useMutation({
-    onSuccess: (data) => {
+    onSuccess: useCallback((data: any) => {
       console.log('[PostComposer] Post created successfully:', data);
       
       // Invalidate relevant queries to refresh feed
@@ -149,8 +149,8 @@ export default function PostComposer() {
       setTimeout(() => {
         router.push('/posts/feed');
       }, 1500);
-    },
-    onError: (error) => {
+    }, [utils.posts.feed, utils.posts.list, router]),
+    onError: useCallback((error: any) => {
       console.error('[PostComposer] Post failed:', error);
       setToast({ 
         visible: true, 
@@ -158,7 +158,7 @@ export default function PostComposer() {
         title: 'Post failed', 
         message: error.message || 'Please try again.' 
       });
-    }
+    }, [])
   });
 
 
@@ -302,7 +302,7 @@ export default function PostComposer() {
         restaurant.name?.toLowerCase().includes(searchTerm) ||
         restaurant.cuisine?.toLowerCase().includes(searchTerm)
     );
-  }, [douala?.restaurants, restaurantSearch]);
+  }, [douala, restaurantSearch]);
 
   const handleRestaurantSelect = useCallback((restaurant: Restaurant) => {
     if (!restaurant?.id || !restaurant?.name) {

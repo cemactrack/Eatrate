@@ -116,11 +116,11 @@ export default function HomeScreen() {
   const [shouldLoadDeferred, setShouldLoadDeferred] = useState<boolean>(false);
   
   useEffect(() => {
-    if (shouldLoadPosts) {
+    if (shouldLoadPosts && !shouldLoadDeferred) {
       const timer = setTimeout(() => setShouldLoadDeferred(true), 2000);
       return () => clearTimeout(timer);
     }
-  }, [shouldLoadPosts]);
+  }, [shouldLoadPosts, shouldLoadDeferred]);
 
   const dishesQuery = trpc.dishes.list.useQuery(undefined, { 
     staleTime: 1000 * 60 * 45, // Increased to 45 minutes for deferred data
