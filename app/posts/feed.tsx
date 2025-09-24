@@ -211,8 +211,10 @@ export default function PostFeedScreen() {
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       staleTime: 1000 * 60 * 5,
-      retry: 2,
-      retryDelay: 1000,
+      retry: 1,
+      retryDelay: 2000,
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
     }
   );
 

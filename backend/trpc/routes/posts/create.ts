@@ -31,6 +31,9 @@ export const createPostProcedure = protectedProcedure
   .mutation(async ({ input, ctx }) => {
     console.log('[tRPC] Creating post:', { textLength: input.text.length, imagesCount: input.images?.length || 0 });
     
+    // Add artificial delay to simulate processing but keep it reasonable
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     // Validate input
     if (!input.text?.trim() && (!input.images || input.images.length === 0)) {
       throw new Error('Post must contain text or images');
@@ -90,15 +93,20 @@ export const createPostProcedure = protectedProcedure
       status: input.isDraft ? 'draft' : (input.scheduledFor ? 'scheduled' : 'published'),
     };
     
-    postsStorage.set(postId, post);
-    
-    console.log('[tRPC] Post created successfully:', postId);
-    
-    return { 
-      id: postId, 
-      status: post.status,
-      message: input.isDraft ? 'Draft saved' : (input.scheduledFor ? 'Post scheduled' : 'Post created successfully')
-    };
+    try {
+      postsStorage.set(postId, post);
+      console.log('[tRPC] Post created successfully:', postId);
+      
+      return { 
+        id: postId, 
+        status: post.status,
+        message: input.isDraft ? 'Draft saved' : (input.scheduledFor ? 'Post scheduled' : 'Post created successfully'),
+        post: post // Return the created post for immediate UI updates
+      };
+    } catch (error) {
+      console.error('[tRPC] Failed to save post:', error);
+      throw new Error('Failed to save post. Please try again.');
+    }
   });
 
 export const updatePostProcedure = protectedProcedure

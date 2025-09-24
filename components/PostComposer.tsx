@@ -183,8 +183,11 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
         message
       });
     },
-    retry: 2,
-    retryDelay: 1000,
+    retry: 1,
+    retryDelay: 2000,
+    meta: {
+      timeout: 30000, // 30 second timeout
+    },
   });
 
 

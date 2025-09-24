@@ -128,7 +128,9 @@ function HomeScreenContent() {
       staleTime: 1000 * 60 * 20,
       enabled: shouldLoadPosts,
       retry: 1,
+      retryDelay: 2000,
       refetchOnWindowFocus: false,
+      refetchOnMount: false,
     }
   );
 
@@ -150,7 +152,7 @@ function HomeScreenContent() {
         deferredTimerRef.current = null;
       }
     };
-  }, [shouldLoadPosts, shouldLoadDeferred]); // Fixed dependencies
+  }, [shouldLoadPosts]); // Removed shouldLoadDeferred to prevent infinite loop
 
   // eslint-disable-next-line @rork/linters/rsp-react-query-object-api-only
   const dishesQuery = trpc.dishes.list.useQuery(undefined, { 
