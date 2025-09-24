@@ -9,7 +9,7 @@ interface StarRatingProps {
   showEmpty?: boolean;
 }
 
-export default function StarRating({ rating, size = 16, showEmpty = true }: StarRatingProps) {
+const StarRating = React.memo(function StarRating({ rating, size = 16, showEmpty = true }: StarRatingProps) {
   const fullStars = Math.floor(rating);
   const hasHalfStar = rating % 1 !== 0;
   const emptyStars = showEmpty ? 5 - Math.ceil(rating) : 0;
@@ -55,7 +55,9 @@ export default function StarRating({ rating, size = 16, showEmpty = true }: Star
       ))}
     </View>
   );
-}
+});
+
+export default StarRating;
 
 const styles = StyleSheet.create({
   container: {

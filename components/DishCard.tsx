@@ -9,7 +9,7 @@ interface DishCardProps {
   onPress: () => void;
 }
 
-export default function DishCard({ dish, onPress }: DishCardProps) {
+const DishCard = React.memo(function DishCard({ dish, onPress }: DishCardProps) {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
       <Image source={{ uri: dish.image }} style={styles.image} />
@@ -38,7 +38,9 @@ export default function DishCard({ dish, onPress }: DishCardProps) {
       </View>
     </TouchableOpacity>
   );
-}
+});
+
+export default DishCard;
 
 const styles = StyleSheet.create({
   card: {

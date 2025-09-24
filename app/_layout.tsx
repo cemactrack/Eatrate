@@ -21,9 +21,9 @@ if (Platform.OS !== 'web') {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
-      staleTime: 1000 * 60 * 15, // 15 minutes
-      gcTime: 1000 * 60 * 30, // 30 minutes
+      retry: 0, // Reduced from 1 to 0 for faster failure detection
+      staleTime: 1000 * 60 * 30, // Increased from 15 to 30 minutes for better caching
+      gcTime: 1000 * 60 * 45, // Increased from 30 to 45 minutes
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
       networkMode: 'online',

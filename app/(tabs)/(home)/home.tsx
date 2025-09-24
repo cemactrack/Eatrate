@@ -84,7 +84,7 @@ export default function HomeScreen() {
 
   // Load restaurants first (priority data)
   const restaurantsQuery = trpc.restaurants.list.useQuery(undefined, { 
-    staleTime: 1000 * 60 * 20,
+    staleTime: 1000 * 60 * 30, // Increased to 30 minutes for better caching
     retry: 0,
     refetchOnMount: false,
   });
@@ -92,7 +92,7 @@ export default function HomeScreen() {
 
   // Fallback to Yaoundé restaurants if main list fails
   const yaoundeQuery = trpc.restaurants.yaounde.useQuery({ page: 1 }, { 
-    staleTime: 1000 * 60 * 20,
+    staleTime: 1000 * 60 * 30, // Increased to 30 minutes for better caching
     enabled: !restaurantsData?.restaurants?.length && !isLoadingRestaurants && !!restaurantsError,
     retry: 0,
   });
@@ -102,7 +102,7 @@ export default function HomeScreen() {
   const shouldLoadPosts = !isLoadingRestaurants && !isLoadingYaounde;
   
   const postsQuery = trpc.posts.list.useQuery(undefined, { 
-    staleTime: 1000 * 60 * 15,
+    staleTime: 1000 * 60 * 20, // Increased to 20 minutes for better caching
     enabled: shouldLoadPosts,
     retry: 0,
   });
@@ -119,14 +119,14 @@ export default function HomeScreen() {
   }, [shouldLoadPosts]);
 
   const dishesQuery = trpc.dishes.list.useQuery(undefined, { 
-    staleTime: 1000 * 60 * 30,
+    staleTime: 1000 * 60 * 45, // Increased to 45 minutes for deferred data
     enabled: shouldLoadDeferred,
     retry: 0,
   });
   const { data: dishesData, error: dishesError } = dishesQuery;
 
   const usersQuery = trpc.users.list.useQuery(undefined, { 
-    staleTime: 1000 * 60 * 30,
+    staleTime: 1000 * 60 * 45, // Increased to 45 minutes for deferred data
     enabled: shouldLoadDeferred,
     retry: 0,
   });

@@ -10,7 +10,7 @@ interface SearchBarProps {
   placeholder?: string;
 }
 
-export default function SearchBar({ 
+const SearchBar = React.memo(function SearchBar({ 
   value, 
   onChangeText, 
   onFilterPress, 
@@ -36,7 +36,9 @@ export default function SearchBar({
       )}
     </View>
   );
-}
+});
+
+export default SearchBar;
 
 const styles = StyleSheet.create({
   container: {
