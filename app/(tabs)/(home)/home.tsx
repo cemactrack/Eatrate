@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import LoadingSpinner from '@/components/LoadingSpinner';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { trpc } from '@/lib/trpc';
 import { Restaurant, Post, Dish, User } from '@/types/restaurant';
 import RestaurantCard from '@/components/RestaurantCard';
@@ -78,7 +79,7 @@ const TrendingPost = React.memo(function TrendingPost({ post, onPress, onLike, o
   );
 });
 
-export default function HomeScreen() {
+function HomeScreenContent() {
   const { user } = useAuth();
   const { isAdmin, unreadCount } = useAdmin();
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -115,7 +116,10 @@ export default function HomeScreen() {
     data: postsData,
     error: postsError,
     isLoading: isLoadingPosts,
-    // fetchNextPage: fetchNextPostsPage,
+    fetchNextPage: fetchNextPostsPage,
+    hasNextPage,
+    isFetchingNextPage,
+    refetch: refetchPosts,
   } = trpc.posts.feed.useInfiniteQuery(
     { type: 'recent', limit: 10 },
     {
@@ -167,6 +171,8 @@ export default function HomeScreen() {
     const allPosts = postsData.pages.flatMap(page => page.posts || []);
     return allPosts.slice(0, 2) as Post[];
   }, [postsData?.pages]);
+
+
   
   const trendingDishes: Dish[] = useMemo(() => {
     const list = dishesData?.dishes ?? [];
@@ -203,18 +209,61 @@ export default function HomeScreen() {
     router.push(`/posts/${postId}` as const);
   }, [router]);
 
-  const likeMutation = trpc.posts.like.useMutation();
+  const likeMutation = trpc.posts.like.useMutation({
+    onMutate: useCallback(async ({ postId }: { postId: string }) => {
+      // Cancel outgoing refetches
+      await utils.posts.feed.cancel({ type: 'recent', limit: 10 });
+      
+      // Snapshot the previous value
+      const previousData = utils.posts.feed.getInfiniteData({ type: 'recent', limit: 10 });
+      
+      // Optimistically update
+      utils.posts.feed.setInfiniteData({ type: 'recent', limit: 10 }, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map(page => ({
+            ...page,
+            posts: page.posts.map(post => 
+              post.id === postId 
+                ? { 
+                    ...post, 
+                    isLiked: !post.isLiked, 
+                    likesCount: post.isLiked ? post.likesCount - 1 : post.likesCount + 1 
+                  }
+                : post
+            )
+          }))
+        };
+      });
+      
+      return { previousData };
+    }, [utils]),
+    onError: useCallback((error: any, variables: any, context: any) => {
+      if (error?.message) {
+        console.error('[Home] like error:', error.message);
+      } else {
+        console.error('[Home] like error:', 'Unknown error occurred');
+      }
+      // Rollback on error
+      if (context?.previousData) {
+        utils.posts.feed.setInfiniteData({ type: 'recent', limit: 10 }, context.previousData);
+      }
+    }, [utils]),
+    onSettled: useCallback(() => {
+      // Invalidate to ensure consistency
+      utils.posts.feed.invalidate({ type: 'recent', limit: 10 });
+    }, [utils])
+  });
 
   const handlePostLike = useCallback(async (postId: string) => {
     try {
-      const res = await likeMutation.mutateAsync({ postId });
-      console.log('[Home] like toggled', postId, res);
-      // Invalidate feed to refresh like counts
-      utils.posts.feed.invalidate();
+      await likeMutation.mutateAsync({ postId });
+      console.log('[Home] like toggled', postId);
     } catch (e) {
-      console.log('[Home] like error', e);
+      console.error('[Home] like error', e);
     }
-  }, [likeMutation, utils]);
+  }, [likeMutation]);
 
   const handlePostComments = useCallback((postId: string) => {
     router.push(`/comments/${postId}` as const);
@@ -241,13 +290,24 @@ export default function HomeScreen() {
     try {
       await Promise.all([
         restaurantsQuery.refetch(),
-        // Refetch the first page of posts
-        utils.posts.feed.invalidate()
+        refetchPosts()
       ]);
+      console.log('[Home] Feed refreshed successfully');
     } catch (error) {
-      console.error('Failed to refresh feed:', error);
+      console.error('[Home] Failed to refresh feed:', error);
     }
-  }, [restaurantsQuery, utils]);
+  }, [restaurantsQuery, refetchPosts]);
+
+  const handleLoadMorePosts = useCallback(async () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      try {
+        await fetchNextPostsPage();
+        console.log('[Home] Loaded more posts');
+      } catch (error) {
+        console.error('[Home] Failed to load more posts:', error);
+      }
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPostsPage]);
 
 
 
@@ -263,7 +323,8 @@ export default function HomeScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}> 
+    <ErrorBoundary>
+      <View style={[styles.container, { paddingTop: insets.top }]}> 
       {(restaurantsError || postsError || dishesError || usersError) ? (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>
@@ -413,15 +474,28 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </View>
           ) : (
-            trendingPosts.map((post) => (
-              <TrendingPost
-                key={post.id}
-                post={post}
-                onPress={() => handlePostPress(post.id)}
-                onLike={handlePostLike}
-                onComments={handlePostComments}
-              />
-            ))
+            <>
+              {trendingPosts.map((post) => (
+                <TrendingPost
+                  key={post.id}
+                  post={post}
+                  onPress={() => handlePostPress(post.id)}
+                  onLike={handlePostLike}
+                  onComments={handlePostComments}
+                />
+              ))}
+              {hasNextPage && (
+                <TouchableOpacity 
+                  onPress={handleLoadMorePosts} 
+                  style={styles.loadMoreButton}
+                  disabled={isFetchingNextPage}
+                >
+                  <Text style={styles.loadMoreText}>
+                    {isFetchingNextPage ? 'Loading...' : 'Load More Posts'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
           )}
         </View>
 
@@ -520,10 +594,11 @@ export default function HomeScreen() {
         <View style={styles.bottomSpacing} />
       </ScrollView>
 
-      <Modal visible={showComposer} animationType="slide" presentationStyle="pageSheet">
-        <PostComposer onClose={() => setShowComposer(false)} />
-      </Modal>
-    </View>
+        <Modal visible={showComposer} animationType="slide" presentationStyle="pageSheet">
+          <PostComposer onClose={() => setShowComposer(false)} />
+        </Modal>
+      </View>
+    </ErrorBoundary>
   );
 }
 
@@ -913,4 +988,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  loadMoreButton: {
+    backgroundColor: Colors.light.card,
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    alignItems: 'center',
+  },
+  loadMoreText: {
+    color: Colors.light.tint,
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });
+
+export default function HomeScreen() {
+  return (
+    <ErrorBoundary>
+      <HomeScreenContent />
+    </ErrorBoundary>
+  );
+}
