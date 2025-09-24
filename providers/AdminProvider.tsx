@@ -77,8 +77,8 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
   // Admin notifications query - always call hooks, use enabled to control execution
   const notificationsQuery = trpc.admin.dashboard.notifications.useQuery(undefined, {
     enabled: !!adminUser,
-    refetchInterval: false, // Disable automatic refetching to prevent infinite loops
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchInterval: false,
+    staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
@@ -180,7 +180,7 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
     if (adminUser && notificationsQuery.refetch) {
       notificationsQuery.refetch();
     }
-  }, [adminUser, notificationsQuery.refetch]); // Use refetch function directly
+  }, [adminUser]);
 
   useEffect(() => {
     let isMounted = true;
@@ -213,30 +213,16 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
   // Update notifications when query data changes
   useEffect(() => {
     if (notificationsQuery.data && Array.isArray(notificationsQuery.data)) {
-      // Map admin notifications to local format for compatibility
       const mappedNotifications = notificationsQuery.data.map((notification: any) => ({
         ...notification,
         type: mapNotificationType(notification.type),
       }));
       
-      // Create a stable comparison key to prevent unnecessary updates
-      const newDataKey = mappedNotifications.map(n => `${n.id}-${n.isRead}`).join(',');
-      
-      setNotifications(prev => {
-        const prevDataKey = prev.map(n => `${n.id}-${n.isRead}`).join(',');
-        
-        // Only update if the data has actually changed
-        if (prevDataKey !== newDataKey) {
-          return mappedNotifications;
-        }
-        
-        return prev;
-      });
-    } else if (!notificationsQuery.data) {
-      // Clear notifications if no data (but only if we currently have notifications)
-      setNotifications(prev => prev.length > 0 ? [] : prev);
+      setNotifications(mappedNotifications);
+    } else if (notificationsQuery.data === null || notificationsQuery.data === undefined) {
+      setNotifications([]);
     }
-  }, [notificationsQuery.data]); // Remove notifications.length from deps
+  }, [notificationsQuery.data]);
 
 
 

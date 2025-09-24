@@ -10,16 +10,23 @@ export default function Index() {
 
   useEffect(() => {
     if (!isLoading) {
-      // Add small delay to ensure providers are fully initialized
       const timeoutId = setTimeout(() => {
         setShouldRedirect(true);
-      }, 100);
+      }, 50);
       
       return () => clearTimeout(timeoutId);
     }
   }, [isLoading]);
 
-  if (isLoading || !shouldRedirect) {
+  if (isLoading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color={Colors.light.tint} />
+      </View>
+    );
+  }
+
+  if (!shouldRedirect) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color={Colors.light.tint} />

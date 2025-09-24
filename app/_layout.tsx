@@ -146,13 +146,13 @@ export default function RootLayout() {
           <SafeAreaProvider>
             <ErrorBoundary>
               <StorageProvider>
-                <AuthProvider>
-                  <AdminProvider>
-                    <SettingsProvider>
+                <SettingsProvider>
+                  <AuthProvider>
+                    <AdminProvider>
                       <RootLayoutNav />
-                    </SettingsProvider>
-                  </AdminProvider>
-                </AuthProvider>
+                    </AdminProvider>
+                  </AuthProvider>
+                </SettingsProvider>
               </StorageProvider>
             </ErrorBoundary>
           </SafeAreaProvider>

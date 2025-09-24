@@ -154,7 +154,7 @@ function HomeScreenContent() {
         deferredTimerRef.current = null;
       }
     };
-  }, [shouldLoadPosts, shouldLoadDeferred]); // Fixed: properly handle dependencies
+  }, [shouldLoadPosts]);
 
   const dishesQuery = trpc.dishes.list.useQuery(undefined, { 
     staleTime: 1000 * 60 * 45,

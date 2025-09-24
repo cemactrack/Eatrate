@@ -1,11 +1,11 @@
 import { Tabs, useRouter } from "expo-router";
 import { Home, Search, User, Truck } from "lucide-react-native";
 import React, { useEffect } from "react";
-import { View, ActivityIndicator, StyleSheet, Platform } from "react-native";
+import { View, ActivityIndicator, StyleSheet } from "react-native";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/providers/AuthProvider";
 
-function RootLayoutNav() {
+export default function TabsLayout() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
 
@@ -19,9 +19,17 @@ function RootLayoutNav() {
     }
   }, [isLoading, user, router]);
 
-  if (isLoading || !user) {
+  if (isLoading) {
     return (
       <View style={styles.loadingContainer} testID="tabs-auth-loading">
+        <ActivityIndicator size="large" color={Colors.light.tint} />
+      </View>
+    );
+  }
+
+  if (!user) {
+    return (
+      <View style={styles.loadingContainer} testID="tabs-no-user">
         <ActivityIndicator size="large" color={Colors.light.tint} />
       </View>
     );
@@ -87,4 +95,3 @@ const styles = StyleSheet.create({
   },
 });
 
-export default RootLayoutNav;

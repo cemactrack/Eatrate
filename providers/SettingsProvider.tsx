@@ -39,14 +39,15 @@ export const [SettingsProvider, useSettings] = createContextHook<SettingsContext
         const raw = await storage.getItem(STORAGE_KEY);
         if (isMounted && raw) {
           const parsed = JSON.parse(raw) as Partial<AppSettings>;
-          setSettingsState(prev => ({ ...prev, ...parsed }));
+          if (parsed && Object.keys(parsed).length > 0) {
+            setSettingsState(prev => ({ ...prev, ...parsed }));
+          }
         }
       } catch (e) {
         console.error('[SettingsProvider] load error', e);
       }
     };
     
-    // Immediate load for better performance
     load();
     
     return () => {

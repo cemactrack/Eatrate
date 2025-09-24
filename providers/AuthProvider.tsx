@@ -99,7 +99,9 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
         const stored = await storage.getItem(AUTH_KEY);
         if (isMounted && stored) {
           const parsed: AuthUser = JSON.parse(stored);
-          setUser(parsed ?? null);
+          if (parsed) {
+            setUser(parsed);
+          }
         }
       } catch (e) {
         console.error('[AuthProvider] load error', e);
@@ -110,7 +112,6 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
       }
     };
     
-    // Immediate load for better performance
     load();
     
     return () => {
