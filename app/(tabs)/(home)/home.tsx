@@ -152,7 +152,7 @@ function HomeScreenContent() {
         deferredTimerRef.current = null;
       }
     };
-  }, [shouldLoadPosts, shouldLoadDeferred]); // Add shouldLoadDeferred to dependencies
+  }, [shouldLoadPosts]); // Remove shouldLoadDeferred from dependencies to prevent infinite loop
 
   // eslint-disable-next-line @rork/linters/rsp-react-query-object-api-only
   const dishesQuery = trpc.dishes.list.useQuery(undefined, { 
