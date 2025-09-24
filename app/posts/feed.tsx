@@ -235,33 +235,38 @@ export default function PostFeedScreen() {
   
   const likeMutation = trpc.posts.like.useMutation({
     onMutate: async ({ postId }: { postId: string }) => {
-      // Cancel outgoing refetches
-      await utils.posts.feed.cancel({ type: feedType, limit: 20 });
-      
-      // Snapshot the previous value
-      const previousFeed = utils.posts.feed.getInfiniteData({ type: feedType, limit: 20 });
-      
-      // Optimistically update
-      utils.posts.feed.setInfiniteData({ type: feedType, limit: 20 }, (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          pages: old.pages.map(page => ({
-            ...page,
-            posts: page.posts.map(post => 
-              post.id === postId 
-                ? { 
-                    ...post, 
-                    isLiked: !post.isLiked, 
-                    likesCount: post.isLiked ? post.likesCount - 1 : post.likesCount + 1 
-                  }
-                : post
-            )
-          }))
-        };
-      });
-      
-      return { previousFeed };
+      try {
+        // Cancel outgoing refetches
+        await utils.posts.feed.cancel({ type: feedType, limit: 20 });
+        
+        // Snapshot the previous value
+        const previousFeed = utils.posts.feed.getInfiniteData({ type: feedType, limit: 20 });
+        
+        // Optimistically update
+        utils.posts.feed.setInfiniteData({ type: feedType, limit: 20 }, (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map(page => ({
+              ...page,
+              posts: page.posts.map(post => 
+                post.id === postId 
+                  ? { 
+                      ...post, 
+                      isLiked: !post.isLiked, 
+                      likesCount: post.isLiked ? post.likesCount - 1 : post.likesCount + 1 
+                    }
+                  : post
+              )
+            }))
+          };
+        });
+        
+        return { previousFeed };
+      } catch (error) {
+        console.error('[Feed] Like mutation error:', error);
+        return { previousFeed: null };
+      }
     },
     onError: (err: any, variables: any, context: any) => {
       console.error('[Feed] Like error:', err);
@@ -272,31 +277,36 @@ export default function PostFeedScreen() {
     },
     onSettled: () => {
       // Invalidate to ensure consistency
-      utils.posts.feed.invalidate({ type: feedType, limit: 20 });
+      utils.posts.feed.invalidate({ type: feedType, limit: 20 }).catch(console.error);
     }
   });
   
   const bookmarkMutation = trpc.posts.bookmark.useMutation({
     onMutate: async ({ postId }: { postId: string }) => {
-      await utils.posts.feed.cancel({ type: feedType, limit: 20 });
-      const previousFeed = utils.posts.feed.getInfiniteData({ type: feedType, limit: 20 });
-      
-      utils.posts.feed.setInfiniteData({ type: feedType, limit: 20 }, (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          pages: old.pages.map(page => ({
-            ...page,
-            posts: page.posts.map(post => 
-              post.id === postId 
-                ? { ...post, isBookmarked: !post.isBookmarked }
-                : post
-            )
-          }))
-        };
-      });
-      
-      return { previousFeed };
+      try {
+        await utils.posts.feed.cancel({ type: feedType, limit: 20 });
+        const previousFeed = utils.posts.feed.getInfiniteData({ type: feedType, limit: 20 });
+        
+        utils.posts.feed.setInfiniteData({ type: feedType, limit: 20 }, (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map(page => ({
+              ...page,
+              posts: page.posts.map(post => 
+                post.id === postId 
+                  ? { ...post, isBookmarked: !post.isBookmarked }
+                  : post
+              )
+            }))
+          };
+        });
+        
+        return { previousFeed };
+      } catch (error) {
+        console.error('[Feed] Bookmark mutation error:', error);
+        return { previousFeed: null };
+      }
     },
     onError: (err: any, variables: any, context: any) => {
       console.error('Bookmark error:', err);
@@ -305,7 +315,7 @@ export default function PostFeedScreen() {
       }
     },
     onSettled: () => {
-      utils.posts.feed.invalidate({ type: feedType, limit: 20 });
+      utils.posts.feed.invalidate({ type: feedType, limit: 20 }).catch(console.error);
     }
   });
   

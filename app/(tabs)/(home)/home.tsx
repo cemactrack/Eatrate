@@ -149,7 +149,7 @@ function HomeScreenContent() {
         deferredTimerRef.current = null;
       }
     };
-  }, [shouldLoadPosts]);
+  }, [shouldLoadPosts, shouldLoadDeferred]);
 
   // eslint-disable-next-line @rork/linters/rsp-react-query-object-api-only
   const dishesQuery = trpc.dishes.list.useQuery(undefined, { 
@@ -220,40 +220,41 @@ function HomeScreenContent() {
 
   const likeMutation = trpc.posts.like.useMutation({
     onMutate: async ({ postId }: { postId: string }) => {
-      // Cancel outgoing refetches
-      await utils.posts.feed.cancel({ type: 'recent', limit: 10 });
-      
-      // Snapshot the previous value
-      const previousData = utils.posts.feed.getInfiniteData({ type: 'recent', limit: 10 });
-      
-      // Optimistically update
-      utils.posts.feed.setInfiniteData({ type: 'recent', limit: 10 }, (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          pages: old.pages.map(page => ({
-            ...page,
-            posts: page.posts.map(post => 
-              post.id === postId 
-                ? { 
-                    ...post, 
-                    isLiked: !post.isLiked, 
-                    likesCount: post.isLiked ? post.likesCount - 1 : post.likesCount + 1 
-                  }
-                : post
-            )
-          }))
-        };
-      });
-      
-      return { previousData };
+      try {
+        // Cancel outgoing refetches
+        await utils.posts.feed.cancel({ type: 'recent', limit: 10 });
+        
+        // Snapshot the previous value
+        const previousData = utils.posts.feed.getInfiniteData({ type: 'recent', limit: 10 });
+        
+        // Optimistically update
+        utils.posts.feed.setInfiniteData({ type: 'recent', limit: 10 }, (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map(page => ({
+              ...page,
+              posts: page.posts.map(post => 
+                post.id === postId 
+                  ? { 
+                      ...post, 
+                      isLiked: !post.isLiked, 
+                      likesCount: post.isLiked ? post.likesCount - 1 : post.likesCount + 1 
+                    }
+                  : post
+              )
+            }))
+          };
+        });
+        
+        return { previousData };
+      } catch (error) {
+        console.error('[Home] like mutation error:', error);
+        return { previousData: null };
+      }
     },
     onError: (error: any, variables: any, context: any) => {
-      if (error?.message) {
-        console.error('[Home] like error:', error.message);
-      } else {
-        console.error('[Home] like error:', 'Unknown error occurred');
-      }
+      console.error('[Home] like error:', error?.message || 'Unknown error occurred');
       // Rollback on error
       if (context?.previousData) {
         utils.posts.feed.setInfiniteData({ type: 'recent', limit: 10 }, context.previousData);
@@ -261,7 +262,7 @@ function HomeScreenContent() {
     },
     onSettled: () => {
       // Invalidate to ensure consistency
-      utils.posts.feed.invalidate({ type: 'recent', limit: 10 });
+      utils.posts.feed.invalidate({ type: 'recent', limit: 10 }).catch(console.error);
     }
   });
 
@@ -329,7 +330,7 @@ function HomeScreenContent() {
 
 
   // Only show loading for critical data
-  if (isLoadingRestaurants || isLoadingYaounde) {
+  if (isLoadingRestaurants && isLoadingYaounde) {
     return <LoadingSpinner text="Loading restaurants..." showGradient />;
   }
 

@@ -129,8 +129,8 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
       console.log('[PostComposer] Post created successfully:', data);
       
       // Invalidate relevant queries to refresh feed
-      utils.posts.feed.invalidate();
-      utils.posts.list.invalidate();
+      utils.posts.feed.invalidate().catch(console.error);
+      utils.posts.list.invalidate().catch(console.error);
       
       setToast({
         visible: true,
@@ -162,16 +162,24 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
     onError: (error: any) => {
       console.error('[PostComposer] Post failed:', error);
       const errorMessage = error?.message || 'Failed to create post. Please try again.';
+      
+      let title = 'Post Failed';
+      let message = errorMessage;
+      
+      if (errorMessage.includes('timeout') || errorMessage.includes('signal timed out')) {
+        title = 'Connection Timeout';
+        message = 'The request took too long. Please check your internet connection and try again.';
+      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        title = 'Network Error';
+        message = 'Unable to connect to the server. Please check your internet connection.';
+      }
+      
       setToast({ 
         visible: true, 
         type: 'error', 
-        title: 'Post failed', 
-        message: errorMessage.includes('timeout') ? 'Network timeout. Please check your connection and try again.' : errorMessage
+        title, 
+        message
       });
-    },
-    // Add timeout configuration
-    meta: {
-      timeout: 30000, // 30 seconds timeout
     }
   });
 
@@ -294,31 +302,16 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
         .map((t) => t.trim())
         .filter(Boolean);
       
-      // Add timeout to the mutation call
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout')), 25000); // 25 second timeout
+      await createPost.mutateAsync({
+        text: postText.trim(),
+        restaurantId: selectedRestaurant?.id,
+        images: selectedImages,
+        ratings: finalRatings,
+        tags: tagList,
       });
-      
-      await Promise.race([
-        createPost.mutateAsync({
-          text: postText.trim(),
-          restaurantId: selectedRestaurant?.id,
-          images: selectedImages,
-          ratings: finalRatings,
-          tags: tagList,
-        }),
-        timeoutPromise
-      ]);
     } catch (e: any) {
       console.error('[PostComposer] Post submission error:', e);
-      if (e.message === 'Request timeout') {
-        setToast({ 
-          visible: true, 
-          type: 'error', 
-          title: 'Request Timeout', 
-          message: 'The request took too long. Please check your connection and try again.' 
-        });
-      }
+      // Error handling is now done in the mutation's onError callback
     } finally {
       setIsPosting(false);
     }

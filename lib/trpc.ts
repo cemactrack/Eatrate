@@ -21,9 +21,25 @@ export const trpcClient = trpc.createClient({
         return { authorization: 'dev' };
       },
       fetch(url, options) {
+        // Create timeout signal with better error handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          controller.abort();
+        }, 30000); // 30 second timeout
+        
+        // Combine with existing signal if present
+        if (options?.signal) {
+          options.signal.addEventListener('abort', () => {
+            clearTimeout(timeoutId);
+            controller.abort();
+          });
+        }
+        
         return fetch(url, {
           ...options,
-          signal: AbortSignal.timeout(15000), // 15 second timeout for post creation
+          signal: controller.signal,
+        }).finally(() => {
+          clearTimeout(timeoutId);
         });
       },
     }),
