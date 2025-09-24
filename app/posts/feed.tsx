@@ -201,14 +201,18 @@ export default function PostFeedScreen() {
   const { 
     data: feedData, 
     isLoading,
+    error: feedError,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    refetch: refetchFeed,
   } = trpc.posts.feed.useInfiniteQuery(
     { type: feedType, limit: 20 },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       staleTime: 1000 * 60 * 5,
+      retry: 2,
+      retryDelay: 1000,
     }
   );
 
@@ -427,7 +431,29 @@ export default function PostFeedScreen() {
 
 
   if (isLoading) {
-    return <LoadingSpinner text="Loading feed..." showGradient />;
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <LoadingSpinner text="Loading feed..." showGradient />
+      </View>
+    );
+  }
+
+  if (feedError) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>Failed to Load Feed</Text>
+          <Text style={styles.errorMessage}>
+            {feedError.message.includes('timeout') || feedError.message.includes('TimeoutError') 
+              ? 'Connection timeout. Please check your internet connection.' 
+              : 'Unable to load posts. Please try again.'}
+          </Text>
+          <TouchableOpacity onPress={() => refetchFeed()} style={styles.retryButton}>
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -797,6 +823,37 @@ const styles = StyleSheet.create({
   endFooterText: {
     fontSize: 14,
     color: Colors.light.secondary,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: Colors.light.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    fontSize: 16,
+    color: Colors.light.secondary,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  retryButton: {
+    backgroundColor: Colors.light.tint,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   emptyContainer: {
     flex: 1,

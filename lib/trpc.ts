@@ -24,9 +24,9 @@ export const trpcClient = trpc.createClient({
         // Create timeout signal with better error handling
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
-          console.warn('[tRPC] Request timeout after 30 seconds:', url);
+          console.warn('[tRPC] Request timeout after 25 seconds:', url);
           controller.abort();
-        }, 30000); // 30 second timeout
+        }, 25000); // 25 second timeout
         
         // Combine with existing signal if present
         if (options?.signal) {
@@ -40,7 +40,16 @@ export const trpcClient = trpc.createClient({
           ...options,
           signal: controller.signal,
         })
+        .then(response => {
+          clearTimeout(timeoutId);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          return response;
+        })
         .catch((error) => {
+          clearTimeout(timeoutId);
+          
           // Enhanced error handling
           if (error.name === 'AbortError') {
             const timeoutError = new Error('Request timeout - please check your internet connection');
@@ -55,9 +64,6 @@ export const trpcClient = trpc.createClient({
           }
           
           throw error;
-        })
-        .finally(() => {
-          clearTimeout(timeoutId);
         });
       },
     }),
