@@ -180,7 +180,7 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
     if (adminUser && notificationsQuery.refetch) {
       notificationsQuery.refetch();
     }
-  }, [adminUser]);
+  }, [adminUser, notificationsQuery]);
 
   useEffect(() => {
     let isMounted = true;

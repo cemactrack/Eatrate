@@ -6,10 +6,8 @@ import Colors from "@/constants/colors";
 import { useAuth } from "@/providers/AuthProvider";
 
 export default function TabsLayout() {
+  const { user, isLoading } = useAuth();
   const router = useRouter();
-  const authContext = useAuth();
-  
-  const { user, isLoading } = authContext || { user: null, isLoading: true };
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -21,8 +19,7 @@ export default function TabsLayout() {
     }
   }, [isLoading, user, router]);
 
-  // If context is not available, show loading
-  if (!authContext || isLoading) {
+  if (isLoading) {
     return (
       <View style={styles.loadingContainer} testID="tabs-auth-loading">
         <ActivityIndicator size="large" color={Colors.light.tint} />
@@ -30,7 +27,7 @@ export default function TabsLayout() {
     );
   }
 
-  if (!authContext || !user) {
+  if (!user) {
     return (
       <View style={styles.loadingContainer} testID="tabs-no-user">
         <ActivityIndicator size="large" color={Colors.light.tint} />

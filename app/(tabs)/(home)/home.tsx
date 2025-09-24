@@ -81,8 +81,7 @@ const TrendingPost = React.memo(function TrendingPost({ post, onPress, onLike, o
 });
 
 function HomeScreenContent() {
-  const authContext = useAuth();
-  const { user } = authContext || { user: null };
+  const { user } = useAuth();
   const { isAdmin, unreadCount } = useAdmin();
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showComposer, setShowComposer] = useState<boolean>(false);

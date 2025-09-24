@@ -74,13 +74,17 @@ export const [AuthProvider, useAuthInternal] = createContextHook<AuthContextValu
   const updateProfile = useCallback(async (patch: Partial<Pick<AuthUser, 'displayName' | 'avatar'>>) => {
     try {
       setUser((prev) => {
-        const next = prev ? { ...prev, ...patch } : prev;
+        if (!prev) return prev;
+        const next = { ...prev, ...patch };
         return next;
       });
+      
       const current = await storage.getItem(AUTH_KEY);
-      const parsed: AuthUser | null = current ? JSON.parse(current) : null;
-      const next = parsed ? { ...parsed, ...patch } : parsed;
-      await storage.setItem(AUTH_KEY, JSON.stringify(next));
+      if (current) {
+        const parsed: AuthUser = JSON.parse(current);
+        const updated = { ...parsed, ...patch };
+        await storage.setItem(AUTH_KEY, JSON.stringify(updated));
+      }
     } catch (e) {
       console.error('[AuthProvider] updateProfile error', e);
     }
@@ -129,12 +133,10 @@ export const [AuthProvider, useAuthInternal] = createContextHook<AuthContextValu
   }), [user, isLoading, loginWithEmail, loginWithPhone, updateProfile, logout]);
 });
 
-export const useAuth = (): AuthContextValue | null => {
-  try {
-    const context = useAuthInternal();
-    return context || null;
-  } catch (error) {
-    console.error('[useAuth] Context error:', error);
-    return null;
+export const useAuth = (): AuthContextValue => {
+  const context = useAuthInternal();
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
   }
+  return context;
 };

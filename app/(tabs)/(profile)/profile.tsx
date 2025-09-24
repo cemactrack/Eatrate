@@ -72,8 +72,7 @@ const PostGridItem = React.memo(function PostGridItem({ post, onPress }: PostGri
 export default function ProfileScreen() {
   const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'saved'>('posts');
   const insets = useSafeAreaInsets();
-  const authContext = useAuth();
-  const { logout } = authContext || { logout: async () => {} };
+  const { logout } = useAuth();
   const { isAdmin } = useAdmin();
   const router = useRouter();
   

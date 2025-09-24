@@ -8,8 +8,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import { useRouter } from 'expo-router';
 
 export default function LoginScreen() {
-  const authContext = useAuth();
-  const { loginWithEmail, loginWithPhone } = authContext || { loginWithEmail: async () => {}, loginWithPhone: async () => {} };
+  const { loginWithEmail, loginWithPhone } = useAuth();
   const [mode, setMode] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
