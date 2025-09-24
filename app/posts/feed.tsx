@@ -197,8 +197,7 @@ export default function PostFeedScreen() {
 
   const { 
     data: feedData, 
-    isLoading, 
-    refetch,
+    isLoading,
   } = trpc.posts.feed.useQuery(
     { type: feedType, limit: 20 },
     {
@@ -246,7 +245,7 @@ export default function PostFeedScreen() {
       }
     },
     onSettled: () => {
-      // Refetch only the current feed type to avoid infinite loops
+      // Invalidate to ensure consistency
       utils.posts.feed.invalidate({ type: feedType, limit: 20 });
     }
   });
@@ -276,7 +275,7 @@ export default function PostFeedScreen() {
       }
     },
     onSettled: () => {
-      // Only invalidate the specific query to avoid loops
+      // Invalidate to ensure consistency
       utils.posts.feed.invalidate({ type: feedType, limit: 20 });
     }
   });

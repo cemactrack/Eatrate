@@ -124,8 +124,8 @@ export default function PostComposer() {
     onSuccess: (data) => {
       console.log('[PostComposer] Post created successfully:', data);
       
-      // Invalidate specific queries to refresh feed
-      utils.posts.feed.invalidate({ type: 'recent' });
+      // Invalidate relevant queries to refresh feed
+      utils.posts.feed.invalidate();
       utils.posts.list.invalidate();
       
       setToast({
@@ -160,7 +160,7 @@ export default function PostComposer() {
       });
     }
   });
-  const createStatus = trpc.status.create.useMutation();
+
 
   const pickImage = async () => {
     if (Platform.OS === 'web') {
@@ -287,7 +287,6 @@ export default function PostComposer() {
         tags: tagList,
       });
     } catch (e) {
-      // Error handling is done in the mutation's onError callback
       console.error('[PostComposer] Post submission error:', e);
     } finally {
       setIsPosting(false);
