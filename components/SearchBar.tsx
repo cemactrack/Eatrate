@@ -8,13 +8,15 @@ interface SearchBarProps {
   onChangeText: (text: string) => void;
   onFilterPress?: () => void;
   placeholder?: string;
+  onSubmitEditing?: () => void;
 }
 
 const SearchBar = React.memo(function SearchBar({ 
   value, 
   onChangeText, 
   onFilterPress, 
-  placeholder = "Search restaurants, dishes..." 
+  placeholder = "Search restaurants, dishes...",
+  onSubmitEditing
 }: SearchBarProps) {
   return (
     <View style={styles.container}>
@@ -26,6 +28,8 @@ const SearchBar = React.memo(function SearchBar({
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor={Colors.light.secondary}
+          onSubmitEditing={onSubmitEditing}
+          returnKeyType="search"
         />
       </View>
       

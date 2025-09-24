@@ -92,9 +92,8 @@ function HomeScreenContent() {
 
 
   // Load restaurants first (priority data)
-  // eslint-disable-next-line @rork/linters/rsp-react-query-object-api-only
   const restaurantsQuery = trpc.restaurants.list.useQuery(undefined, { 
-    staleTime: 1000 * 60 * 30, // Increased to 30 minutes for better caching
+    staleTime: 1000 * 60 * 30,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
     refetchOnMount: false,
@@ -155,17 +154,15 @@ function HomeScreenContent() {
     };
   }, [shouldLoadPosts, shouldLoadDeferred]); // Fixed: properly handle dependencies
 
-  // eslint-disable-next-line @rork/linters/rsp-react-query-object-api-only
   const dishesQuery = trpc.dishes.list.useQuery(undefined, { 
-    staleTime: 1000 * 60 * 45, // Increased to 45 minutes for deferred data
+    staleTime: 1000 * 60 * 45,
     enabled: shouldLoadDeferred,
     retry: 0,
   });
   const { data: dishesData, error: dishesError } = dishesQuery;
 
-  // eslint-disable-next-line @rork/linters/rsp-react-query-object-api-only
   const usersQuery = trpc.users.list.useQuery(undefined, { 
-    staleTime: 1000 * 60 * 45, // Increased to 45 minutes for deferred data
+    staleTime: 1000 * 60 * 45,
     enabled: shouldLoadDeferred,
     retry: 0,
   });
@@ -215,7 +212,9 @@ function HomeScreenContent() {
 
   const handleDishPress = useCallback((dishId: string) => {
     console.log('Dish pressed:', dishId);
-  }, []);
+    // Navigate to dish details or search for this dish
+    router.push(`/(tabs)/(search)/search?dish=${dishId}`);
+  }, [router]);
 
   const handlePostPress = useCallback((postId: string) => {
     console.log('Post pressed:', postId);
@@ -289,11 +288,13 @@ function HomeScreenContent() {
 
   const handleUserPress = useCallback((userId: string) => {
     console.log('User pressed:', userId);
-  }, []);
+    router.push(`/users/${userId}`);
+  }, [router]);
 
   const handleFilterPress = useCallback(() => {
     console.log('Filter pressed');
-  }, []);
+    router.push('/(tabs)/(search)/search?showFilters=true');
+  }, [router]);
 
   const handleSeeAllRestaurants = useCallback(() => {
     router.push('/restaurants');
@@ -308,7 +309,8 @@ function HomeScreenContent() {
     try {
       const results = await Promise.allSettled([
         restaurantsQuery.refetch(),
-        refetchPosts()
+        refetchPosts(),
+        ...(shouldLoadDeferred ? [dishesQuery.refetch(), usersQuery.refetch()] : [])
       ]);
       
       const failedResults = results.filter(result => result.status === 'rejected');
@@ -320,7 +322,7 @@ function HomeScreenContent() {
     } catch (error) {
       console.error('[Home] Failed to refresh feed:', error);
     }
-  }, [restaurantsQuery, refetchPosts]);
+  }, [restaurantsQuery, refetchPosts, shouldLoadDeferred, dishesQuery, usersQuery]);
 
   const handleLoadMorePosts = useCallback(async () => {
     if (hasNextPage && !isFetchingNextPage) {
@@ -336,8 +338,9 @@ function HomeScreenContent() {
 
 
   const handleSeeAllSearch = useCallback(() => {
-    console.log('See all search pressed');
-  }, []);
+    console.log('See all dishes pressed');
+    router.push('/(tabs)/(search)/search?category=dishes');
+  }, [router]);
 
 
 
@@ -393,6 +396,12 @@ function HomeScreenContent() {
           value={searchQuery}
           onChangeText={setSearchQuery}
           onFilterPress={handleFilterPress}
+          placeholder="Search restaurants, dishes, or users..."
+          onSubmitEditing={() => {
+            if (searchQuery.trim()) {
+              router.push(`/(tabs)/(search)/search?q=${encodeURIComponent(searchQuery.trim())}`);
+            }
+          }}
         />
 
         {/* Create Post/Status Entry */}
@@ -403,7 +412,11 @@ function HomeScreenContent() {
           style={styles.createPostCard}
         >
           <View style={styles.createPostRow}>
-            <View style={styles.createPostAvatar} />
+            {user?.avatar ? (
+              <Image source={{ uri: user.avatar }} style={styles.createPostAvatar} />
+            ) : (
+              <View style={styles.createPostAvatar} />
+            )}
             <Text style={styles.createPostPlaceholder}>Share a review, photo, status…</Text>
           </View>
           <View style={styles.createPostActions}>
@@ -473,8 +486,14 @@ function HomeScreenContent() {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Trending Posts</Text>
             <View style={styles.sectionHeaderActions}>
-              <TouchableOpacity onPress={handleRefreshFeed} style={styles.refreshButton}>
-                <Text style={styles.refreshText}>Refresh</Text>
+              <TouchableOpacity 
+                onPress={handleRefreshFeed} 
+                style={styles.refreshButton}
+                disabled={isLoadingPosts || isFetchingNextPage}
+              >
+                <Text style={[styles.refreshText, (isLoadingPosts || isFetchingNextPage) && { opacity: 0.5 }]}>
+                  {isLoadingPosts || isFetchingNextPage ? 'Loading...' : 'Refresh'}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleSeeAllFeed}>
                 <Text style={styles.seeAll}>See All</Text>
@@ -531,7 +550,7 @@ function HomeScreenContent() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Top Foodies</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/users')}>
               <Text style={styles.seeAll}>See All</Text>
             </TouchableOpacity>
           </View>
