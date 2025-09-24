@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Image,
   FlatList,
   useWindowDimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Settings, Grid, Heart, Bookmark, Award, Users, MapPin, LogOut, Shield } from 'lucide-react-native';
@@ -16,6 +17,7 @@ import Colors from '@/constants/colors';
 import { Post } from '@/types/restaurant';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAdmin } from '@/providers/AdminProvider';
+import { trpc } from '@/lib/trpc';
 
 interface TabButtonProps {
   icon: React.ReactNode;
@@ -30,7 +32,10 @@ const TabButton = React.memo(function TabButton({ icon, label, isActive, onPress
       style={[styles.tabButton, isActive && styles.activeTab]}
       onPress={onPress}
     >
-      <View>{icon}</View>
+      <View style={styles.tabIcon}>
+        {/* eslint-disable-next-line @rork/linters/general-no-raw-text */}
+        {icon}
+      </View>
       <Text style={[styles.tabLabel, isActive && styles.activeTabLabel]}>
         {label}
       </Text>
@@ -71,25 +76,64 @@ const PostGridItem = React.memo(function PostGridItem({ post, onPress }: PostGri
 
 export default function ProfileScreen() {
   const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'saved'>('posts');
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const insets = useSafeAreaInsets();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const { isAdmin } = useAdmin();
   const router = useRouter();
   
-  // Using the first user as the current user for display
-  const currentUser = {
-    id: 'me',
-    username: 'eatrate_user',
-    displayName: 'EatRate User',
-    avatar: 'https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=200&h=200&fit=crop&crop=faces',
-    followersCount: 0,
-    followingCount: 0,
-    postsCount: 0,
-    badges: [],
-  } as const;
-  const userPosts: Post[] = [];
-  const likedPosts: Post[] = [];
-  const savedPosts: Post[] = [];
+  // Fetch user posts
+  const userPostsQuery = trpc.posts.getUserPosts.useQuery(
+    { 
+      userId: user?.id,
+      status: 'published',
+      limit: 50 
+    },
+    { 
+      enabled: !!user?.id,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+    }
+  );
+  
+  // Fetch bookmarked posts
+  const bookmarkedPostsQuery = trpc.posts.getBookmarked.useQuery(
+    { limit: 50 },
+    { 
+      enabled: !!user?.id,
+      staleTime: 1000 * 60 * 5,
+    }
+  );
+  
+  // Get posts from feed for liked posts (mock implementation)
+  const feedQuery = trpc.posts.feed.useQuery(
+    { type: 'recent', limit: 50 },
+    { 
+      enabled: activeTab === 'liked',
+      staleTime: 1000 * 60 * 5,
+    }
+  );
+  
+  const currentUser = useMemo(() => {
+    if (!user) return null;
+    return {
+      id: user.id,
+      username: user.email?.split('@')[0] || user.phone || 'user',
+      displayName: user.displayName,
+      avatar: user.avatar || 'https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=200&h=200&fit=crop&crop=faces',
+      followersCount: 0, // TODO: Implement followers system
+      followingCount: 0, // TODO: Implement following system
+      postsCount: userPostsQuery.data?.total || 0,
+      badges: [], // TODO: Implement badges system
+      bio: 'Food enthusiast exploring great flavors', // TODO: Add bio to user profile
+    };
+  }, [user, userPostsQuery.data?.total]);
+  
+  const userPosts = userPostsQuery.data?.posts || [];
+  const likedPosts = useMemo(() => {
+    // Filter posts that are liked by current user
+    return (feedQuery.data?.posts || []).filter(post => post.isLiked);
+  }, [feedQuery.data?.posts]);
+  const savedPosts = bookmarkedPostsQuery.data?.posts || [];
 
   const getTabData = () => {
     switch (activeTab) {
@@ -104,7 +148,8 @@ export default function ProfileScreen() {
 
   const handlePostPress = useCallback((postId: string) => {
     console.log('Post pressed:', postId);
-  }, []);
+    router.push(`/posts/${postId}`);
+  }, [router]);
 
   const handleEditProfile = useCallback(() => {
     console.log('Edit profile pressed');
@@ -129,14 +174,55 @@ export default function ProfileScreen() {
   }, [router]);
 
   const handleTabChange = useCallback((tab: 'posts' | 'liked' | 'saved') => {
-    setActiveTab(tab);
+    if (!tab?.trim() || tab.length > 20) return;
+    const sanitizedTab = tab.trim() as 'posts' | 'liked' | 'saved';
+    if (!['posts', 'liked', 'saved'].includes(sanitizedTab)) return;
+    setActiveTab(sanitizedTab);
   }, []);
+  
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        userPostsQuery.refetch(),
+        bookmarkedPostsQuery.refetch(),
+        activeTab === 'liked' ? feedQuery.refetch() : Promise.resolve(),
+      ]);
+    } catch (error) {
+      console.error('Refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [userPostsQuery, bookmarkedPostsQuery, feedQuery, activeTab]);
+  
+  if (!user || !currentUser) {
+    return (
+      <View style={[styles.container, styles.center, { paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={Colors.light.tint} />
+        <Text style={styles.loadingText}>Loading profile...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <Stack.Screen options={{ title: 'Profile', headerShown: false }} />
       
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Custom Pull to Refresh */}
+        <TouchableOpacity 
+          style={styles.refreshButton}
+          onPress={handleRefresh}
+          disabled={refreshing}
+        >
+          {refreshing ? (
+            <ActivityIndicator size="small" color={Colors.light.tint} />
+          ) : (
+            <Text style={styles.refreshButtonText}>Pull to refresh</Text>
+          )}
+        </TouchableOpacity>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.username}>@{currentUser.username}</Text>
@@ -177,7 +263,13 @@ export default function ProfileScreen() {
 
           <View style={styles.profileDetails}>
             <Text style={styles.displayName}>{currentUser.displayName}</Text>
-            <Text style={styles.bio}>Welcome to EatRate</Text>
+            <Text style={styles.bio}>{currentUser.bio}</Text>
+            {user.email && (
+              <Text style={styles.contactInfo}>{user.email}</Text>
+            )}
+            {user.phone && (
+              <Text style={styles.contactInfo}>{user.phone}</Text>
+            )}
           </View>
 
           {/* Badges */}
@@ -235,12 +327,27 @@ export default function ProfileScreen() {
 
         {/* Posts Grid */}
         <View style={styles.postsGrid}>
-          {getTabData().length === 0 ? (
+          {(activeTab === 'posts' && userPostsQuery.isLoading) ||
+           (activeTab === 'saved' && bookmarkedPostsQuery.isLoading) ||
+           (activeTab === 'liked' && feedQuery.isLoading) ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.light.tint} />
+              <Text style={styles.loadingText}>Loading {activeTab}...</Text>
+            </View>
+          ) : getTabData().length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateText}>
                 {activeTab === 'posts' ? 'No posts yet' : 
                  activeTab === 'liked' ? 'No liked posts' : 'No saved posts'}
               </Text>
+              {activeTab === 'posts' && (
+                <TouchableOpacity 
+                  style={styles.createPostButton}
+                  onPress={() => router.push('/(tabs)/(home)/create-post')}
+                >
+                  <Text style={styles.createPostButtonText}>Create your first post</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             <FlatList
@@ -461,5 +568,53 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 32,
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: Colors.light.secondary,
+    marginTop: 8,
+  },
+  contactInfo: {
+    fontSize: 12,
+    color: Colors.light.secondary,
+    marginTop: 2,
+  },
+  createPostButton: {
+    backgroundColor: Colors.light.tint,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  createPostButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  refreshButton: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    backgroundColor: Colors.light.accent,
+    borderRadius: 8,
+  },
+  refreshButtonText: {
+    color: Colors.light.tint,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  tabIcon: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

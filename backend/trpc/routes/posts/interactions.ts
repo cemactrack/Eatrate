@@ -38,12 +38,60 @@ export const getBookmarkedPostsProcedure = protectedProcedure
     const userBookmarks = bookmarksStorage.get(userId) ?? new Set<string>();
     const bookmarkedPostIds = Array.from(userBookmarks);
     
-    // In a real app, you'd fetch the actual posts from storage
-    const mockPosts = bookmarkedPostIds.slice(input.offset, input.offset + input.limit).map(postId => ({
-      id: postId,
-      title: `Bookmarked Post ${postId}`,
-      createdAt: new Date().toISOString(),
-    }));
+    // Generate mock posts with proper structure for bookmarked posts
+    const mockPosts = bookmarkedPostIds.slice(input.offset, input.offset + input.limit).map((postId, index) => {
+      const postNum = parseInt(postId) || (index + 1);
+      return {
+        id: postId,
+        userId: String((postNum % 10) + 1),
+        user: {
+          id: String((postNum % 10) + 1),
+          username: `foodie_${(postNum % 10) + 1}`,
+          displayName: `Food Lover ${(postNum % 10) + 1}`,
+          avatar: `https://images.unsplash.com/photo-${1494790108755 + (postNum % 10)}?w=200&h=200&fit=crop`,
+          bio: 'Passionate about great food and experiences',
+          followersCount: 100 + (postNum % 1000),
+          followingCount: 50 + (postNum % 500),
+          postsCount: 10 + (postNum % 100),
+          badges: postNum % 5 === 0 ? ['Top Reviewer'] : [],
+          preferences: { cuisines: ['Italian', 'Asian'], dietaryRestrictions: [], priceRange: ['$$', '$$$'] },
+        },
+        type: 'review' as const,
+        content: {
+          text: `Bookmarked post ${postNum}. Amazing food experience at this place! The flavors were incredible and the service was top-notch.`,
+          images: [
+            `https://picsum.photos/seed/bookmark${postNum}/800/600`,
+            ...(postNum % 3 === 0 ? [`https://picsum.photos/seed/bookmark${postNum}b/800/600`] : []),
+          ],
+          videos: postNum % 7 === 0 ? [`https://sample-videos.com/zip/10/mp4/SampleVideo_${postNum % 3 + 1}280x720_1mb.mp4`] : [],
+        },
+        restaurant: postNum % 2 === 0 ? {
+          id: String((postNum % 20) + 1),
+          name: `Restaurant ${(postNum % 20) + 1}`,
+          location: ['Douala', 'Yaoundé', 'Buea', 'Limbe'][postNum % 4],
+        } : undefined,
+        ratings: {
+          food: 3 + (postNum % 3),
+          service: 3 + ((postNum + 1) % 3),
+          ambiance: 3 + ((postNum + 2) % 3),
+          cleanliness: 4 + (postNum % 2),
+          overall: 3.5 + ((postNum % 3) * 0.5),
+        },
+        tags: [
+          'delicious',
+          ['italian', 'asian', 'african', 'french'][postNum % 4],
+          ...(postNum % 5 === 0 ? ['must-try', 'recommended'] : []),
+        ],
+        likesCount: 10 + (postNum % 200),
+        commentsCount: 2 + (postNum % 50),
+        sharesCount: 1 + (postNum % 20),
+        viewsCount: 50 + (postNum % 500),
+        isLiked: postNum % 7 === 0,
+        isBookmarked: true, // Always true for bookmarked posts
+        createdAt: new Date(Date.now() - postNum * 3600000).toISOString(),
+        updatedAt: new Date(Date.now() - postNum * 3600000).toISOString(),
+      };
+    });
     
     return {
       posts: mockPosts,
