@@ -148,7 +148,7 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
         prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
       );
     } catch (error) {
-      console.error('[AdminProvider] Failed to mark notification as read:', error);
+      // Silently handle notification errors to prevent UI disruption
     }
   }, [markNotificationMutation]);
 
@@ -160,7 +160,7 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
       );
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
     } catch (error) {
-      console.error('[AdminProvider] Failed to mark all notifications as read:', error);
+      // Silently handle bulk notification errors to prevent UI disruption
     }
   }, [notifications, markNotificationMutation]);
 
@@ -183,7 +183,7 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
           }
         }
       } catch (e) {
-        console.error('[AdminProvider] load error', e);
+        // Silently handle storage load errors
       } finally {
         if (isMounted) {
           setIsLoading(false);

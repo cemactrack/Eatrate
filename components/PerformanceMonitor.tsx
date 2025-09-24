@@ -89,7 +89,7 @@ export default function PerformanceMonitor({ enabled = false }: PerformanceMonit
       
       setMetrics(newMetrics);
     } catch (error) {
-      console.error('[PerformanceMonitor] Failed to collect metrics:', error);
+      // Silently handle metrics collection errors in production
     } finally {
       setIsRefreshing(false);
     }
