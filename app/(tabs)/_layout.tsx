@@ -31,7 +31,7 @@ export default function TabsLayout() {
         console.log('[Tabs/_layout] redirect error', e);
       }
     }
-  }, [isMounted, authContext, router]);
+  }, [isMounted, authContext?.user, authContext?.isLoading, router]);
 
   if (!isMounted) {
     return (

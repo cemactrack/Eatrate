@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import createContextHook from '@nkzw/create-context-hook';
 import { Alert } from 'react-native';
 import { useStorage } from '@/providers/StorageProvider';
@@ -183,11 +183,14 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
     }
   }, [markNotificationMutation]);
 
+  const refetchRef = useRef(notificationsQuery.refetch);
+  refetchRef.current = notificationsQuery.refetch;
+
   const refreshNotifications = useCallback(() => {
-    if (adminUser && notificationsQuery.refetch) {
-      notificationsQuery.refetch();
+    if (adminUser && refetchRef.current) {
+      refetchRef.current();
     }
-  }, [adminUser, notificationsQuery.refetch]);
+  }, [adminUser]);
 
   useEffect(() => {
     let isMounted = true;
