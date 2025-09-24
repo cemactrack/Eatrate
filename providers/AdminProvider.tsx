@@ -60,7 +60,7 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
   const storage = useStorage();
 
   // Helper function to map notification types
-  const mapNotificationType = useCallback((type: string): 'info' | 'warning' | 'error' | 'success' => {
+  const mapNotificationType = (type: string): 'info' | 'warning' | 'error' | 'success' => {
     switch (type) {
       case 'system':
       case 'user_activity':
@@ -72,7 +72,7 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
       default:
         return 'info';
     }
-  }, []);
+  };
 
   // Admin notifications query
   const notificationsQuery = trpc.admin.dashboard.notifications.useQuery(undefined, {
@@ -168,7 +168,7 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
     if (notificationsQuery.refetch) {
       notificationsQuery.refetch();
     }
-  }, [notificationsQuery]);
+  }, [notificationsQuery.refetch]);
 
   useEffect(() => {
     let isMounted = true;

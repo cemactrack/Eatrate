@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -40,8 +40,7 @@ interface PerformanceMonitorProps {
 export default function PerformanceMonitor({ enabled = false }: PerformanceMonitorProps) {
   const insets = useSafeAreaInsets();
   const { isAdmin } = useAdmin();
-  const [renderCount, setRenderCount] = useState<number>(0);
-  const [lastRenderTime, setLastRenderTime] = useState<number>(Date.now());
+
   const [showDetailedView, setShowDetailedView] = useState<boolean>(false);
   const [metrics, setMetrics] = useState<PerformanceMetrics>({
     renderTime: 0,
@@ -56,11 +55,12 @@ export default function PerformanceMonitor({ enabled = false }: PerformanceMonit
 
   const renderCountRef = useRef<number>(0);
   
-  useEffect(() => {
-    renderCountRef.current += 1;
-    setRenderCount(renderCountRef.current);
-    setLastRenderTime(Date.now());
-  });
+  // Track renders without causing infinite loops
+  renderCountRef.current += 1;
+  
+  // Use current render count directly instead of state
+  const currentRenderCount = renderCountRef.current;
+  const currentTime = Date.now();
 
   const collectMetrics = useCallback(async () => {
     setIsRefreshing(true);
@@ -147,8 +147,8 @@ export default function PerformanceMonitor({ enabled = false }: PerformanceMonit
         onPress={() => isAdmin && setShowDetailedView(true)}
         activeOpacity={isAdmin ? 0.7 : 1}
       >
-        <Text style={styles.text}>Renders: {renderCount}</Text>
-        <Text style={styles.text}>Last: {new Date(lastRenderTime).toLocaleTimeString()}</Text>
+        <Text style={styles.text}>Renders: {currentRenderCount}</Text>
+        <Text style={styles.text}>Last: {new Date(currentTime).toLocaleTimeString()}</Text>
         {isAdmin && (
           <View style={styles.adminIndicator}>
             <BarChart3 size={12} color="white" />
