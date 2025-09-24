@@ -125,7 +125,7 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
   const utils = trpc.useUtils();
 
   const createPost = trpc.posts.createNew.useMutation({
-    onSuccess: useCallback((data: any) => {
+    onSuccess: (data: any) => {
       console.log('[PostComposer] Post created successfully:', data);
       
       // Invalidate relevant queries to refresh feed
@@ -158,16 +158,16 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
         }
         router.push('/posts/feed');
       }, 1500);
-    }, [utils.posts.feed, utils.posts.list, router, onClose]),
-    onError: useCallback((error: any) => {
+    },
+    onError: (error: any) => {
       console.error('[PostComposer] Post failed:', error);
       setToast({ 
         visible: true, 
         type: 'error', 
         title: 'Post failed', 
-        message: error.message || 'Please try again.' 
+        message: error.message || 'Network timeout. Please check your connection and try again.' 
       });
-    }, [])
+    }
   });
 
 

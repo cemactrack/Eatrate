@@ -27,63 +27,73 @@ export const createPostProcedure = protectedProcedure
     isDraft: z.boolean().default(false),
   }))
   .mutation(async ({ input, ctx }) => {
-    console.log('[tRPC] Creating post:', input);
-    
-    const postId = String(postIdCounter++);
-    const now = new Date().toISOString();
-    
-    const post = {
-      id: postId,
-      userId: ctx.user?.id || 'anonymous',
-      user: {
-        id: ctx.user?.id || 'anonymous',
-        username: `user_${ctx.user?.id || 'anonymous'}`,
-        displayName: `User ${ctx.user?.id || 'Anonymous'}`,
-        avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=200&h=200&fit=crop',
-        bio: 'Food enthusiast',
-        followersCount: 0,
-        followingCount: 0,
-        postsCount: 1,
-        badges: [],
-        preferences: { cuisines: [], dietaryRestrictions: [], priceRange: [] },
-      },
-      type: input.category,
-      content: {
-        text: input.text,
-        images: input.images || [],
-        videos: input.videos || [],
-      },
-      restaurant: input.restaurantId ? {
-        id: input.restaurantId,
-        name: 'Selected Restaurant',
-        location: 'Location',
-      } : undefined,
-      ratings: {
-        ...input.ratings,
-        overall: Math.round((input.ratings.food * 0.4 + input.ratings.service * 0.3 + input.ratings.ambiance * 0.2 + input.ratings.cleanliness * 0.1) * 10) / 10,
-      },
-      tags: input.tags || [],
-      location: input.location,
-      likesCount: 0,
-      commentsCount: 0,
-      sharesCount: 0,
-      viewsCount: 0,
-      isLiked: false,
-      isBookmarked: false,
-      createdAt: now,
-      updatedAt: now,
-      scheduledFor: input.scheduledFor,
-      isDraft: input.isDraft,
-      status: input.isDraft ? 'draft' : (input.scheduledFor ? 'scheduled' : 'published'),
-    };
-    
-    postsStorage.set(postId, post);
-    
-    return { 
-      id: postId, 
-      status: post.status,
-      message: input.isDraft ? 'Draft saved' : (input.scheduledFor ? 'Post scheduled' : 'Post created successfully')
-    };
+    try {
+      console.log('[tRPC] Creating post:', { textLength: input.text.length, imagesCount: input.images?.length || 0 });
+      
+      // Simulate processing time but keep it under timeout
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const postId = String(postIdCounter++);
+      const now = new Date().toISOString();
+      
+      const post = {
+        id: postId,
+        userId: ctx.user?.id || 'anonymous',
+        user: {
+          id: ctx.user?.id || 'anonymous',
+          username: `user_${ctx.user?.id || 'anonymous'}`,
+          displayName: `User ${ctx.user?.id || 'Anonymous'}`,
+          avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=200&h=200&fit=crop',
+          bio: 'Food enthusiast',
+          followersCount: 0,
+          followingCount: 0,
+          postsCount: 1,
+          badges: [],
+          preferences: { cuisines: [], dietaryRestrictions: [], priceRange: [] },
+        },
+        type: input.category,
+        content: {
+          text: input.text,
+          images: input.images || [],
+          videos: input.videos || [],
+        },
+        restaurant: input.restaurantId ? {
+          id: input.restaurantId,
+          name: 'Selected Restaurant',
+          location: 'Location',
+        } : undefined,
+        ratings: {
+          ...input.ratings,
+          overall: Math.round((input.ratings.food * 0.4 + input.ratings.service * 0.3 + input.ratings.ambiance * 0.2 + input.ratings.cleanliness * 0.1) * 10) / 10,
+        },
+        tags: input.tags || [],
+        location: input.location,
+        likesCount: 0,
+        commentsCount: 0,
+        sharesCount: 0,
+        viewsCount: 0,
+        isLiked: false,
+        isBookmarked: false,
+        createdAt: now,
+        updatedAt: now,
+        scheduledFor: input.scheduledFor,
+        isDraft: input.isDraft,
+        status: input.isDraft ? 'draft' : (input.scheduledFor ? 'scheduled' : 'published'),
+      };
+      
+      postsStorage.set(postId, post);
+      
+      console.log('[tRPC] Post created successfully:', postId);
+      
+      return { 
+        id: postId, 
+        status: post.status,
+        message: input.isDraft ? 'Draft saved' : (input.scheduledFor ? 'Post scheduled' : 'Post created successfully')
+      };
+    } catch (error) {
+      console.error('[tRPC] Error creating post:', error);
+      throw new Error('Failed to create post. Please try again.');
+    }
   });
 
 export const updatePostProcedure = protectedProcedure

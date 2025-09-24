@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -133,14 +133,23 @@ function HomeScreenContent() {
 
   // Defer dishes and users data (load after 2 seconds)
   const [shouldLoadDeferred, setShouldLoadDeferred] = useState<boolean>(false);
+  const deferredTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
-    if (shouldLoadPosts && !shouldLoadDeferred) {
-      const timer = setTimeout(() => setShouldLoadDeferred(true), 2000);
-      return () => clearTimeout(timer);
+    if (shouldLoadPosts && !shouldLoadDeferred && !deferredTimerRef.current) {
+      deferredTimerRef.current = setTimeout(() => {
+        setShouldLoadDeferred(true);
+        deferredTimerRef.current = null;
+      }, 2000);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shouldLoadPosts]); // Removed shouldLoadDeferred from dependencies to prevent infinite loop
+    
+    return () => {
+      if (deferredTimerRef.current) {
+        clearTimeout(deferredTimerRef.current);
+        deferredTimerRef.current = null;
+      }
+    };
+  }, [shouldLoadPosts, shouldLoadDeferred]);
 
   // eslint-disable-next-line @rork/linters/rsp-react-query-object-api-only
   const dishesQuery = trpc.dishes.list.useQuery(undefined, { 

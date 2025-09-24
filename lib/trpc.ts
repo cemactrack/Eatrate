@@ -23,7 +23,7 @@ export const trpcClient = trpc.createClient({
       fetch(url, options) {
         return fetch(url, {
           ...options,
-          signal: AbortSignal.timeout(5000), // 5 second timeout
+          signal: AbortSignal.timeout(15000), // 15 second timeout for post creation
         });
       },
     }),
