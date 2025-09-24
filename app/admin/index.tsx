@@ -232,6 +232,15 @@ export default function AdminDashboard() {
 
           <TouchableOpacity 
             style={styles.actionCard}
+            onPress={() => router.push('/admin/activity')}
+          >
+            <Activity size={20} color="#06b6d4" />
+            <Text style={styles.actionTitle}>Admin Activity</Text>
+            <Text style={styles.actionSubtitle}>View admin actions and audit log</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
             onPress={() => router.push('/admin/settings')}
           >
             <Settings size={20} color="#6b7280" />

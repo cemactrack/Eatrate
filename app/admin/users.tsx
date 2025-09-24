@@ -24,6 +24,7 @@ import {
 } from 'lucide-react-native';
 import { useAdmin } from '@/providers/AdminProvider';
 import { trpc } from '@/lib/trpc';
+import { useAdminActivityLogger } from '@/hooks/useAdminActivityLogger';
 import Colors from '@/constants/colors';
 
 export default function AdminUsersScreen() {
@@ -31,6 +32,7 @@ export default function AdminUsersScreen() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended' | 'banned'>('all');
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const { hasPermission } = useAdmin();
+  const { logUserAction } = useAdminActivityLogger();
   const router = useRouter();
 
   const usersQuery = trpc.admin.users.list.useQuery({
@@ -40,14 +42,28 @@ export default function AdminUsersScreen() {
   });
 
   const updateUserStatusMutation = trpc.admin.users.updateStatus.useMutation({
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      // Log the admin activity
+      logUserAction(
+        `User ${variables.status}`,
+        variables.userId,
+        `User ${variables.userId}`,
+        variables.reason
+      );
       usersQuery.refetch();
       setSelectedUsers(new Set());
     },
   });
 
   const deleteUserMutation = trpc.admin.users.delete.useMutation({
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      // Log the admin activity
+      logUserAction(
+        'User deleted',
+        variables.userId,
+        `User ${variables.userId}`,
+        variables.reason
+      );
       usersQuery.refetch();
       setSelectedUsers(new Set());
     },

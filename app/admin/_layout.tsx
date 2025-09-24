@@ -94,6 +94,13 @@ export default function AdminLayout() {
           headerShown: true,
         }} 
       />
+      <Stack.Screen 
+        name="activity" 
+        options={{ 
+          title: 'Admin Activity',
+          headerShown: true,
+        }} 
+      />
     </Stack>
   );
 }

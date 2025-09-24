@@ -19,11 +19,15 @@ import { submitClaimProcedure, listClaimsProcedure, adminUpdateClaimProcedure } 
 import { toggleLikeProcedure } from "./routes/posts/like";
 import { 
   getAdminStatsProcedure, 
-  getAdminActivitiesProcedure, 
   getAdminNotificationsProcedure, 
   getSystemHealthProcedure, 
   markNotificationReadProcedure 
 } from "./routes/admin/dashboard";
+import {
+  logAdminActivityProcedure,
+  getAdminActivitiesProcedure,
+  getActivityStatsProcedure,
+} from "./routes/admin/activity";
 import { 
   getAllUsersProcedure, 
   getUserDetailsProcedure, 
@@ -103,10 +107,14 @@ export const appRouter = createTRPCRouter({
   admin: createTRPCRouter({
     dashboard: createTRPCRouter({
       stats: getAdminStatsProcedure,
-      activities: getAdminActivitiesProcedure,
       notifications: getAdminNotificationsProcedure,
       systemHealth: getSystemHealthProcedure,
       markNotificationRead: markNotificationReadProcedure,
+    }),
+    activity: createTRPCRouter({
+      log: logAdminActivityProcedure,
+      list: getAdminActivitiesProcedure,
+      stats: getActivityStatsProcedure,
     }),
     users: createTRPCRouter({
       list: getAllUsersProcedure,
