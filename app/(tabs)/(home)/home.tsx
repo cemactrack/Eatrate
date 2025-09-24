@@ -120,7 +120,7 @@ export default function HomeScreen() {
       const timer = setTimeout(() => setShouldLoadDeferred(true), 2000);
       return () => clearTimeout(timer);
     }
-  }, [shouldLoadPosts]); // Removed shouldLoadDeferred from deps to prevent infinite loop
+  }, [shouldLoadPosts]); // Fixed: removed shouldLoadDeferred to prevent infinite loop
 
   const dishesQuery = trpc.dishes.list.useQuery(undefined, { 
     staleTime: 1000 * 60 * 45, // Increased to 45 minutes for deferred data
