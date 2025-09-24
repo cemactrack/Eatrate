@@ -143,6 +143,7 @@ function HomeScreenContent() {
     if (shouldLoadPosts && !shouldLoadDeferred && !deferredTimerRef.current) {
       deferredTimerRef.current = setTimeout(() => {
         setShouldLoadDeferred(true);
+        deferredTimerRef.current = null;
       }, 2000);
     }
     
@@ -152,7 +153,7 @@ function HomeScreenContent() {
         deferredTimerRef.current = null;
       }
     };
-  }, [shouldLoadPosts, shouldLoadDeferred]); // Fixed dependency array
+  }, [shouldLoadPosts, shouldLoadDeferred]); // Fixed: properly handle dependencies
 
   // eslint-disable-next-line @rork/linters/rsp-react-query-object-api-only
   const dishesQuery = trpc.dishes.list.useQuery(undefined, { 

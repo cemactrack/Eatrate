@@ -98,6 +98,14 @@ function RootLayoutNav() {
         headerTitleStyle: { fontWeight: '700' },
         headerBackTitle: "Back"
       }} />
+      <Stack.Screen name="posts/feed" options={{ 
+        title: "Feed",
+        headerShown: false
+      }} />
+      <Stack.Screen name="posts/[postId]" options={{ 
+        title: "Post",
+        headerShown: false
+      }} />
     </Stack>
   );
 }

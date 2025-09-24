@@ -29,70 +29,76 @@ export const createPostProcedure = protectedProcedure
     isDraft: z.boolean().default(false),
   }))
   .mutation(async ({ input, ctx }) => {
+    const startTime = Date.now();
     console.log('[tRPC] Creating post:', { textLength: input.text.length, imagesCount: input.images?.length || 0 });
     
-    // Validate input
-    if (!input.text?.trim() && (!input.images || input.images.length === 0)) {
-      throw new Error('Post must contain text or images');
-    }
-    
-    // Validate ratings
-    const { food, service, ambiance, cleanliness } = input.ratings;
-    if ([food, service, ambiance, cleanliness].some(rating => rating < 1 || rating > 5)) {
-      throw new Error('All ratings must be between 1 and 5');
-    }
-    
-    const postId = String(postIdCounter++);
-    const now = new Date().toISOString();
-    
-    const post = {
-      id: postId,
-      userId: ctx.user?.id || 'anonymous',
-      user: {
-        id: ctx.user?.id || 'anonymous',
-        username: `user_${ctx.user?.id || 'anonymous'}`,
-        displayName: `User ${ctx.user?.id || 'Anonymous'}`,
-        avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=200&h=200&fit=crop',
-        bio: 'Food enthusiast',
-        followersCount: 0,
-        followingCount: 0,
-        postsCount: 1,
-        badges: [],
-        preferences: { cuisines: [], dietaryRestrictions: [], priceRange: [] },
-      },
-      type: input.category,
-      content: {
-        text: input.text,
-        images: input.images || [],
-        videos: input.videos || [],
-      },
-      restaurant: input.restaurantId ? {
-        id: input.restaurantId,
-        name: 'Selected Restaurant',
-        location: 'Location',
-      } : undefined,
-      ratings: {
-        ...input.ratings,
-        overall: Math.round((input.ratings.food * 0.4 + input.ratings.service * 0.3 + input.ratings.ambiance * 0.2 + input.ratings.cleanliness * 0.1) * 10) / 10,
-      },
-      tags: input.tags || [],
-      location: input.location,
-      likesCount: 0,
-      commentsCount: 0,
-      sharesCount: 0,
-      viewsCount: 0,
-      isLiked: false,
-      isBookmarked: false,
-      createdAt: now,
-      updatedAt: now,
-      scheduledFor: input.scheduledFor,
-      isDraft: input.isDraft,
-      status: input.isDraft ? 'draft' : (input.scheduledFor ? 'scheduled' : 'published'),
-    };
-    
     try {
+      // Validate input
+      if (!input.text?.trim() && (!input.images || input.images.length === 0)) {
+        throw new Error('Post must contain text or images');
+      }
+      
+      // Validate ratings
+      const { food, service, ambiance, cleanliness } = input.ratings;
+      if ([food, service, ambiance, cleanliness].some(rating => rating < 1 || rating > 5)) {
+        throw new Error('All ratings must be between 1 and 5');
+      }
+      
+      const postId = String(postIdCounter++);
+      const now = new Date().toISOString();
+      
+      const post = {
+        id: postId,
+        userId: ctx.user?.id || 'anonymous',
+        user: {
+          id: ctx.user?.id || 'anonymous',
+          username: `user_${ctx.user?.id || 'anonymous'}`,
+          displayName: `User ${ctx.user?.id || 'Anonymous'}`,
+          avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=200&h=200&fit=crop',
+          bio: 'Food enthusiast',
+          followersCount: 0,
+          followingCount: 0,
+          postsCount: 1,
+          badges: [],
+          preferences: { cuisines: [], dietaryRestrictions: [], priceRange: [] },
+        },
+        type: input.category,
+        content: {
+          text: input.text,
+          images: input.images || [],
+          videos: input.videos || [],
+        },
+        restaurant: input.restaurantId ? {
+          id: input.restaurantId,
+          name: 'Selected Restaurant',
+          location: 'Location',
+        } : undefined,
+        ratings: {
+          ...input.ratings,
+          overall: Math.round((input.ratings.food * 0.4 + input.ratings.service * 0.3 + input.ratings.ambiance * 0.2 + input.ratings.cleanliness * 0.1) * 10) / 10,
+        },
+        tags: input.tags || [],
+        location: input.location,
+        likesCount: 0,
+        commentsCount: 0,
+        sharesCount: 0,
+        viewsCount: 0,
+        isLiked: false,
+        isBookmarked: false,
+        createdAt: now,
+        updatedAt: now,
+        scheduledFor: input.scheduledFor,
+        isDraft: input.isDraft,
+        status: input.isDraft ? 'draft' : (input.scheduledFor ? 'scheduled' : 'published'),
+      };
+      
+      // Simulate processing time but keep it fast
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       postsStorage.set(postId, post);
-      console.log('[tRPC] Post created successfully:', postId);
+      
+      const processingTime = Date.now() - startTime;
+      console.log('[tRPC] Post created successfully:', postId, `(${processingTime}ms)`);
       
       return { 
         id: postId, 
@@ -101,7 +107,8 @@ export const createPostProcedure = protectedProcedure
         post: post // Return the created post for immediate UI updates
       };
     } catch (error) {
-      console.error('[tRPC] Failed to save post:', error);
+      const processingTime = Date.now() - startTime;
+      console.error('[tRPC] Failed to save post:', error, `(${processingTime}ms)`);
       throw new Error('Failed to save post. Please try again.');
     }
   });
