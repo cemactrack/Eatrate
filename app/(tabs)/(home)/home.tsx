@@ -149,7 +149,7 @@ function HomeScreenContent() {
         deferredTimerRef.current = null;
       }
     };
-  }, [shouldLoadPosts, shouldLoadDeferred]);
+  }, [shouldLoadPosts]); // Remove shouldLoadDeferred from dependencies to prevent infinite loop
 
   // eslint-disable-next-line @rork/linters/rsp-react-query-object-api-only
   const dishesQuery = trpc.dishes.list.useQuery(undefined, { 
@@ -183,12 +183,12 @@ function HomeScreenContent() {
 
 
   
-  const trendingDishes: Dish[] = useMemo(() => {
+  const trendingDishes = useMemo(() => {
     const list = dishesData?.dishes ?? [];
     return list.slice(0, 10) as Dish[];
   }, [dishesData?.dishes]);
 
-  const topFoodies: User[] = useMemo(() => {
+  const topFoodies = useMemo(() => {
     const list = usersData?.users ?? [];
     return list.slice(0, 10) as User[];
   }, [usersData?.users]);
@@ -261,8 +261,10 @@ function HomeScreenContent() {
       }
     },
     onSettled: () => {
-      // Invalidate to ensure consistency
-      utils.posts.feed.invalidate({ type: 'recent', limit: 10 }).catch(console.error);
+      // Use Promise.allSettled to prevent unhandled promise rejections
+      Promise.allSettled([
+        utils.posts.feed.invalidate({ type: 'recent', limit: 10 })
+      ]).catch(console.error);
     }
   });
 
@@ -300,11 +302,17 @@ function HomeScreenContent() {
 
   const handleRefreshFeed = useCallback(async () => {
     try {
-      await Promise.allSettled([
+      const results = await Promise.allSettled([
         restaurantsQuery.refetch(),
         refetchPosts()
       ]);
-      console.log('[Home] Feed refreshed successfully');
+      
+      const failedResults = results.filter(result => result.status === 'rejected');
+      if (failedResults.length > 0) {
+        console.warn('[Home] Some refresh operations failed:', failedResults);
+      } else {
+        console.log('[Home] Feed refreshed successfully');
+      }
     } catch (error) {
       console.error('[Home] Failed to refresh feed:', error);
     }
@@ -331,7 +339,11 @@ function HomeScreenContent() {
 
   // Only show loading for critical data
   if (isLoadingRestaurants && isLoadingYaounde) {
-    return <LoadingSpinner text="Loading restaurants..." showGradient />;
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <LoadingSpinner text="Loading restaurants..." showGradient />
+      </View>
+    );
   }
 
   return (

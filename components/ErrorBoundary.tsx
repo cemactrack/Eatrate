@@ -19,11 +19,48 @@ export default class ErrorBoundary extends React.Component<React.PropsWithChildr
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('[ErrorBoundary] Caught error', error);
     console.error('[ErrorBoundary] Error info', errorInfo);
+    
+    // Log specific error types for debugging
+    if (error.message.includes('Maximum update depth exceeded')) {
+      console.error('[ErrorBoundary] Infinite re-render detected. Check useEffect dependencies and state updates.');
+    }
+    
+    if (error.message.includes('timeout') || error.message.includes('signal timed out')) {
+      console.error('[ErrorBoundary] Network timeout detected. Check network connection and API endpoints.');
+    }
+    
+    if (error.message.includes('Cannot update a component while rendering')) {
+      console.error('[ErrorBoundary] State update during render detected. Check for setState calls in render methods.');
+    }
+    
     this.setState({ errorInfo });
   }
 
   handleRetry = () => {
     this.setState({ hasError: false, error: null, errorInfo: null });
+  };
+  
+  getErrorMessage = () => {
+    const error = this.state.error;
+    if (!error) return "We encountered an unexpected error. Don't worry, it's not your fault.";
+    
+    if (error.message.includes('timeout') || error.message.includes('signal timed out')) {
+      return 'Connection timeout. Please check your internet connection and try again.';
+    }
+    
+    if (error.message.includes('Maximum update depth exceeded')) {
+      return 'The app encountered a rendering issue. Please try refreshing.';
+    }
+    
+    if (error.message.includes('network') || error.message.includes('fetch')) {
+      return 'Unable to connect to the server. Please check your internet connection.';
+    }
+    
+    if (error.message.includes('Cannot update a component')) {
+      return 'The app encountered a state management issue. Please try again.';
+    }
+    
+    return "We encountered an unexpected error. Don't worry, it's not your fault.";
   };
 
   render() {
@@ -35,7 +72,7 @@ export default class ErrorBoundary extends React.Component<React.PropsWithChildr
           </View>
           <Text style={styles.title}>Oops! Something went wrong</Text>
           <Text style={styles.message}>
-            We encountered an unexpected error. Don&apos;t worry, it&apos;s not your fault.
+            {this.getErrorMessage()}
           </Text>
           
           {__DEV__ && this.state.error && (

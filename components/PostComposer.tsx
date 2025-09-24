@@ -129,8 +129,10 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
       console.log('[PostComposer] Post created successfully:', data);
       
       // Invalidate relevant queries to refresh feed
-      utils.posts.feed.invalidate().catch(console.error);
-      utils.posts.list.invalidate().catch(console.error);
+      Promise.allSettled([
+        utils.posts.feed.invalidate(),
+        utils.posts.list.invalidate()
+      ]).catch(console.error);
       
       setToast({
         visible: true,
@@ -150,14 +152,17 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
       setRatingMode('quick');
       
       // Close modal and navigate to feed after a short delay
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         if (onClose) {
           onClose();
         } else {
-          router.back(); // Close the modal
+          router.back();
         }
         router.push('/posts/feed');
       }, 1500);
+      
+      // Cleanup timeout on unmount
+      return () => clearTimeout(timeoutId);
     },
     onError: (error: any) => {
       console.error('[PostComposer] Post failed:', error);
@@ -180,6 +185,10 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
         title, 
         message
       });
+    },
+    // Add timeout configuration
+    meta: {
+      timeout: 30000, // 30 seconds timeout
     }
   });
 
@@ -302,13 +311,20 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
         .map((t) => t.trim())
         .filter(Boolean);
       
-      await createPost.mutateAsync({
+      // Add timeout to the mutation call
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout')), 25000);
+      });
+      
+      const mutationPromise = createPost.mutateAsync({
         text: postText.trim(),
         restaurantId: selectedRestaurant?.id,
         images: selectedImages,
         ratings: finalRatings,
         tags: tagList,
       });
+      
+      await Promise.race([mutationPromise, timeoutPromise]);
     } catch (e: any) {
       console.error('[PostComposer] Post submission error:', e);
       // Error handling is now done in the mutation's onError callback

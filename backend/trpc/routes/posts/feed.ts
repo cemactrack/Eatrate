@@ -10,9 +10,17 @@ export const getPostFeedProcedure = publicProcedure
     cursor: z.string().optional(),
   }))
   .query(async ({ input }) => {
+    // Add artificial delay to simulate network latency
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     const offset = input.cursor ? parseInt(input.cursor) : 0;
+    
+    // Ensure we don't exceed reasonable limits
+    const maxPosts = 1000;
+    const actualLimit = Math.min(input.limit, 50);
+    
     // Mock feed data
-    const mockPosts = Array.from({ length: input.limit }, (_, i) => {
+    const mockPosts = Array.from({ length: actualLimit }, (_, i) => {
       const postId = offset + i + 1;
       return {
         id: String(postId),
@@ -75,12 +83,13 @@ export const getPostFeedProcedure = publicProcedure
       };
     });
 
-    const nextCursor = offset + input.limit < 1000 ? String(offset + input.limit) : undefined;
+    const hasMore = offset + actualLimit < maxPosts;
+    const nextCursor = hasMore ? String(offset + actualLimit) : undefined;
     
     return {
       posts: mockPosts,
-      total: 1000, // Mock total
-      hasMore: offset + input.limit < 1000,
+      total: maxPosts,
+      hasMore,
       nextCursor,
       type: input.type,
       category: input.category,
