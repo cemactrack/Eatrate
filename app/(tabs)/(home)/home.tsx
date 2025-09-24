@@ -10,7 +10,7 @@ import {
   Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Award, MapPin, Users, Flame, Plus, UserPlus, Heart, MessageSquare } from 'lucide-react-native';
+import { Award, MapPin, Users, Flame, Plus, UserPlus, Heart, MessageSquare, Shield } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -22,6 +22,8 @@ import DishCard from '@/components/DishCard';
 import SearchBar from '@/components/SearchBar';
 import Colors, { gradients } from '@/constants/colors';
 import PostComposer from '@/components/PostComposer';
+import { useAuth } from '@/providers/AuthProvider';
+import { useAdmin } from '@/providers/AdminProvider';
 
 interface TrendingPostProps {
   post: Post;
@@ -77,6 +79,8 @@ const TrendingPost = React.memo(function TrendingPost({ post, onPress, onLike, o
 });
 
 export default function HomeScreen() {
+  const { user } = useAuth();
+  const { isAdmin, unreadCount } = useAdmin();
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showComposer, setShowComposer] = useState<boolean>(false);
   const insets = useSafeAreaInsets();
@@ -235,8 +239,23 @@ export default function HomeScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         <LinearGradient colors={gradients.primary} style={styles.header}>
           <View style={styles.headerContent}>
-            <Text style={styles.greeting}>Good evening!</Text>
-            <Text style={styles.title}>What are you craving?</Text>
+            <View style={styles.headerTop}>
+              <View style={styles.headerLeft}>
+                <Text style={styles.greeting}>Good evening, {user?.displayName || 'User'}!</Text>
+                <Text style={styles.title}>What are you craving?</Text>
+              </View>
+              {isAdmin && (
+                <TouchableOpacity onPress={() => router.push('/admin')} style={styles.adminButton}>
+                  <Shield size={20} color="white" />
+                  <Text style={styles.adminButtonText}>Admin</Text>
+                  {unreadCount > 0 && (
+                    <View style={styles.adminBadge}>
+                      <Text style={styles.adminBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </LinearGradient>
 
@@ -456,6 +475,48 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     marginTop: 8,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  adminButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  adminButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  adminBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: '#ef4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+  adminBadgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: '700',
   },
   greeting: {
     fontSize: 16,

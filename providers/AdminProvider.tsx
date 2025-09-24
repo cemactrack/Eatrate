@@ -2,15 +2,21 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import createContextHook from '@nkzw/create-context-hook';
 import { Alert } from 'react-native';
 import { useStorage } from '@/providers/StorageProvider';
-import type { AdminUser, AdminPermission } from '@/types/admin';
+import { trpc } from '@/lib/trpc';
+import type { AdminUser, AdminNotification } from '@/types/admin';
 
 interface AdminContextValue {
   adminUser: AdminUser | null;
   isLoading: boolean;
   isAdmin: boolean;
+  notifications: AdminNotification[];
+  unreadCount: number;
   hasPermission: (permission: string) => boolean;
   loginAsAdmin: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  markNotificationRead: (notificationId: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
+  refreshNotifications: () => void;
 }
 
 const ADMIN_KEY = 'eatrate_admin_user_v1';
@@ -50,7 +56,21 @@ const MOCK_ADMIN_USERS: AdminUser[] = [
 export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(() => {
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const storage = useStorage();
+
+  // Admin notifications query
+  const notificationsQuery = trpc.admin.dashboard.notifications.useQuery(undefined, {
+    enabled: !!adminUser,
+    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  const markNotificationMutation = trpc.admin.dashboard.markNotificationRead.useMutation({
+    onSuccess: () => {
+      notificationsQuery.refetch();
+    },
+  });
 
   const persist = useCallback(async (admin: AdminUser | null) => {
     if (!admin) {
@@ -100,6 +120,37 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
 
   const isAdmin = useMemo(() => adminUser !== null, [adminUser]);
 
+  const unreadCount = useMemo(() => {
+    return notifications.filter(n => !n.isRead).length;
+  }, [notifications]);
+
+  const markNotificationRead = useCallback(async (notificationId: string) => {
+    try {
+      await markNotificationMutation.mutateAsync({ notificationId });
+      setNotifications(prev => 
+        prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
+      );
+    } catch (error) {
+      console.error('[AdminProvider] Failed to mark notification as read:', error);
+    }
+  }, [markNotificationMutation]);
+
+  const markAllNotificationsRead = useCallback(async () => {
+    try {
+      const unreadIds = notifications.filter(n => !n.isRead).map(n => n.id);
+      await Promise.all(
+        unreadIds.map(id => markNotificationMutation.mutateAsync({ notificationId: id }))
+      );
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    } catch (error) {
+      console.error('[AdminProvider] Failed to mark all notifications as read:', error);
+    }
+  }, [notifications, markNotificationMutation]);
+
+  const refreshNotifications = useCallback(() => {
+    notificationsQuery.refetch();
+  }, [notificationsQuery]);
+
   useEffect(() => {
     let isMounted = true;
     
@@ -128,12 +179,56 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
     };
   }, [storage]);
 
+  // Update notifications when query data changes
+  useEffect(() => {
+    if (notificationsQuery.data) {
+      // Map admin notifications to local format for compatibility
+      const mappedNotifications = notificationsQuery.data.map((notification: any) => ({
+        ...notification,
+        type: mapNotificationType(notification.type),
+      }));
+      setNotifications(mappedNotifications);
+    }
+  }, [notificationsQuery.data]);
+
+  // Helper function to map notification types
+  const mapNotificationType = (type: string): 'info' | 'warning' | 'error' | 'success' => {
+    switch (type) {
+      case 'system':
+      case 'user_activity':
+        return 'info';
+      case 'report':
+        return 'warning';
+      case 'claim':
+        return 'success';
+      default:
+        return 'info';
+    }
+  };
+
   return useMemo(() => ({
     adminUser,
     isLoading,
     isAdmin,
+    notifications,
+    unreadCount,
     hasPermission,
     loginAsAdmin,
     logout,
-  }), [adminUser, isLoading, isAdmin, hasPermission, loginAsAdmin, logout]);
+    markNotificationRead,
+    markAllNotificationsRead,
+    refreshNotifications,
+  }), [
+    adminUser, 
+    isLoading, 
+    isAdmin, 
+    notifications, 
+    unreadCount, 
+    hasPermission, 
+    loginAsAdmin, 
+    logout,
+    markNotificationRead,
+    markAllNotificationsRead,
+    refreshNotifications,
+  ]);
 });
