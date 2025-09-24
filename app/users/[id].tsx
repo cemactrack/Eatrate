@@ -25,7 +25,14 @@ export default function OtherUserProfileScreen() {
   }, [usersQuery.data?.users, userId]);
 
   const [following, setFollowing] = useState<boolean>(false);
-  const [followersCount, setFollowersCount] = useState<number>(user?.followersCount ?? 0);
+  const [followersCount, setFollowersCount] = useState<number>(0);
+
+  // Initialize followers count when user data loads
+  React.useEffect(() => {
+    if (user?.followersCount !== undefined) {
+      setFollowersCount(user.followersCount);
+    }
+  }, [user?.followersCount]);
 
   const followMutation = trpc.users.follow.useMutation({
     onSuccess: (res) => {
