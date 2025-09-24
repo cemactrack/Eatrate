@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
 
@@ -34,9 +34,9 @@ export const [StorageProvider, useStorage] = createContextHook<StorageContextVal
     }
   }, []);
 
-  return {
+  return useMemo(() => ({
     getItem,
     setItem,
     removeItem,
-  };
+  }), [getItem, setItem, removeItem]);
 });

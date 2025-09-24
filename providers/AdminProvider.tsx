@@ -21,6 +21,21 @@ interface AdminContextValue {
 
 const ADMIN_KEY = 'eatrate_admin_user_v1';
 
+// Helper function to map notification types - moved outside component to prevent re-creation
+const mapNotificationType = (type: string): 'info' | 'warning' | 'error' | 'success' => {
+  switch (type) {
+    case 'system':
+    case 'user_activity':
+      return 'info';
+    case 'report':
+      return 'warning';
+    case 'claim':
+      return 'success';
+    default:
+      return 'info';
+  }
+};
+
 const MOCK_ADMIN_USERS: AdminUser[] = [
   {
     id: 'admin_1',
@@ -59,33 +74,19 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const storage = useStorage();
 
-  // Helper function to map notification types
-  const mapNotificationType = (type: string): 'info' | 'warning' | 'error' | 'success' => {
-    switch (type) {
-      case 'system':
-      case 'user_activity':
-        return 'info';
-      case 'report':
-        return 'warning';
-      case 'claim':
-        return 'success';
-      default:
-        return 'info';
-    }
-  };
-
-  // Admin notifications query
+  // Admin notifications query - always call hooks, use enabled to control execution
   const notificationsQuery = trpc.admin.dashboard.notifications.useQuery(undefined, {
     enabled: !!adminUser,
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: false, // Disable automatic refetching to prevent infinite loops
     staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   });
 
   const markNotificationMutation = trpc.admin.dashboard.markNotificationRead.useMutation({
     onSuccess: () => {
-      if (notificationsQuery.refetch) {
-        notificationsQuery.refetch();
-      }
+      notificationsQuery.refetch();
     },
   });
 
@@ -147,7 +148,7 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
       setNotifications(prev => 
         prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
       );
-    } catch (error) {
+    } catch {
       // Silently handle notification errors to prevent UI disruption
     }
   }, [markNotificationMutation]);
@@ -159,16 +160,14 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
         unreadIds.map(id => markNotificationMutation.mutateAsync({ notificationId: id }))
       );
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-    } catch (error) {
+    } catch {
       // Silently handle bulk notification errors to prevent UI disruption
     }
   }, [notifications, markNotificationMutation]);
 
   const refreshNotifications = useCallback(() => {
-    if (notificationsQuery.refetch) {
-      notificationsQuery.refetch();
-    }
-  }, [notificationsQuery.refetch]);
+    notificationsQuery.refetch();
+  }, [notificationsQuery]);
 
   useEffect(() => {
     let isMounted = true;
@@ -182,7 +181,7 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
             setAdminUser(parsed);
           }
         }
-      } catch (e) {
+      } catch {
         // Silently handle storage load errors
       } finally {
         if (isMounted) {
@@ -206,7 +205,14 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
         ...notification,
         type: mapNotificationType(notification.type),
       }));
-      setNotifications(mappedNotifications);
+      
+      // Only update if the data has actually changed to prevent infinite re-renders
+      setNotifications(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(mappedNotifications)) {
+          return prev;
+        }
+        return mappedNotifications;
+      });
     }
   }, [notificationsQuery.data]);
 

@@ -111,7 +111,9 @@ function HomeScreenContent() {
   const { data: yaoundeData, isLoading: isLoadingYaounde } = yaoundeQuery;
 
   // Load posts using infinite query for better performance
-  const shouldLoadPosts = !isLoadingRestaurants && !isLoadingYaounde;
+  const shouldLoadPosts = useMemo(() => {
+    return !isLoadingRestaurants && !isLoadingYaounde;
+  }, [isLoadingRestaurants, isLoadingYaounde]);
   
   const {
     data: postsData,
