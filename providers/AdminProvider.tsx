@@ -84,14 +84,7 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
     refetchOnReconnect: false,
   });
 
-  const markNotificationMutation = trpc.admin.dashboard.markNotificationRead.useMutation({
-    onSuccess: () => {
-      // Use setTimeout to prevent immediate re-render during mutation
-      setTimeout(() => {
-        notificationsQuery.refetch();
-      }, 0);
-    },
-  });
+  const markNotificationMutation = trpc.admin.dashboard.markNotificationRead.useMutation();
 
   const persist = useCallback(async (admin: AdminUser | null) => {
     if (!admin) {
@@ -147,32 +140,47 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
 
   const markNotificationRead = useCallback(async (notificationId: string) => {
     try {
-      await markNotificationMutation.mutateAsync({ notificationId });
+      // Optimistically update UI first
       setNotifications(prev => 
         prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
       );
-    } catch {
-      // Silently handle notification errors to prevent UI disruption
+      
+      await markNotificationMutation.mutateAsync({ notificationId });
+    } catch (error) {
+      // Revert optimistic update on error
+      setNotifications(prev => 
+        prev.map(n => n.id === notificationId ? { ...n, isRead: false } : n)
+      );
+      console.error('[AdminProvider] Failed to mark notification as read:', error);
     }
   }, [markNotificationMutation]);
 
   const markAllNotificationsRead = useCallback(async () => {
     try {
       const unreadIds = notifications.filter(n => !n.isRead).map(n => n.id);
+      if (unreadIds.length === 0) return;
+      
+      // Optimistically update UI first
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      
       await Promise.all(
         unreadIds.map(id => markNotificationMutation.mutateAsync({ notificationId: id }))
       );
-      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-    } catch {
-      // Silently handle bulk notification errors to prevent UI disruption
+    } catch (error) {
+      // Revert optimistic update on error
+      setNotifications(prev => prev.map(n => {
+        const wasUnread = notifications.find(orig => orig.id === n.id && !orig.isRead);
+        return wasUnread ? { ...n, isRead: false } : n;
+      }));
+      console.error('[AdminProvider] Failed to mark all notifications as read:', error);
     }
   }, [notifications, markNotificationMutation]);
 
   const refreshNotifications = useCallback(() => {
-    if (adminUser) {
+    if (adminUser && notificationsQuery.refetch) {
       notificationsQuery.refetch();
     }
-  }, [notificationsQuery, adminUser]);
+  }, [adminUser, notificationsQuery.refetch]); // Use refetch function directly
 
   useEffect(() => {
     let isMounted = true;
@@ -204,35 +212,31 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
 
   // Update notifications when query data changes
   useEffect(() => {
-    if (notificationsQuery.data) {
+    if (notificationsQuery.data && Array.isArray(notificationsQuery.data)) {
       // Map admin notifications to local format for compatibility
       const mappedNotifications = notificationsQuery.data.map((notification: any) => ({
         ...notification,
         type: mapNotificationType(notification.type),
       }));
       
-      // Only update if the data has actually changed to prevent infinite re-renders
+      // Create a stable comparison key to prevent unnecessary updates
+      const newDataKey = mappedNotifications.map(n => `${n.id}-${n.isRead}`).join(',');
+      
       setNotifications(prev => {
-        // Use a more efficient comparison to prevent unnecessary re-renders
-        const prevIds = prev.map(n => n.id).sort().join(',');
-        const newIds = mappedNotifications.map((n: any) => n.id).sort().join(',');
+        const prevDataKey = prev.map(n => `${n.id}-${n.isRead}`).join(',');
         
-        if (prevIds === newIds && prev.length === mappedNotifications.length) {
-          // Check if read status has changed
-          const hasReadStatusChanged = prev.some((prevNotif, index) => {
-            const newNotif = mappedNotifications.find((n: any) => n.id === prevNotif.id);
-            return newNotif && prevNotif.isRead !== newNotif.isRead;
-          });
-          
-          if (!hasReadStatusChanged) {
-            return prev;
-          }
+        // Only update if the data has actually changed
+        if (prevDataKey !== newDataKey) {
+          return mappedNotifications;
         }
         
-        return mappedNotifications;
+        return prev;
       });
+    } else if (!notificationsQuery.data) {
+      // Clear notifications if no data (but only if we currently have notifications)
+      setNotifications(prev => prev.length > 0 ? [] : prev);
     }
-  }, [notificationsQuery.data]);
+  }, [notificationsQuery.data]); // Remove notifications.length from deps
 
 
 
