@@ -234,78 +234,87 @@ export default function PostFeedScreen() {
   const utils = trpc.useUtils();
   
   const likeMutation = trpc.posts.like.useMutation({
-    onMutate: useCallback(async ({ postId }: { postId: string }) => {
+    onMutate: async ({ postId }: { postId: string }) => {
       // Cancel outgoing refetches
       await utils.posts.feed.cancel({ type: feedType, limit: 20 });
       
       // Snapshot the previous value
-      const previousFeed = utils.posts.feed.getData({ type: feedType, limit: 20 });
+      const previousFeed = utils.posts.feed.getInfiniteData({ type: feedType, limit: 20 });
       
       // Optimistically update
-      utils.posts.feed.setData({ type: feedType, limit: 20 }, (old) => {
+      utils.posts.feed.setInfiniteData({ type: feedType, limit: 20 }, (old) => {
         if (!old) return old;
         return {
           ...old,
-          posts: old.posts.map(post => 
-            post.id === postId 
-              ? { 
-                  ...post, 
-                  isLiked: !post.isLiked, 
-                  likesCount: post.isLiked ? post.likesCount - 1 : post.likesCount + 1 
-                }
-              : post
-          )
+          pages: old.pages.map(page => ({
+            ...page,
+            posts: page.posts.map(post => 
+              post.id === postId 
+                ? { 
+                    ...post, 
+                    isLiked: !post.isLiked, 
+                    likesCount: post.isLiked ? post.likesCount - 1 : post.likesCount + 1 
+                  }
+                : post
+            )
+          }))
         };
       });
       
       return { previousFeed };
-    }, [utils.posts.feed, feedType]),
-    onError: useCallback((err: any, variables: any, context: any) => {
+    },
+    onError: (err: any, variables: any, context: any) => {
+      console.error('[Feed] Like error:', err);
       // Rollback on error
       if (context?.previousFeed) {
-        utils.posts.feed.setData({ type: feedType, limit: 20 }, context.previousFeed);
+        utils.posts.feed.setInfiniteData({ type: feedType, limit: 20 }, context.previousFeed);
       }
-    }, [utils.posts.feed, feedType]),
-    onSettled: useCallback(() => {
+    },
+    onSettled: () => {
       // Invalidate to ensure consistency
       utils.posts.feed.invalidate({ type: feedType, limit: 20 });
-    }, [utils.posts.feed, feedType])
+    }
   });
   
   const bookmarkMutation = trpc.posts.bookmark.useMutation({
-    onMutate: useCallback(async ({ postId }: { postId: string }) => {
+    onMutate: async ({ postId }: { postId: string }) => {
       await utils.posts.feed.cancel({ type: feedType, limit: 20 });
-      const previousFeed = utils.posts.feed.getData({ type: feedType, limit: 20 });
+      const previousFeed = utils.posts.feed.getInfiniteData({ type: feedType, limit: 20 });
       
-      utils.posts.feed.setData({ type: feedType, limit: 20 }, (old) => {
+      utils.posts.feed.setInfiniteData({ type: feedType, limit: 20 }, (old) => {
         if (!old) return old;
         return {
           ...old,
-          posts: old.posts.map(post => 
-            post.id === postId 
-              ? { ...post, isBookmarked: !post.isBookmarked }
-              : post
-          )
+          pages: old.pages.map(page => ({
+            ...page,
+            posts: page.posts.map(post => 
+              post.id === postId 
+                ? { ...post, isBookmarked: !post.isBookmarked }
+                : post
+            )
+          }))
         };
       });
       
       return { previousFeed };
-    }, [utils.posts.feed, feedType]),
-    onError: useCallback((err: any, variables: any, context: any) => {
+    },
+    onError: (err: any, variables: any, context: any) => {
       console.error('Bookmark error:', err);
       if (context?.previousFeed) {
-        utils.posts.feed.setData({ type: feedType, limit: 20 }, context.previousFeed);
+        utils.posts.feed.setInfiniteData({ type: feedType, limit: 20 }, context.previousFeed);
       }
-    }, [utils.posts.feed, feedType]),
-    onSettled: useCallback(() => {
+    },
+    onSettled: () => {
       utils.posts.feed.invalidate({ type: feedType, limit: 20 });
-    }, [utils.posts.feed, feedType])
+    }
   });
   
   const shareMutation = trpc.posts.share.useMutation();
   const recordViewMutation = trpc.posts.recordView.useMutation();
 
   const handleLike = useCallback(async (postId: string) => {
+    if (likeMutation.isPending) return;
+    
     try {
       await likeMutation.mutateAsync({ postId });
     } catch (error) {
@@ -327,6 +336,8 @@ export default function PostFeedScreen() {
   }, [shareMutation]);
 
   const handleBookmark = useCallback(async (postId: string) => {
+    if (bookmarkMutation.isPending) return;
+    
     try {
       await bookmarkMutation.mutateAsync({ postId });
     } catch (error) {

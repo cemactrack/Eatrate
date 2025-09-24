@@ -161,12 +161,17 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
     },
     onError: (error: any) => {
       console.error('[PostComposer] Post failed:', error);
+      const errorMessage = error?.message || 'Failed to create post. Please try again.';
       setToast({ 
         visible: true, 
         type: 'error', 
         title: 'Post failed', 
-        message: error.message || 'Network timeout. Please check your connection and try again.' 
+        message: errorMessage.includes('timeout') ? 'Network timeout. Please check your connection and try again.' : errorMessage
       });
+    },
+    // Add timeout configuration
+    meta: {
+      timeout: 30000, // 30 seconds timeout
     }
   });
 
@@ -288,15 +293,32 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean);
-      await createPost.mutateAsync({
-        text: postText.trim(),
-        restaurantId: selectedRestaurant?.id,
-        images: selectedImages,
-        ratings: finalRatings,
-        tags: tagList,
+      
+      // Add timeout to the mutation call
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout')), 25000); // 25 second timeout
       });
-    } catch (e) {
+      
+      await Promise.race([
+        createPost.mutateAsync({
+          text: postText.trim(),
+          restaurantId: selectedRestaurant?.id,
+          images: selectedImages,
+          ratings: finalRatings,
+          tags: tagList,
+        }),
+        timeoutPromise
+      ]);
+    } catch (e: any) {
       console.error('[PostComposer] Post submission error:', e);
+      if (e.message === 'Request timeout') {
+        setToast({ 
+          visible: true, 
+          type: 'error', 
+          title: 'Request Timeout', 
+          message: 'The request took too long. Please check your connection and try again.' 
+        });
+      }
     } finally {
       setIsPosting(false);
     }

@@ -3,12 +3,14 @@ import { protectedProcedure } from "@/backend/trpc/create-context";
 
 const postsStorage = new Map<string, any>();
 let postIdCounter = 1000;
+const MAX_POST_TEXT_LENGTH = 500;
+const MAX_IMAGES_COUNT = 5;
 
 export const createPostProcedure = protectedProcedure
   .input(z.object({
-    text: z.string().min(1).max(500),
+    text: z.string().min(1).max(MAX_POST_TEXT_LENGTH),
     restaurantId: z.string().optional(),
-    images: z.array(z.string()).optional(),
+    images: z.array(z.string()).max(MAX_IMAGES_COUNT).optional(),
     videos: z.array(z.string()).optional(),
     ratings: z.object({
       food: z.number().min(1).max(5),
@@ -27,73 +29,76 @@ export const createPostProcedure = protectedProcedure
     isDraft: z.boolean().default(false),
   }))
   .mutation(async ({ input, ctx }) => {
-    try {
-      console.log('[tRPC] Creating post:', { textLength: input.text.length, imagesCount: input.images?.length || 0 });
-      
-      // Simulate processing time but keep it under timeout
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      const postId = String(postIdCounter++);
-      const now = new Date().toISOString();
-      
-      const post = {
-        id: postId,
-        userId: ctx.user?.id || 'anonymous',
-        user: {
-          id: ctx.user?.id || 'anonymous',
-          username: `user_${ctx.user?.id || 'anonymous'}`,
-          displayName: `User ${ctx.user?.id || 'Anonymous'}`,
-          avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=200&h=200&fit=crop',
-          bio: 'Food enthusiast',
-          followersCount: 0,
-          followingCount: 0,
-          postsCount: 1,
-          badges: [],
-          preferences: { cuisines: [], dietaryRestrictions: [], priceRange: [] },
-        },
-        type: input.category,
-        content: {
-          text: input.text,
-          images: input.images || [],
-          videos: input.videos || [],
-        },
-        restaurant: input.restaurantId ? {
-          id: input.restaurantId,
-          name: 'Selected Restaurant',
-          location: 'Location',
-        } : undefined,
-        ratings: {
-          ...input.ratings,
-          overall: Math.round((input.ratings.food * 0.4 + input.ratings.service * 0.3 + input.ratings.ambiance * 0.2 + input.ratings.cleanliness * 0.1) * 10) / 10,
-        },
-        tags: input.tags || [],
-        location: input.location,
-        likesCount: 0,
-        commentsCount: 0,
-        sharesCount: 0,
-        viewsCount: 0,
-        isLiked: false,
-        isBookmarked: false,
-        createdAt: now,
-        updatedAt: now,
-        scheduledFor: input.scheduledFor,
-        isDraft: input.isDraft,
-        status: input.isDraft ? 'draft' : (input.scheduledFor ? 'scheduled' : 'published'),
-      };
-      
-      postsStorage.set(postId, post);
-      
-      console.log('[tRPC] Post created successfully:', postId);
-      
-      return { 
-        id: postId, 
-        status: post.status,
-        message: input.isDraft ? 'Draft saved' : (input.scheduledFor ? 'Post scheduled' : 'Post created successfully')
-      };
-    } catch (error) {
-      console.error('[tRPC] Error creating post:', error);
-      throw new Error('Failed to create post. Please try again.');
+    console.log('[tRPC] Creating post:', { textLength: input.text.length, imagesCount: input.images?.length || 0 });
+    
+    // Validate input
+    if (!input.text?.trim() && (!input.images || input.images.length === 0)) {
+      throw new Error('Post must contain text or images');
     }
+    
+    // Validate ratings
+    const { food, service, ambiance, cleanliness } = input.ratings;
+    if ([food, service, ambiance, cleanliness].some(rating => rating < 1 || rating > 5)) {
+      throw new Error('All ratings must be between 1 and 5');
+    }
+    
+    const postId = String(postIdCounter++);
+    const now = new Date().toISOString();
+    
+    const post = {
+      id: postId,
+      userId: ctx.user?.id || 'anonymous',
+      user: {
+        id: ctx.user?.id || 'anonymous',
+        username: `user_${ctx.user?.id || 'anonymous'}`,
+        displayName: `User ${ctx.user?.id || 'Anonymous'}`,
+        avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=200&h=200&fit=crop',
+        bio: 'Food enthusiast',
+        followersCount: 0,
+        followingCount: 0,
+        postsCount: 1,
+        badges: [],
+        preferences: { cuisines: [], dietaryRestrictions: [], priceRange: [] },
+      },
+      type: input.category,
+      content: {
+        text: input.text,
+        images: input.images || [],
+        videos: input.videos || [],
+      },
+      restaurant: input.restaurantId ? {
+        id: input.restaurantId,
+        name: 'Selected Restaurant',
+        location: 'Location',
+      } : undefined,
+      ratings: {
+        ...input.ratings,
+        overall: Math.round((input.ratings.food * 0.4 + input.ratings.service * 0.3 + input.ratings.ambiance * 0.2 + input.ratings.cleanliness * 0.1) * 10) / 10,
+      },
+      tags: input.tags || [],
+      location: input.location,
+      likesCount: 0,
+      commentsCount: 0,
+      sharesCount: 0,
+      viewsCount: 0,
+      isLiked: false,
+      isBookmarked: false,
+      createdAt: now,
+      updatedAt: now,
+      scheduledFor: input.scheduledFor,
+      isDraft: input.isDraft,
+      status: input.isDraft ? 'draft' : (input.scheduledFor ? 'scheduled' : 'published'),
+    };
+    
+    postsStorage.set(postId, post);
+    
+    console.log('[tRPC] Post created successfully:', postId);
+    
+    return { 
+      id: postId, 
+      status: post.status,
+      message: input.isDraft ? 'Draft saved' : (input.scheduledFor ? 'Post scheduled' : 'Post created successfully')
+    };
   });
 
 export const updatePostProcedure = protectedProcedure

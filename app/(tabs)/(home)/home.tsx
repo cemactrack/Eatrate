@@ -23,6 +23,7 @@ import DishCard from '@/components/DishCard';
 import SearchBar from '@/components/SearchBar';
 import Colors, { gradients } from '@/constants/colors';
 import PostComposer from '@/components/PostComposer';
+import PerformanceMonitor from '@/components/PerformanceMonitor';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAdmin } from '@/providers/AdminProvider';
 
@@ -139,7 +140,6 @@ function HomeScreenContent() {
     if (shouldLoadPosts && !shouldLoadDeferred && !deferredTimerRef.current) {
       deferredTimerRef.current = setTimeout(() => {
         setShouldLoadDeferred(true);
-        deferredTimerRef.current = null;
       }, 2000);
     }
     
@@ -149,7 +149,7 @@ function HomeScreenContent() {
         deferredTimerRef.current = null;
       }
     };
-  }, [shouldLoadPosts, shouldLoadDeferred]);
+  }, [shouldLoadPosts]);
 
   // eslint-disable-next-line @rork/linters/rsp-react-query-object-api-only
   const dishesQuery = trpc.dishes.list.useQuery(undefined, { 
@@ -219,7 +219,7 @@ function HomeScreenContent() {
   }, [router]);
 
   const likeMutation = trpc.posts.like.useMutation({
-    onMutate: useCallback(async ({ postId }: { postId: string }) => {
+    onMutate: async ({ postId }: { postId: string }) => {
       // Cancel outgoing refetches
       await utils.posts.feed.cancel({ type: 'recent', limit: 10 });
       
@@ -247,8 +247,8 @@ function HomeScreenContent() {
       });
       
       return { previousData };
-    }, [utils]),
-    onError: useCallback((error: any, variables: any, context: any) => {
+    },
+    onError: (error: any, variables: any, context: any) => {
       if (error?.message) {
         console.error('[Home] like error:', error.message);
       } else {
@@ -258,14 +258,16 @@ function HomeScreenContent() {
       if (context?.previousData) {
         utils.posts.feed.setInfiniteData({ type: 'recent', limit: 10 }, context.previousData);
       }
-    }, [utils]),
-    onSettled: useCallback(() => {
+    },
+    onSettled: () => {
       // Invalidate to ensure consistency
       utils.posts.feed.invalidate({ type: 'recent', limit: 10 });
-    }, [utils])
+    }
   });
 
   const handlePostLike = useCallback(async (postId: string) => {
+    if (likeMutation.isPending) return;
+    
     try {
       await likeMutation.mutateAsync({ postId });
       console.log('[Home] like toggled', postId);
@@ -297,7 +299,7 @@ function HomeScreenContent() {
 
   const handleRefreshFeed = useCallback(async () => {
     try {
-      await Promise.all([
+      await Promise.allSettled([
         restaurantsQuery.refetch(),
         refetchPosts()
       ]);
@@ -606,6 +608,8 @@ function HomeScreenContent() {
         <Modal visible={showComposer} animationType="slide" presentationStyle="pageSheet">
           <PostComposer onClose={() => setShowComposer(false)} />
         </Modal>
+        
+        <PerformanceMonitor enabled={__DEV__ || isAdmin} />
       </View>
     </ErrorBoundary>
   );
