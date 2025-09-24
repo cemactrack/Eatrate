@@ -104,15 +104,32 @@ function extractJsonLd(html: string): any[] {
   return results;
 }
 
+// Simple in-memory cache
+const cache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL = 1000 * 60 * 30; // 30 minutes
+
 async function fetchPage(url: string): Promise<string> {
+  const cacheKey = `page_${url}`;
+  const cached = cache.get(cacheKey);
+  
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  
   const res = await fetch(url, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (compatible; EatRateBot/1.0; +https://example.com) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123 Safari/537.36',
       'Accept-Language': 'en-US,en;q=0.9',
     },
+    signal: AbortSignal.timeout(8000), // 8 second timeout
   });
+  
   if (!res.ok) throw new Error(`Failed to fetch TripAdvisor: ${res.status}`);
-  return await res.text();
+  
+  const text = await res.text();
+  cache.set(cacheKey, { data: text, timestamp: Date.now() });
+  
+  return text;
 }
 
 export const fetchDoualaRestaurantsProcedure = publicProcedure
@@ -192,14 +209,31 @@ export const fetchDoualaRestaurantsProcedure = publicProcedure
     }
 
     try {
+      // Check cache first
+      const cacheKey = `restaurants_${JSON.stringify(targetUrls)}`;
+      const cached = cache.get(cacheKey);
+      
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        return cached.data;
+      }
+      
       const allItems: ParsedRestaurant[] = [];
-      for (const url of targetUrls) {
-        try {
-          const items = await fetchAndParse(url);
-          allItems.push(...items);
-        } catch (e: any) {
-          console.log('[tRPC] Page fetch error', url, e?.message ?? e);
-        }
+      
+      // Limit concurrent requests to avoid overwhelming the server
+      const maxConcurrent = 2;
+      for (let i = 0; i < targetUrls.length; i += maxConcurrent) {
+        const batch = targetUrls.slice(i, i + maxConcurrent);
+        const promises = batch.map(async (url) => {
+          try {
+            return await fetchAndParse(url);
+          } catch (e: any) {
+            console.log('[tRPC] Page fetch error', url, e?.message ?? e);
+            return [];
+          }
+        });
+        
+        const results = await Promise.all(promises);
+        results.forEach(items => allItems.push(...items));
       }
 
       const unique = new Map<string, ParsedRestaurant>();
@@ -209,8 +243,12 @@ export const fetchDoualaRestaurantsProcedure = publicProcedure
       }
 
       const restaurants = Array.from(unique.values());
-
-      return { restaurants, source: 'tripadvisor', count: restaurants.length, pagesFetched: targetUrls.length };
+      const result = { restaurants, source: 'tripadvisor', count: restaurants.length, pagesFetched: targetUrls.length };
+      
+      // Cache the result
+      cache.set(cacheKey, { data: result, timestamp: Date.now() });
+      
+      return result;
     } catch (error: any) {
       console.error('[tRPC] TripAdvisor fetch failed', error?.message ?? error);
       return {

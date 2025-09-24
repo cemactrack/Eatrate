@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -10,7 +10,7 @@ import {
   Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Award, MapPin, Users, Flame, Plus, UserPlus, Check, Heart, MessageSquare } from 'lucide-react-native';
+import { Award, MapPin, Users, Flame, Plus, UserPlus, Heart, MessageSquare } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -82,55 +82,55 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  // Load restaurants first, then other data
-  const { data: restaurantsData, isLoading: isLoadingRestaurants, error: restaurantsError } = trpc.restaurants.list.useQuery(
-    undefined,
-    { 
-      staleTime: 1000 * 60 * 10,
-      retry: 1,
-      refetchOnMount: false,
-    }
-  );
+  // Load restaurants first (priority data)
+  const restaurantsQuery = trpc.restaurants.list.useQuery(undefined, { 
+    staleTime: 1000 * 60 * 20,
+    retry: 0,
+    refetchOnMount: false,
+  });
+  const { data: restaurantsData, isLoading: isLoadingRestaurants, error: restaurantsError } = restaurantsQuery;
 
   // Fallback to Yaoundé restaurants if main list fails
-  const { data: yaoundeData, isLoading: isLoadingYaounde } = trpc.restaurants.yaounde.useQuery(
-    { page: 1 },
-    { 
-      staleTime: 1000 * 60 * 10,
-      enabled: !restaurantsData?.restaurants?.length && !isLoadingRestaurants,
-      retry: 1,
-    }
-  );
+  const yaoundeQuery = trpc.restaurants.yaounde.useQuery({ page: 1 }, { 
+    staleTime: 1000 * 60 * 20,
+    enabled: !restaurantsData?.restaurants?.length && !isLoadingRestaurants && !!restaurantsError,
+    retry: 0,
+  });
+  const { data: yaoundeData, isLoading: isLoadingYaounde } = yaoundeQuery;
 
-  // Load other data after restaurants are loaded or failed
-  const shouldLoadOtherData = !isLoadingRestaurants && !isLoadingYaounde;
+  // Load posts only (defer other data)
+  const shouldLoadPosts = !isLoadingRestaurants && !isLoadingYaounde;
   
-  const { data: postsData, isLoading: isLoadingPosts, error: postsError } = trpc.posts.list.useQuery(
-    undefined,
-    { 
-      staleTime: 1000 * 60 * 10,
-      enabled: shouldLoadOtherData,
-      retry: 1,
-    }
-  );
+  const postsQuery = trpc.posts.list.useQuery(undefined, { 
+    staleTime: 1000 * 60 * 15,
+    enabled: shouldLoadPosts,
+    retry: 0,
+  });
+  const { data: postsData, error: postsError } = postsQuery;
 
-  const { data: dishesData, isLoading: isLoadingDishes, error: dishesError } = trpc.dishes.list.useQuery(
-    undefined,
-    { 
-      staleTime: 1000 * 60 * 10,
-      enabled: shouldLoadOtherData,
-      retry: 1,
+  // Defer dishes and users data (load after 2 seconds)
+  const [shouldLoadDeferred, setShouldLoadDeferred] = useState<boolean>(false);
+  
+  useEffect(() => {
+    if (shouldLoadPosts) {
+      const timer = setTimeout(() => setShouldLoadDeferred(true), 2000);
+      return () => clearTimeout(timer);
     }
-  );
+  }, [shouldLoadPosts]);
 
-  const { data: usersData, isLoading: isLoadingUsers, error: usersError } = trpc.users.list.useQuery(
-    undefined,
-    { 
-      staleTime: 1000 * 60 * 10,
-      enabled: shouldLoadOtherData,
-      retry: 1,
-    }
-  );
+  const dishesQuery = trpc.dishes.list.useQuery(undefined, { 
+    staleTime: 1000 * 60 * 30,
+    enabled: shouldLoadDeferred,
+    retry: 0,
+  });
+  const { data: dishesData, error: dishesError } = dishesQuery;
+
+  const usersQuery = trpc.users.list.useQuery(undefined, { 
+    staleTime: 1000 * 60 * 30,
+    enabled: shouldLoadDeferred,
+    retry: 0,
+  });
+  const { data: usersData, error: usersError } = usersQuery;
 
   const featuredRestaurants = useMemo(() => {
     // Try main restaurants list first, then fallback to Yaoundé
@@ -215,8 +215,9 @@ export default function HomeScreen() {
     console.log('See all search pressed');
   }, []);
 
-  if ((isLoadingRestaurants || isLoadingYaounde) || isLoadingPosts || isLoadingDishes || isLoadingUsers) {
-    return <LoadingSpinner text="Loading content..." showGradient />;
+  // Only show loading for critical data
+  if (isLoadingRestaurants || isLoadingYaounde) {
+    return <LoadingSpinner text="Loading restaurants..." showGradient />;
   }
 
   return (

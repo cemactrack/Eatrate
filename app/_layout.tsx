@@ -20,16 +20,17 @@ if (Platform.OS !== 'web') {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 2,
-      staleTime: 1000 * 60 * 5,
-      gcTime: 1000 * 60 * 10,
+      retry: 1,
+      staleTime: 1000 * 60 * 15, // 15 minutes
+      gcTime: 1000 * 60 * 30, // 30 minutes
       refetchOnWindowFocus: false,
-      refetchOnReconnect: true,
-      networkMode: 'offlineFirst',
+      refetchOnReconnect: false,
+      networkMode: 'online',
+      refetchOnMount: false,
     },
     mutations: {
-      retry: 1,
-      networkMode: 'offlineFirst',
+      retry: 0,
+      networkMode: 'online',
     },
   },
 });
@@ -99,7 +100,7 @@ export default function RootLayout() {
           setIsReady(true);
           return;
         }
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 50));
         await SplashScreen.hideAsync();
         setIsReady(true);
       } catch (e) {

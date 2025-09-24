@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import createContextHook from '@nkzw/create-context-hook';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useStorage } from '@/providers/StorageProvider';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -29,13 +29,14 @@ const defaultSettings: AppSettings = {
 
 export const [SettingsProvider, useSettings] = createContextHook<SettingsContextValue>(() => {
   const [settings, setSettingsState] = useState<AppSettings>(defaultSettings);
+  const storage = useStorage();
 
   useEffect(() => {
     let isMounted = true;
     
     const load = async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        const raw = await storage.getItem(STORAGE_KEY);
         if (isMounted && raw) {
           const parsed = JSON.parse(raw) as Partial<AppSettings>;
           setSettingsState(prev => ({ ...prev, ...parsed }));
@@ -45,24 +46,23 @@ export const [SettingsProvider, useSettings] = createContextHook<SettingsContext
       }
     };
     
-    // Add small delay to prevent hydration mismatch
-    const timeoutId = setTimeout(load, 100);
+    // Immediate load for better performance
+    load();
     
     return () => {
       isMounted = false;
-      clearTimeout(timeoutId);
     };
-  }, []);
+  }, [storage]);
 
   const updateSettings = useCallback((updates: Partial<AppSettings>) => {
     setSettingsState(prev => {
       const newSettings = { ...prev, ...updates };
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings)).catch((e) =>
+      storage.setItem(STORAGE_KEY, JSON.stringify(newSettings)).catch((e: any) =>
         console.error('[SettingsProvider] persist error', e)
       );
       return newSettings;
     });
-  }, []);
+  }, [storage]);
 
   const setTheme = useCallback((mode: ThemeMode) => {
     updateSettings({ theme: mode, darkMode: mode === 'dark' });

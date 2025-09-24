@@ -110,12 +110,11 @@ export const [AuthProvider, useAuth] = createContextHook<AuthContextValue>(() =>
       }
     };
     
-    // Add small delay to prevent hydration mismatch
-    const timeoutId = setTimeout(load, 50);
+    // Immediate load for better performance
+    load();
     
     return () => {
       isMounted = false;
-      clearTimeout(timeoutId);
     };
   }, [storage]);
 

@@ -10,7 +10,7 @@ interface RestaurantCardProps {
   onPress: () => void;
 }
 
-export default function RestaurantCard({ restaurant, onPress }: RestaurantCardProps) {
+const RestaurantCard = React.memo(function RestaurantCard({ restaurant, onPress }: RestaurantCardProps) {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
       <Image source={{ uri: restaurant.image }} style={styles.image} />
@@ -55,7 +55,9 @@ export default function RestaurantCard({ restaurant, onPress }: RestaurantCardPr
       </View>
     </TouchableOpacity>
   );
-}
+});
+
+export default RestaurantCard;
 
 const styles = StyleSheet.create({
   card: {

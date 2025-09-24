@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -20,10 +20,12 @@ export default function SearchScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const { data, isLoading, error } = trpc.restaurants.douala.useQuery(
-    {},
-    { staleTime: 1000 * 60 * 10 }
-  );
+  const restaurantsQuery = trpc.restaurants.douala.useQuery({}, { 
+    staleTime: 1000 * 60 * 20,
+    retry: 0,
+    refetchOnMount: false,
+  });
+  const { data, isLoading, error } = restaurantsQuery;
 
   const cuisines = useMemo(() => {
     const set = new Set<string>(['All']);
@@ -45,16 +47,16 @@ export default function SearchScreen() {
     });
   }, [data?.restaurants, searchQuery, selectedCuisine]);
 
-  const handleRestaurantPress = (restaurantId: string) => {
+  const handleRestaurantPress = useCallback((restaurantId: string) => {
     console.log('Restaurant pressed:', restaurantId);
     router.push(`/restaurants/${restaurantId}` as const);
-  };
+  }, [router]);
 
-  const handleCuisineSelect = (cuisine: string) => {
+  const handleCuisineSelect = useCallback((cuisine: string) => {
     if (cuisine && cuisine.trim() && cuisine.length <= 50) {
       setSelectedCuisine(cuisine.trim());
     }
-  };
+  }, []);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
