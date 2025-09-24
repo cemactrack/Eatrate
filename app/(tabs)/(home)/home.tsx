@@ -152,7 +152,7 @@ function HomeScreenContent() {
         deferredTimerRef.current = null;
       }
     };
-  }, [shouldLoadPosts]); // Remove shouldLoadDeferred from dependencies to prevent infinite loop
+  }, [shouldLoadPosts, shouldLoadDeferred]); // Fixed dependency array
 
   // eslint-disable-next-line @rork/linters/rsp-react-query-object-api-only
   const dishesQuery = trpc.dishes.list.useQuery(undefined, { 
@@ -218,7 +218,7 @@ function HomeScreenContent() {
 
   const handlePostPress = useCallback((postId: string) => {
     console.log('Post pressed:', postId);
-    router.push(`/posts/${postId}` as const);
+    router.push(`/posts/${postId}`);
   }, [router]);
 
   const likeMutation = trpc.posts.like.useMutation({
@@ -283,7 +283,7 @@ function HomeScreenContent() {
   }, [likeMutation]);
 
   const handlePostComments = useCallback((postId: string) => {
-    router.push(`/comments/${postId}` as const);
+    router.push(`/comments/${postId}`);
   }, [router]);
 
   const handleUserPress = useCallback((userId: string) => {
@@ -295,12 +295,12 @@ function HomeScreenContent() {
   }, []);
 
   const handleSeeAllRestaurants = useCallback(() => {
-    router.push('/restaurants' as const);
+    router.push('/restaurants');
   }, [router]);
 
   const handleSeeAllFeed = useCallback(() => {
     console.log('See all feed pressed');
-    router.push('/posts/feed' as const);
+    router.push('/posts/feed');
   }, [router]);
 
   const handleRefreshFeed = useCallback(async () => {
@@ -412,7 +412,7 @@ function HomeScreenContent() {
             </View>
             <TouchableOpacity
               testID="open-status"
-              onPress={() => router.push('/status' as const)}
+              onPress={() => router.push('/status')}
               style={[styles.createActionChip, { marginLeft: 8 }]}
             >
               <Plus size={16} color={Colors.light.success} />
