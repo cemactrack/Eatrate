@@ -270,12 +270,12 @@ export default function PostFeedScreen() {
       return { previousFeed };
     },
     onError: (err, variables, context) => {
+      console.error('Bookmark error:', err);
       if (context?.previousFeed) {
         utils.posts.feed.setData({ type: feedType, limit: 20 }, context.previousFeed);
       }
     },
     onSettled: () => {
-      // Invalidate to ensure consistency
       utils.posts.feed.invalidate({ type: feedType, limit: 20 });
     }
   });
@@ -286,7 +286,6 @@ export default function PostFeedScreen() {
   const handleLike = useCallback(async (postId: string) => {
     try {
       await likeMutation.mutateAsync({ postId });
-      // In a real app, update the cache optimistically
     } catch (error) {
       console.error('Failed to like post:', error);
     }
@@ -308,7 +307,6 @@ export default function PostFeedScreen() {
   const handleBookmark = useCallback(async (postId: string) => {
     try {
       await bookmarkMutation.mutateAsync({ postId });
-      // In a real app, update the cache optimistically
     } catch (error) {
       console.error('Failed to bookmark post:', error);
     }

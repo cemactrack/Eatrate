@@ -105,7 +105,7 @@ export default function PostComposer() {
     const c = ratings.cleanliness ?? 0;
     const weighted = f * 0.4 + s * 0.3 + a * 0.2 + c * 0.1;
     return Math.round(weighted * 10) / 10;
-  }, [ratings]);
+  }, [ratings.food, ratings.service, ratings.ambiance, ratings.cleanliness]);
   const [isPosting, setIsPosting] = useState<boolean>(false);
   const [ratingMode, setRatingMode] = useState<RatingMode>('quick');
   const [quickRating, setQuickRating] = useState<number>(0);

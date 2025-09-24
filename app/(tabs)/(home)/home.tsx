@@ -454,11 +454,6 @@ export default function HomeScreen() {
 
       <Modal visible={showComposer} animationType="slide" presentationStyle="pageSheet">
         <PostComposer />
-        <TouchableOpacity
-          testID="close-composer"
-          onPress={() => setShowComposer(false)}
-          style={styles.closeComposerOverlay}
-        />
       </Modal>
     </View>
   );

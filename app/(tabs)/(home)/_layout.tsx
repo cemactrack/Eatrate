@@ -23,6 +23,14 @@ export default function HomeLayout() {
           title: 'Home'
         }} 
       />
+      <Stack.Screen 
+        name="create-post" 
+        options={{ 
+          headerShown: false,
+          title: 'Create Post',
+          presentation: 'modal'
+        }} 
+      />
     </Stack>
   );
 }

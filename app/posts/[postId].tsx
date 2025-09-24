@@ -45,14 +45,60 @@ export default function PostDetailScreen() {
   const utils = trpc.useUtils();
   
   const likeMutation = trpc.posts.like.useMutation({
-    onSuccess: () => {
-      // Invalidate post details to refresh data
+    onMutate: async ({ postId: mutationPostId }) => {
+      await utils.posts.details.cancel({ postId: postId || '' });
+      const previousData = utils.posts.details.getData({ postId: postId || '' });
+      
+      utils.posts.details.setData({ postId: postId || '' }, (old) => {
+        if (!old?.post) return old;
+        return {
+          ...old,
+          post: {
+            ...old.post,
+            isLiked: !old.post.isLiked,
+            likesCount: old.post.isLiked ? old.post.likesCount - 1 : old.post.likesCount + 1
+          }
+        };
+      });
+      
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      console.error('Like error:', err);
+      if (context?.previousData) {
+        utils.posts.details.setData({ postId: postId || '' }, context.previousData);
+      }
+    },
+    onSettled: () => {
       utils.posts.details.invalidate({ postId: postId || '' });
     }
   });
   
   const bookmarkMutation = trpc.posts.bookmark.useMutation({
-    onSuccess: () => {
+    onMutate: async ({ postId: mutationPostId }) => {
+      await utils.posts.details.cancel({ postId: postId || '' });
+      const previousData = utils.posts.details.getData({ postId: postId || '' });
+      
+      utils.posts.details.setData({ postId: postId || '' }, (old) => {
+        if (!old?.post) return old;
+        return {
+          ...old,
+          post: {
+            ...old.post,
+            isBookmarked: !old.post.isBookmarked
+          }
+        };
+      });
+      
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      console.error('Bookmark error:', err);
+      if (context?.previousData) {
+        utils.posts.details.setData({ postId: postId || '' }, context.previousData);
+      }
+    },
+    onSettled: () => {
       utils.posts.details.invalidate({ postId: postId || '' });
     }
   });
