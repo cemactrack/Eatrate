@@ -168,7 +168,7 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
     if (notificationsQuery.refetch) {
       notificationsQuery.refetch();
     }
-  }, []);
+  }, [notificationsQuery]);
 
   useEffect(() => {
     let isMounted = true;
@@ -208,7 +208,7 @@ export const [AdminProvider, useAdmin] = createContextHook<AdminContextValue>(()
       }));
       setNotifications(mappedNotifications);
     }
-  }, [notificationsQuery.data, mapNotificationType]);
+  }, [notificationsQuery.data]);
 
 
 
