@@ -18,6 +18,25 @@ import { toggleUserFollowProcedure, toggleRestaurantFollowProcedure } from "./ro
 import { submitClaimProcedure, listClaimsProcedure, adminUpdateClaimProcedure } from "./routes/restaurants/claims";
 import { toggleLikeProcedure } from "./routes/posts/like";
 import { 
+  createPostProcedure as newCreatePostProcedure, 
+  updatePostProcedure, 
+  deletePostProcedure as userDeletePostProcedure, 
+  getUserPostsProcedure 
+} from "./routes/posts/create";
+import {
+  bookmarkPostProcedure,
+  getBookmarkedPostsProcedure,
+  sharePostProcedure,
+  recordPostViewProcedure,
+  reportPostProcedure,
+  searchPostsProcedure,
+  getPostAnalyticsProcedure,
+} from "./routes/posts/interactions";
+import {
+  getPostFeedProcedure,
+  getPostDetailsProcedure as userGetPostDetailsProcedure,
+} from "./routes/posts/feed";
+import { 
   getAdminStatsProcedure, 
   getAdminNotificationsProcedure, 
   getSystemHealthProcedure, 
@@ -82,7 +101,20 @@ export const appRouter = createTRPCRouter({
   posts: createTRPCRouter({
     list: getPostsProcedure,
     create: createPostProcedure,
+    createNew: newCreatePostProcedure,
+    update: updatePostProcedure,
+    delete: userDeletePostProcedure,
+    getUserPosts: getUserPostsProcedure,
     like: toggleLikeProcedure,
+    bookmark: bookmarkPostProcedure,
+    getBookmarked: getBookmarkedPostsProcedure,
+    share: sharePostProcedure,
+    recordView: recordPostViewProcedure,
+    report: reportPostProcedure,
+    search: searchPostsProcedure,
+    analytics: getPostAnalyticsProcedure,
+    feed: getPostFeedProcedure,
+    details: userGetPostDetailsProcedure,
   }),
   status: createTRPCRouter({
     create: createStatusProcedure,

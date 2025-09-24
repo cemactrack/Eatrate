@@ -90,8 +90,14 @@ export interface Post {
   likesCount: number;
   commentsCount: number;
   sharesCount: number;
+  viewsCount?: number;
   isLiked: boolean;
+  isBookmarked?: boolean;
   createdAt: string;
+  updatedAt?: string;
+  scheduledFor?: string;
+  isDraft?: boolean;
+  status?: 'draft' | 'scheduled' | 'published';
 }
 
 export interface Comment {
