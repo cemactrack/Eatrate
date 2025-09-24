@@ -86,6 +86,8 @@ export default function HomeScreen() {
 
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const utils = trpc.useUtils();
+
 
   // Load restaurants first (priority data)
   // eslint-disable-next-line @rork/linters/rsp-react-query-object-api-only
@@ -114,14 +116,14 @@ export default function HomeScreen() {
     error: postsError,
     isLoading: isLoadingPosts,
     // fetchNextPage: fetchNextPostsPage,
-    // hasNextPage: hasNextPostsPage,
   } = trpc.posts.feed.useInfiniteQuery(
     { type: 'recent', limit: 10 },
     {
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       staleTime: 1000 * 60 * 20,
       enabled: shouldLoadPosts,
-      retry: 0,
+      retry: 1,
+      refetchOnWindowFocus: false,
     }
   );
 
@@ -161,8 +163,8 @@ export default function HomeScreen() {
   }, [restaurantsData?.restaurants, yaoundeData?.restaurants]);
   
   const trendingPosts = useMemo(() => {
-    if (!postsData?.pages) return [] as Post[];
-    const allPosts = postsData.pages.flatMap(page => page.posts);
+    if (!postsData?.pages?.length) return [] as Post[];
+    const allPosts = postsData.pages.flatMap(page => page.posts || []);
     return allPosts.slice(0, 2) as Post[];
   }, [postsData?.pages]);
   
@@ -207,11 +209,12 @@ export default function HomeScreen() {
     try {
       const res = await likeMutation.mutateAsync({ postId });
       console.log('[Home] like toggled', postId, res);
-      // In a real app, we would update the specific post in cache.
+      // Invalidate feed to refresh like counts
+      utils.posts.feed.invalidate();
     } catch (e) {
       console.log('[Home] like error', e);
     }
-  }, [likeMutation]);
+  }, [likeMutation, utils]);
 
   const handlePostComments = useCallback((postId: string) => {
     router.push(`/comments/${postId}` as const);
@@ -233,6 +236,20 @@ export default function HomeScreen() {
     console.log('See all feed pressed');
     router.push('/posts/feed' as const);
   }, [router]);
+
+  const handleRefreshFeed = useCallback(async () => {
+    try {
+      await Promise.all([
+        restaurantsQuery.refetch(),
+        // Refetch the first page of posts
+        utils.posts.feed.invalidate()
+      ]);
+    } catch (error) {
+      console.error('Failed to refresh feed:', error);
+    }
+  }, [restaurantsQuery, utils]);
+
+
 
   const handleSeeAllSearch = useCallback(() => {
     console.log('See all search pressed');
@@ -366,19 +383,34 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Trending Posts</Text>
-            <TouchableOpacity onPress={handleSeeAllFeed}>
-              <Text style={styles.seeAll}>See All</Text>
-            </TouchableOpacity>
+            <View style={styles.sectionHeaderActions}>
+              <TouchableOpacity onPress={handleRefreshFeed} style={styles.refreshButton}>
+                <Text style={styles.refreshText}>Refresh</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleSeeAllFeed}>
+                <Text style={styles.seeAll}>See All</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           
           {isLoadingPosts ? (
             <View style={styles.loadingSection}>
               <Text style={styles.loadingSectionText}>Loading posts...</Text>
             </View>
+          ) : postsError ? (
+            <View style={styles.errorSection}>
+              <Text style={styles.errorSectionText}>Failed to load posts</Text>
+              <TouchableOpacity onPress={handleRefreshFeed} style={styles.retryButton}>
+                <Text style={styles.retryButtonText}>Try Again</Text>
+              </TouchableOpacity>
+            </View>
           ) : trendingPosts.length === 0 ? (
             <View style={styles.emptySection}>
               <Text style={styles.emptySectionText}>No trending posts</Text>
               <Text style={styles.emptySectionSubtext}>Be the first to share your food experience!</Text>
+              <TouchableOpacity onPress={() => setShowComposer(true)} style={styles.createFirstPostButton}>
+                <Text style={styles.createFirstPostButtonText}>Create Post</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             trendingPosts.map((post) => (
@@ -489,7 +521,7 @@ export default function HomeScreen() {
       </ScrollView>
 
       <Modal visible={showComposer} animationType="slide" presentationStyle="pageSheet">
-        <PostComposer />
+        <PostComposer onClose={() => setShowComposer(false)} />
       </Modal>
     </View>
   );
@@ -600,6 +632,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     marginBottom: 16,
+  },
+  sectionHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  refreshButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  refreshText: {
+    fontSize: 12,
+    color: Colors.light.secondary,
+    fontWeight: '500',
   },
   sectionTitle: {
     fontSize: 20,
@@ -833,5 +879,38 @@ const styles = StyleSheet.create({
   loadingSectionText: {
     color: Colors.light.secondary,
     fontSize: 14,
+  },
+  errorSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  errorSectionText: {
+    color: Colors.light.error,
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  retryButton: {
+    backgroundColor: Colors.light.tint,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  createFirstPostButton: {
+    backgroundColor: Colors.light.tint,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginTop: 12,
+  },
+  createFirstPostButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

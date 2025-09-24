@@ -85,7 +85,11 @@ function QuickReactions({ value, onChange }: { value: number; onChange: (v: numb
   );
 }
 
-export default function PostComposer() {
+interface PostComposerProps {
+  onClose?: () => void;
+}
+
+export default function PostComposer({ onClose }: PostComposerProps = {}) {
   const router = useRouter();
   const [postText, setPostText] = useState<string>('');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
@@ -147,10 +151,14 @@ export default function PostComposer() {
       
       // Close modal and navigate to feed after a short delay
       setTimeout(() => {
-        router.back(); // Close the modal
+        if (onClose) {
+          onClose();
+        } else {
+          router.back(); // Close the modal
+        }
         router.push('/posts/feed');
       }, 1500);
-    }, [utils.posts.feed, utils.posts.list, router]),
+    }, [utils.posts.feed, utils.posts.list, router, onClose]),
     onError: useCallback((error: any) => {
       console.error('[PostComposer] Post failed:', error);
       setToast({ 
@@ -324,16 +332,23 @@ export default function PostComposer() {
     <View style={[styles.container, { paddingTop: insets.top }]}> 
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Create Post</Text>
-        <TouchableOpacity
-          testID="post-submit"
-          style={[styles.postButton, (!postText.trim() && selectedImages.length === 0) && styles.postButtonDisabled]}
-          onPress={handlePost}
-          disabled={createPost.isPending || isPosting || (!postText.trim() && selectedImages.length === 0)}
-        >
-          <Text style={[styles.postButtonText, (!postText.trim() && selectedImages.length === 0) && styles.postButtonTextDisabled]}>
-            {createPost.isPending || isPosting ? 'Posting...' : 'Post'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          {onClose && (
+            <TouchableOpacity onPress={onClose} style={styles.cancelButton}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            testID="post-submit"
+            style={[styles.postButton, (!postText.trim() && selectedImages.length === 0) && styles.postButtonDisabled]}
+            onPress={handlePost}
+            disabled={createPost.isPending || isPosting || (!postText.trim() && selectedImages.length === 0)}
+          >
+            <Text style={[styles.postButtonText, (!postText.trim() && selectedImages.length === 0) && styles.postButtonTextDisabled]}>
+              {createPost.isPending || isPosting ? 'Posting...' : 'Post'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -568,6 +583,20 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.light.border,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  cancelButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  cancelButtonText: {
+    color: Colors.light.secondary,
+    fontSize: 16,
+    fontWeight: '500',
   },
   headerTitle: {
     fontSize: 20,
