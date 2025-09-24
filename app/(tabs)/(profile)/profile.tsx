@@ -94,6 +94,18 @@ export default function ProfileScreen() {
       staleTime: 1000 * 60 * 5, // 5 minutes
     }
   );
+
+  // Fetch user profile data
+  const { data: userProfile } = trpc.users.getProfile.useQuery(
+    { userId: user?.id ?? '' },
+    { enabled: !!user?.id }
+  );
+
+  // Fetch follow stats
+  const { data: followStats } = trpc.users.followStats.useQuery(
+    { userId: user?.id ?? '' },
+    { enabled: !!user?.id }
+  );
   
   // Fetch bookmarked posts
   const bookmarkedPostsQuery = trpc.posts.getBookmarked.useQuery(
@@ -120,13 +132,15 @@ export default function ProfileScreen() {
       username: user.email?.split('@')[0] || user.phone || 'user',
       displayName: user.displayName,
       avatar: user.avatar || 'https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=200&h=200&fit=crop&crop=faces',
-      followersCount: 0, // TODO: Implement followers system
-      followingCount: 0, // TODO: Implement following system
+      followersCount: followStats?.followersCount || 0,
+      followingCount: followStats?.followingCount || 0,
       postsCount: userPostsQuery.data?.total || 0,
-      badges: [], // TODO: Implement badges system
-      bio: 'Food enthusiast exploring great flavors', // TODO: Add bio to user profile
+      badges: userProfile?.badges || [],
+      bio: userProfile?.bio || 'Food enthusiast exploring great flavors',
+      location: userProfile?.location,
+      preferences: userProfile?.preferences,
     };
-  }, [user, userPostsQuery.data?.total]);
+  }, [user, userPostsQuery.data?.total, followStats, userProfile]);
   
   const userPosts = userPostsQuery.data?.posts || [];
   const likedPosts = useMemo(() => {
@@ -250,11 +264,17 @@ export default function ProfileScreen() {
                 <Text style={styles.statNumber}>{currentUser.postsCount}</Text>
                 <Text style={styles.statLabel}>Posts</Text>
               </View>
-              <TouchableOpacity style={styles.statItem}>
+              <TouchableOpacity 
+                style={styles.statItem}
+                onPress={() => router.push(`/users/${user?.id}/followers`)}
+              >
                 <Text style={styles.statNumber}>{currentUser.followersCount.toLocaleString()}</Text>
                 <Text style={styles.statLabel}>Followers</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.statItem}>
+              <TouchableOpacity 
+                style={styles.statItem}
+                onPress={() => router.push(`/users/${user?.id}/following`)}
+              >
                 <Text style={styles.statNumber}>{currentUser.followingCount.toLocaleString()}</Text>
                 <Text style={styles.statLabel}>Following</Text>
               </TouchableOpacity>
@@ -264,6 +284,14 @@ export default function ProfileScreen() {
           <View style={styles.profileDetails}>
             <Text style={styles.displayName}>{currentUser.displayName}</Text>
             <Text style={styles.bio}>{currentUser.bio}</Text>
+            {currentUser.location && (
+              <View style={styles.locationContainer}>
+                <MapPin size={14} color={Colors.light.secondary} />
+                <Text style={styles.locationText}>
+                  {currentUser.location.city}, {currentUser.location.country}
+                </Text>
+              </View>
+            )}
             {user.email && (
               <Text style={styles.contactInfo}>{user.email}</Text>
             )}
@@ -442,6 +470,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.light.text,
     lineHeight: 20,
+    marginBottom: 8,
+  },
+  locationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 8,
+  },
+  locationText: {
+    fontSize: 12,
+    color: Colors.light.secondary,
   },
   badgesContainer: {
     flexDirection: 'row',

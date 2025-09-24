@@ -14,7 +14,16 @@ import hiRoute, {
   createStatusProcedure,
 } from "./routes/example/hi/route";
 import { listSuppliersProcedure } from "./routes/suppliers/list";
-import { toggleUserFollowProcedure, toggleRestaurantFollowProcedure } from "./routes/social/follow";
+import { 
+  toggleUserFollowProcedure, 
+  toggleRestaurantFollowProcedure,
+  getUserFollowStatsProcedure,
+  getFollowersProcedure,
+  getFollowingProcedure,
+  updateUserProfileProcedure,
+  getUserProfileProcedure,
+  awardBadgeProcedure
+} from "./routes/social/follow";
 import { submitClaimProcedure, listClaimsProcedure, adminUpdateClaimProcedure } from "./routes/restaurants/claims";
 import { toggleLikeProcedure } from "./routes/posts/like";
 import { 
@@ -35,6 +44,8 @@ import {
 import {
   getPostFeedProcedure,
   getPostDetailsProcedure as userGetPostDetailsProcedure,
+  subscribeToPostUpdatesProcedure,
+  subscribeToFeedProcedure,
 } from "./routes/posts/feed";
 import { 
   getAdminStatsProcedure, 
@@ -115,6 +126,8 @@ export const appRouter = createTRPCRouter({
     analytics: getPostAnalyticsProcedure,
     feed: getPostFeedProcedure,
     details: userGetPostDetailsProcedure,
+    subscribeToUpdates: subscribeToPostUpdatesProcedure,
+    subscribeToFeed: subscribeToFeedProcedure,
   }),
   status: createTRPCRouter({
     create: createStatusProcedure,
@@ -138,6 +151,12 @@ export const appRouter = createTRPCRouter({
   users: createTRPCRouter({
     list: getUsersProcedure,
     follow: toggleUserFollowProcedure,
+    followStats: getUserFollowStatsProcedure,
+    followers: getFollowersProcedure,
+    following: getFollowingProcedure,
+    updateProfile: updateUserProfileProcedure,
+    getProfile: getUserProfileProcedure,
+    awardBadge: awardBadgeProcedure,
   }),
   suppliers: createTRPCRouter({
     list: listSuppliersProcedure,

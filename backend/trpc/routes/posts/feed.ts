@@ -1,5 +1,19 @@
 import { z } from "zod";
-import { publicProcedure } from "@/backend/trpc/create-context";
+import { publicProcedure, protectedProcedure } from "@/backend/trpc/create-context";
+import { observable } from '@trpc/server/observable';
+import { EventEmitter } from 'events';
+
+// Real-time events emitter
+const feedEvents = new EventEmitter();
+
+// Emit post updates
+export const emitPostUpdate = (postId: string, update: { likesCount?: number; commentsCount?: number; isLiked?: boolean }) => {
+  feedEvents.emit('postUpdate', { postId, update });
+};
+
+export const emitNewPost = (post: any) => {
+  feedEvents.emit('newPost', post);
+};
 
 export const getPostFeedProcedure = publicProcedure
   .input(z.object({
@@ -211,4 +225,74 @@ export const getPostDetailsProcedure = publicProcedure
     };
 
     return { post };
+  });
+
+// Real-time subscription for post updates
+export const subscribeToPostUpdatesProcedure = protectedProcedure
+  .input(z.object({ postId: z.string().optional() }))
+  .subscription(({ input }) => {
+    return observable<{ type: 'update' | 'new'; postId?: string; post?: any; update?: any }>((emit) => {
+      const onPostUpdate = (data: { postId: string; update: any }) => {
+        if (!input.postId || data.postId === input.postId) {
+          emit.next({ type: 'update', postId: data.postId, update: data.update });
+        }
+      };
+      
+      const onNewPost = (post: any) => {
+        emit.next({ type: 'new', post });
+      };
+      
+      feedEvents.on('postUpdate', onPostUpdate);
+      feedEvents.on('newPost', onNewPost);
+      
+      return () => {
+        feedEvents.off('postUpdate', onPostUpdate);
+        feedEvents.off('newPost', onNewPost);
+      };
+    });
+  });
+
+// Real-time feed subscription
+export const subscribeToFeedProcedure = protectedProcedure
+  .input(z.object({ 
+    type: z.enum(['recent', 'trending', 'following', 'local']).default('recent')
+  }))
+  .subscription(({ input }) => {
+    return observable<{ type: 'update' | 'new'; data: any }>((emit) => {
+      const onPostUpdate = (data: { postId: string; update: any }) => {
+        emit.next({ type: 'update', data });
+      };
+      
+      const onNewPost = (post: any) => {
+        // Filter based on feed type
+        let shouldInclude = true;
+        
+        switch (input.type) {
+          case 'trending':
+            shouldInclude = post.likesCount > 10;
+            break;
+          case 'following':
+            // In a real app, check if user follows the post author
+            shouldInclude = Math.random() > 0.5;
+            break;
+          case 'local':
+            shouldInclude = !!post.location;
+            break;
+          default:
+            shouldInclude = true;
+        }
+        
+        if (shouldInclude) {
+          emit.next({ type: 'new', data: post });
+        }
+      };
+      
+      feedEvents.on('postUpdate', onPostUpdate);
+      feedEvents.on('newPost', onNewPost);
+      
+      return () => {
+        feedEvents.off('postUpdate', onPostUpdate);
+        feedEvents.off('newPost', onNewPost);
+      };
+    });
   });
