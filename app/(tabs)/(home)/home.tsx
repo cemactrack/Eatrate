@@ -95,7 +95,8 @@ function HomeScreenContent() {
   // eslint-disable-next-line @rork/linters/rsp-react-query-object-api-only
   const restaurantsQuery = trpc.restaurants.list.useQuery(undefined, { 
     staleTime: 1000 * 60 * 30, // Increased to 30 minutes for better caching
-    retry: 0,
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
     refetchOnMount: false,
   });
   const { data: restaurantsData, isLoading: isLoadingRestaurants, error: restaurantsError } = restaurantsQuery;
@@ -152,7 +153,7 @@ function HomeScreenContent() {
         deferredTimerRef.current = null;
       }
     };
-  }, [shouldLoadPosts]); // Removed shouldLoadDeferred to prevent infinite loop
+  }, [shouldLoadPosts]); // Only depend on shouldLoadPosts to prevent infinite loop
 
   // eslint-disable-next-line @rork/linters/rsp-react-query-object-api-only
   const dishesQuery = trpc.dishes.list.useQuery(undefined, { 

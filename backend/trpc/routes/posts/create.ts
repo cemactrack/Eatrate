@@ -31,8 +31,8 @@ export const createPostProcedure = protectedProcedure
   .mutation(async ({ input, ctx }) => {
     console.log('[tRPC] Creating post:', { textLength: input.text.length, imagesCount: input.images?.length || 0 });
     
-    // Add artificial delay to simulate processing but keep it reasonable
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Remove artificial delay to prevent timeouts
+    // await new Promise(resolve => setTimeout(resolve, 100));
     
     // Validate input
     if (!input.text?.trim() && (!input.images || input.images.length === 0)) {

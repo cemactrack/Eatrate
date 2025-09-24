@@ -24,9 +24,9 @@ export const trpcClient = trpc.createClient({
         // Create timeout signal with better error handling
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
-          console.warn('[tRPC] Request timeout after 25 seconds:', url);
+          console.warn('[tRPC] Request timeout after 15 seconds:', url);
           controller.abort();
-        }, 25000); // 25 second timeout
+        }, 15000); // 15 second timeout
         
         // Combine with existing signal if present
         if (options?.signal) {

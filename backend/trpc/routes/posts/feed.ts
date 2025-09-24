@@ -10,8 +10,8 @@ export const getPostFeedProcedure = publicProcedure
     cursor: z.string().optional(),
   }))
   .query(async ({ input }) => {
-    // Reduce artificial delay to prevent timeouts
-    await new Promise(resolve => setTimeout(resolve, 50));
+    // Remove artificial delay to prevent timeouts
+    // await new Promise(resolve => setTimeout(resolve, 50));
     
     const offset = input.cursor ? parseInt(input.cursor) : 0;
     
