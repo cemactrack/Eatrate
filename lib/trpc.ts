@@ -2,38 +2,10 @@ import { createTRPCReact } from "@trpc/react-query";
 import { httpLink } from "@trpc/client";
 import type { AppRouter } from "@/backend/trpc/app-router";
 import superjson from "superjson";
-import { Platform, NativeModules } from "react-native";
+import { Platform } from "react-native";
 import Constants from 'expo-constants';
 
 export const trpc = createTRPCReact<AppRouter>();
-
-function nativeDevOrigin(): string | null {
-  try {
-    const scriptURL = (NativeModules as any)?.SourceCode?.scriptURL as string | undefined;
-    if (scriptURL && typeof scriptURL === 'string') {
-      const match = scriptURL.match(/^(https?:):\/\/([^/:]+):(\d+)/);
-      if (match) {
-        const protocol = match[1];
-        const host = match[2];
-        const port = match[3];
-        return `${protocol}//${host}:${port}`;
-      }
-    }
-  } catch {}
-  return null;
-}
-
-function expoHostOrigin(): string | null {
-  try {
-    const hostUri = (Constants as any)?.expoConfig?.hostUri as string | undefined;
-    if (hostUri && typeof hostUri === 'string') {
-      const hasScheme = /^(https?:)\/\//.test(hostUri);
-      const protocol = hostUri.includes('localhost') || /^(\d+\.){3}\d+/.test(hostUri) ? 'http' : 'https';
-      return hasScheme ? hostUri.replace(/\/$/, '') : `${protocol}://${hostUri.replace(/\/$/, '')}`;
-    }
-  } catch {}
-  return null;
-}
 
 const getBaseUrl = (): string => {
   if (Platform.OS === 'web') {
@@ -53,29 +25,8 @@ const getBaseUrl = (): string => {
     return envUrl.replace(/\/$/, '');
   }
 
-  const expoOrigin = expoHostOrigin();
-  if (expoOrigin) {
-    console.log('[tRPC] Using Expo host origin:', expoOrigin);
-    return expoOrigin;
-  }
-  
-  const origin = nativeDevOrigin();
-  if (origin) {
-    console.log('[tRPC] Using native dev origin:', origin);
-    return origin;
-  }
-  
-  let defaultUrl: string;
-  if (Platform.OS === 'android') {
-    defaultUrl = "http://10.0.2.2:8081";
-  } else if (Platform.OS === 'ios') {
-    defaultUrl = "http://localhost:8081";
-  } else {
-    defaultUrl = "";
-  }
-  
-  console.log('[tRPC] Using default URL:', defaultUrl);
-  return defaultUrl;
+  console.log('[tRPC] Using relative URL on native to hit Expo Router API routes');
+  return '';
 };
 
 const base = getBaseUrl();
