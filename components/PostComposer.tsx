@@ -11,15 +11,17 @@ import {
   Modal,
   FlatList,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import NotificationToast, { ToastType } from '@/components/NotificationToast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Camera, Image as ImageIcon, MapPin, Star, X, Search, Check } from 'lucide-react-native';
+import { Camera, Image as ImageIcon, MapPin, Star, X, Search, Check, Flame } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import Colors from '@/constants/colors';
-import { Restaurant } from '@/types/restaurant';
+import { Restaurant, NutritionEstimate } from '@/types/restaurant';
 import { trpc } from '@/lib/trpc';
+import { generateText } from '@rork/toolkit-sdk';
 
 interface RatingInputProps {
   label: string;
@@ -93,6 +95,8 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
   const router = useRouter();
   const [postText, setPostText] = useState<string>('');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [nutrition, setNutrition] = useState<NutritionEstimate | null>(null);
+  const [isEstimating, setIsEstimating] = useState<boolean>(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [selectedDish, setSelectedDish] = useState<string>('');
   const [tags, setTags] = useState<string>('');
@@ -219,8 +223,50 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
     if (!result.canceled && result.assets) {
       const newImages = result.assets.map((asset) => asset.uri);
       setSelectedImages((prev) => [...prev, ...newImages].slice(0, 5));
+      if (newImages.length > 0) {
+        estimateCalories([newImages[0]], selectedDish);
+      }
     }
   };
+
+  const estimateCalories = useCallback(async (images: string[], dishName?: string) => {
+    try {
+      setIsEstimating(true);
+      setNutrition(null);
+      const prompt = `You are a nutritionist. Estimate calories for a single meal from a photo and optional name.
+Dish: ${dishName ?? 'unknown'}.
+Return strictly JSON like {"totalCalories":number,"confidence":0-1,"items":[{"name":string,"calories":number,"confidence":0-1}]}. Keep totals realistic (200-1500).`;
+      const response = await generateText({
+        messages: [
+          { role: 'user', content: [
+            { type: 'text', text: prompt },
+            ...images.slice(0,1).map((uri) => ({ type: 'image' as const, image: uri }))
+          ] as const}
+        ]
+      });
+      let parsed: NutritionEstimate | null = null;
+      try {
+        parsed = JSON.parse(response) as NutritionEstimate;
+      } catch (e) {
+        const match = response.match(/\{[\s\S]*\}/);
+        if (match) parsed = JSON.parse(match[0]) as NutritionEstimate;
+      }
+      if (parsed && typeof parsed.totalCalories === 'number') {
+        setNutrition({
+          totalCalories: Math.max(0, Math.round(parsed.totalCalories)),
+          items: Array.isArray(parsed.items) ? parsed.items.map((i:any) => ({ name: String(i.name ?? 'item'), calories: Math.max(0, Math.round(Number(i.calories ?? 0))), confidence: Math.max(0, Math.min(1, Number(i.confidence ?? 0.5))) })) : [],
+          confidence: Math.max(0, Math.min(1, Number(parsed.confidence ?? 0.5)))
+        });
+      } else {
+        setNutrition(null);
+      }
+    } catch (error) {
+      console.error('[PostComposer] Nutrition estimate failed', error);
+      setNutrition(null);
+    } finally {
+      setIsEstimating(false);
+    }
+  }, [setIsEstimating, setNutrition]);
 
   const takePhoto = async () => {
     if (Platform.OS === 'web') {
@@ -239,12 +285,15 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
     });
 
     if (!result.canceled && result.assets?.[0]) {
-      setSelectedImages((prev) => [...prev, result.assets[0].uri].slice(0, 5));
+      const uri = result.assets[0].uri;
+      setSelectedImages((prev) => [...prev, uri].slice(0, 5));
+      estimateCalories([uri], selectedDish);
     }
   };
 
   const removeImage = (index: number) => {
     setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+    setNutrition(null);
   };
 
   const { data: douala, isLoading: isLoadingRestaurants } = trpc.restaurants.douala.useQuery(
@@ -312,6 +361,7 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
         images: selectedImages,
         ratings: finalRatings,
         tags: tagList,
+        nutritionEstimate: nutrition ?? undefined,
       });
     } catch (e: any) {
       console.error('[PostComposer] Post submission error:', e);
@@ -396,6 +446,33 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
                 </View>
               ))}
             </ScrollView>
+            <View style={styles.nutritionCard}>
+              <View style={styles.nutritionHeader}>
+                <Flame size={16} color={Colors.light.tint} />
+                <Text style={styles.nutritionTitle}>Estimated Calories</Text>
+              </View>
+              {isEstimating ? (
+                <View style={styles.nutritionRow}>
+                  <ActivityIndicator size="small" color={Colors.light.tint} />
+                  <Text style={styles.nutritionInfo}>Analyzing photo…</Text>
+                </View>
+              ) : nutrition ? (
+                <>
+                  <View style={styles.nutritionRow}>
+                    <Text style={styles.nutritionTotal}>{nutrition.totalCalories} kcal</Text>
+                    <Text style={styles.nutritionConfidence}>{Math.round(nutrition.confidence * 100)}% confidence</Text>
+                  </View>
+                  {nutrition.items.slice(0,3).map((it, i) => (
+                    <View key={`ni-${i}`} style={styles.nutritionItemRow}>
+                      <Text style={styles.nutritionItemName}>{it.name}</Text>
+                      <Text style={styles.nutritionItemCal}>{it.calories} kcal</Text>
+                    </View>
+                  ))}
+                </>
+              ) : (
+                <Text style={styles.nutritionInfo}>Add a clear food photo for calorie estimate.</Text>
+              )}
+            </View>
           </View>
         )}
 
@@ -438,7 +515,12 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
             placeholder="What dish are you reviewing?"
             placeholderTextColor={Colors.light.secondary}
             value={selectedDish}
-            onChangeText={setSelectedDish}
+            onChangeText={(v) => {
+              setSelectedDish(v);
+              if (selectedImages[0]) {
+                estimateCalories([selectedImages[0]], v);
+              }
+            }}
           />
         </View>
 
@@ -684,6 +766,60 @@ const styles = StyleSheet.create({
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  nutritionCard: {
+    marginTop: 12,
+    marginRight: 16,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    backgroundColor: Colors.light.card,
+  },
+  nutritionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  nutritionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.light.text,
+    marginLeft: 6,
+  },
+  nutritionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  nutritionInfo: {
+    fontSize: 12,
+    color: Colors.light.secondary,
+    marginLeft: 6,
+  },
+  nutritionTotal: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.light.text,
+  },
+  nutritionConfidence: {
+    marginLeft: 8,
+    fontSize: 12,
+    color: Colors.light.secondary,
+  },
+  nutritionItemRow: {
+    marginTop: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  nutritionItemName: {
+    fontSize: 12,
+    color: Colors.light.text,
+  },
+  nutritionItemCal: {
+    fontSize: 12,
+    color: Colors.light.secondary,
   },
   actionButtons: {
     flexDirection: 'row',

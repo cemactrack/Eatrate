@@ -6,6 +6,16 @@ let postIdCounter = 1000;
 const MAX_POST_TEXT_LENGTH = 500;
 const MAX_IMAGES_COUNT = 5;
 
+const nutritionEstimateSchema = z.object({
+  totalCalories: z.number().nonnegative(),
+  items: z.array(z.object({
+    name: z.string(),
+    calories: z.number().nonnegative(),
+    confidence: z.number().min(0).max(1),
+  })).default([]),
+  confidence: z.number().min(0).max(1),
+});
+
 export const createPostProcedure = protectedProcedure
   .input(z.object({
     text: z.string().min(1).max(MAX_POST_TEXT_LENGTH),
@@ -27,6 +37,7 @@ export const createPostProcedure = protectedProcedure
     }).optional(),
     scheduledFor: z.string().optional(), // ISO date string
     isDraft: z.boolean().default(false),
+    nutritionEstimate: nutritionEstimateSchema.optional(),
   }))
   .mutation(async ({ input, ctx }) => {
     const startTime = Date.now();
@@ -77,6 +88,7 @@ export const createPostProcedure = protectedProcedure
           ...input.ratings,
           overall: Math.round((input.ratings.food * 0.4 + input.ratings.service * 0.3 + input.ratings.ambiance * 0.2 + input.ratings.cleanliness * 0.1) * 10) / 10,
         },
+        nutritionEstimate: input.nutritionEstimate,
         tags: input.tags || [],
         location: input.location,
         likesCount: 0,

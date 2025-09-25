@@ -55,6 +55,18 @@ export interface User {
   };
 }
 
+export interface NutritionItem {
+  name: string;
+  calories: number;
+  confidence: number;
+}
+
+export interface NutritionEstimate {
+  totalCalories: number;
+  items: NutritionItem[];
+  confidence: number;
+}
+
 export interface Post {
   id: string;
   userId: string;
@@ -82,6 +94,7 @@ export interface Post {
     cleanliness: number;
     overall: number;
   };
+  nutritionEstimate?: NutritionEstimate;
   tags: string[];
   location?: {
     latitude: number;
