@@ -266,7 +266,8 @@ export const [LocalizationProvider, useLocalization] = createContextHook<Localiz
           setLanguage(savedLanguage);
         } else {
           // Use device locale as fallback
-          const deviceLocale = Localization.getLocales()[0]?.languageCode || 'en';
+          const locales = Localization.getLocales();
+          const deviceLocale = locales[0]?.languageCode || 'en';
           const deviceLanguage = deviceLocale.startsWith('fr') ? 'fr' : 'en';
           setLanguage(deviceLanguage);
           await setItem(STORAGE_KEY, deviceLanguage);

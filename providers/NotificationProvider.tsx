@@ -94,13 +94,13 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
 
         // Get push token
         if (Platform.OS !== 'web') {
-          const token = await Notifications.getExpoPushTokenAsync();
+          const token = await Notifications.getExpoPushTokenAsync({
+            projectId: process.env.EXPO_PUBLIC_PROJECT_ID,
+          });
           setExpoPushToken(token.data);
           
           // Register token with backend
-          if (registerTokenMutation.mutate) {
-            registerTokenMutation.mutate({ token: token.data });
-          }
+          registerTokenMutation.mutate({ token: token.data });
         }
       } catch (error) {
         console.error('Failed to initialize push notifications:', error);
@@ -211,12 +211,12 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
         pushEnabled: updated.pushEnabled,
         emailEnabled: updated.emailEnabled,
         categories: {
-          social: updated.categories?.social || false,
-          achievements: updated.categories?.achievements || false,
-          events: updated.categories?.events || false,
-          challenges: updated.categories?.challenges || false,
-          restaurants: updated.categories?.restaurants || false,
-          system: updated.categories?.system || false,
+          social: updated.categories?.social ?? false,
+          achievements: updated.categories?.achievements ?? false,
+          events: updated.categories?.events ?? false,
+          challenges: updated.categories?.challenges ?? false,
+          restaurants: updated.categories?.restaurants ?? false,
+          system: updated.categories?.system ?? false,
         },
         quietHours: {
           enabled: updated.quietHours?.enabled ?? false,
@@ -236,7 +236,18 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
 
   const requestPermissions = async (): Promise<boolean> => {
     try {
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+          allowDisplayInCarPlay: false,
+          allowCriticalAlerts: false,
+          provideAppNotificationSettings: false,
+          allowProvisional: false,
+
+        },
+      });
       return status === 'granted';
     } catch (error) {
       console.error('Failed to request notification permissions:', error);
