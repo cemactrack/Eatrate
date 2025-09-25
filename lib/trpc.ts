@@ -56,10 +56,11 @@ export const trpcClient = trpc.createClient({
       },
       fetch(url, options) {
         const controller = new AbortController();
+        const timeoutMs = 45000;
         const timeoutId = setTimeout(() => {
-          console.warn('[tRPC] Request timeout after 10 seconds:', url);
+          console.warn(`[tRPC] Request timeout after ${timeoutMs / 1000} seconds:`, url);
           controller.abort();
-        }, 10000);
+        }, timeoutMs);
 
         if (options?.signal) {
           options.signal.addEventListener('abort', () => {
