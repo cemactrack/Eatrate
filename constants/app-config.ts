@@ -24,6 +24,16 @@ export const APP_CONFIG = {
     maxPostLength: 2000,
     maxImagesPerPost: 10,
   },
+  pagination: {
+    defaultPageSize: 20,
+    maxPageSize: 100,
+  },
+  cache: {
+    userProfile: 1000 * 60 * 30, // 30 minutes
+    restaurants: 1000 * 60 * 15, // 15 minutes
+    posts: 1000 * 60 * 5, // 5 minutes
+    dishes: 1000 * 60 * 20, // 20 minutes
+  },
 } as const;
 
 export const CITIES = {

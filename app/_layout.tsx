@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { Platform } from "react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { StyleSheet, View, ActivityIndicator, Text } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -13,24 +13,26 @@ import { AuthProvider } from "@/providers/AuthProvider";
 import { SettingsProvider, useSettings } from "@/providers/SettingsProvider";
 import { AdminProvider } from "@/providers/AdminProvider";
 import Colors from "@/constants/colors";
+import { APP_CONFIG } from "@/constants/app-config";
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync();
 }
 
+// Optimized query client with better defaults
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 0,
-      staleTime: 1000 * 60 * 30,
-      gcTime: 1000 * 60 * 45,
+      retry: APP_CONFIG.api.retryAttempts,
+      staleTime: APP_CONFIG.api.staleTime,
+      gcTime: APP_CONFIG.api.cacheTime,
       refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
+      refetchOnReconnect: true,
       networkMode: 'online',
       refetchOnMount: false,
     },
     mutations: {
-      retry: 0,
+      retry: 1,
       networkMode: 'online',
     },
   },
@@ -38,75 +40,103 @@ const queryClient = new QueryClient({
 
 function ThemedStack() {
   const { colors } = useSettings();
+  
+  const screenOptions = useMemo(() => ({
+    headerBackTitle: "Back",
+    headerStyle: { backgroundColor: colors.background },
+    headerTintColor: colors.text,
+    headerTitleStyle: { fontWeight: '700' as const },
+    animation: 'slide_from_right' as const,
+  }), [colors]);
+  
   return (
-    <Stack screenOptions={{ headerBackTitle: "Back" }}>
+    <Stack screenOptions={screenOptions}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="restaurants" options={{ 
-        headerShown: true, 
-        title: "Restaurants",
-        headerStyle: { backgroundColor: colors.background },
-        headerTintColor: colors.text,
-        headerTitleStyle: { fontWeight: '700' },
-        headerBackTitle: "Back"
-      }} />
-      <Stack.Screen name="comments/[postId]" options={{ 
-        presentation: "modal", 
-        title: "Comments",
-        headerStyle: { backgroundColor: colors.background },
-        headerTintColor: colors.text
-      }} />
-      <Stack.Screen name="welcome" options={{ 
-        headerShown: false,
-        gestureEnabled: false
-      }} />
-      <Stack.Screen name="login" options={{ 
-        headerShown: false,
-        gestureEnabled: false
-      }} />
-      <Stack.Screen name="signup" options={{ 
-        headerShown: false,
-        gestureEnabled: false
-      }} />
-      <Stack.Screen name="settings" options={{ 
-        title: "Settings",
-        headerStyle: { backgroundColor: colors.background },
-        headerTintColor: colors.text,
-        headerTitleStyle: { fontWeight: '700' },
-        headerBackTitle: "Back"
-      }} />
-      <Stack.Screen name="profile/edit" options={{ 
-        title: "Edit Profile", 
-        presentation: "modal",
-        headerStyle: { backgroundColor: colors.background },
-        headerTintColor: colors.text,
-        headerTitleStyle: { fontWeight: '700' }
-      }} />
-      <Stack.Screen name="status" options={{ 
-        title: "Post Status", 
-        presentation: "modal",
-        headerStyle: { backgroundColor: colors.background },
-        headerTintColor: colors.text,
-        headerTitleStyle: { fontWeight: '700' }
-      }} />
-      <Stack.Screen name="admin" options={{ 
-        headerShown: false,
-        gestureEnabled: false
-      }} />
-      <Stack.Screen name="users/[id]" options={{ 
-        title: "User Profile",
-        headerStyle: { backgroundColor: colors.background },
-        headerTintColor: colors.text,
-        headerTitleStyle: { fontWeight: '700' },
-        headerBackTitle: "Back"
-      }} />
-      <Stack.Screen name="posts/feed" options={{ 
-        title: "Feed",
-        headerShown: false
-      }} />
-      <Stack.Screen name="posts/[postId]" options={{ 
-        title: "Post",
-        headerShown: false
-      }} />
+      <Stack.Screen 
+        name="restaurants" 
+        options={{ 
+          headerShown: true, 
+          title: "Restaurants",
+        }} 
+      />
+      <Stack.Screen 
+        name="comments/[postId]" 
+        options={{ 
+          presentation: "modal", 
+          title: "Comments",
+        }} 
+      />
+      <Stack.Screen 
+        name="welcome" 
+        options={{ 
+          headerShown: false,
+          gestureEnabled: false,
+          animation: 'fade',
+        }} 
+      />
+      <Stack.Screen 
+        name="login" 
+        options={{ 
+          headerShown: false,
+          gestureEnabled: false,
+          animation: 'fade',
+        }} 
+      />
+      <Stack.Screen 
+        name="signup" 
+        options={{ 
+          headerShown: false,
+          gestureEnabled: false,
+          animation: 'fade',
+        }} 
+      />
+      <Stack.Screen 
+        name="settings" 
+        options={{ 
+          title: "Settings",
+        }} 
+      />
+      <Stack.Screen 
+        name="profile/edit" 
+        options={{ 
+          title: "Edit Profile", 
+          presentation: "modal",
+        }} 
+      />
+      <Stack.Screen 
+        name="status" 
+        options={{ 
+          title: "Post Status", 
+          presentation: "modal",
+        }} 
+      />
+      <Stack.Screen 
+        name="admin" 
+        options={{ 
+          headerShown: false,
+          gestureEnabled: false,
+        }} 
+      />
+      <Stack.Screen 
+        name="users/[id]" 
+        options={{ 
+          title: "User Profile",
+        }} 
+      />
+      <Stack.Screen 
+        name="posts/feed" 
+        options={{ 
+          title: "Feed",
+          headerShown: false,
+        }} 
+      />
+      <Stack.Screen 
+        name="posts/[postId]" 
+        options={{ 
+          title: "Post",
+          headerShown: false,
+        }} 
+      />
     </Stack>
   );
 }
@@ -120,9 +150,12 @@ function MobileBlockedScreen() {
     <View style={[styles.container, styles.blocked]} testID="web-blocked">
       <View style={styles.blockedCard}>
         <ActivityIndicator size="large" color={Colors.light.tint} />
-        <Text style={styles.blockedTitle}>Open on mobile</Text>
+        <Text style={styles.blockedTitle}>📱 Mobile Experience</Text>
         <Text style={styles.blockedSubtitle}>
-          This experience is mobile-native. Use the QR code in the preview to run on your device with Expo Go.
+          {APP_CONFIG.name} is optimized for mobile devices. Scan the QR code to open in Expo Go on your phone.
+        </Text>
+        <Text style={styles.blockedHint}>
+          For the best experience, use your mobile device.
         </Text>
       </View>
     </View>
@@ -223,5 +256,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#6b7280',
     lineHeight: 20,
+    textAlign: 'center',
+  },
+  blockedHint: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#9ca3af',
+    lineHeight: 16,
+    textAlign: 'center',
+    marginTop: 8,
   },
 });
