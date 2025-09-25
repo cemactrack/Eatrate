@@ -40,7 +40,6 @@ const getBaseUrl = (): string => {
     try {
       const origin = typeof window !== 'undefined' && window.location ? window.location.origin : '';
       console.log('[tRPC] Web origin:', origin);
-      // For web, the backend should be served from the same origin
       return origin || '';
     } catch (error) {
       console.error('[tRPC] Error getting web origin:', error);
@@ -48,37 +47,30 @@ const getBaseUrl = (): string => {
     }
   }
 
-  // Check for environment variables first
   const envUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL ?? ((Constants as any)?.expoConfig?.extra?.apiBaseUrl as string | undefined);
   if (envUrl && envUrl.length > 0) {
     console.log('[tRPC] Using environment URL:', envUrl);
     return envUrl.replace(/\/$/, '');
   }
 
-  // Try to get the Expo development server URL
   const expoOrigin = expoHostOrigin();
   if (expoOrigin) {
     console.log('[tRPC] Using Expo host origin:', expoOrigin);
     return expoOrigin;
   }
   
-  // Try to get the native development server URL
   const origin = nativeDevOrigin();
   if (origin) {
     console.log('[tRPC] Using native dev origin:', origin);
     return origin;
   }
   
-  // Fallback to default development URLs
-  let defaultUrl;
+  let defaultUrl: string;
   if (Platform.OS === 'android') {
-    // Android emulator uses 10.0.2.2 to access host machine
     defaultUrl = "http://10.0.2.2:8081";
   } else if (Platform.OS === 'ios') {
-    // iOS simulator can use localhost
     defaultUrl = "http://localhost:8081";
   } else {
-    // Web and other platforms - use same origin for web
     defaultUrl = "";
   }
   
@@ -88,8 +80,11 @@ const getBaseUrl = (): string => {
 
 const base = getBaseUrl();
 const primaryPath = '/api/trpc';
-const apiUrl = base ? `${base}${primaryPath}` : primaryPath;
-console.log('[tRPC] Using API URL:', apiUrl);
+const fallbackPath = '/trpc';
+const primaryUrl = base ? `${base}${primaryPath}` : primaryPath;
+const fallbackUrl = base ? `${base}${fallbackPath}` : fallbackPath;
+console.log('[tRPC] Primary API URL:', primaryUrl);
+console.log('[tRPC] Fallback API URL:', fallbackUrl);
 console.log('[tRPC] API Base URL:', base || '(relative)');
 if (Platform.OS === 'web') {
   const href = typeof window !== 'undefined' ? window.location.href : 'unknown';
@@ -99,13 +94,13 @@ if (Platform.OS === 'web') {
 export const trpcClient = trpc.createClient({
   links: [
     httpLink({
-      url: apiUrl,
+      url: primaryUrl,
       transformer: superjson,
       headers() {
-        return { 
-          authorization: 'dev', 
+        return {
+          authorization: 'dev',
           accept: 'application/json',
-          'content-type': 'application/json' 
+          'content-type': 'application/json'
         };
       },
       async fetch(url, options) {
@@ -130,68 +125,69 @@ export const trpcClient = trpc.createClient({
           } as RequestInit);
         };
 
-        if (options?.signal) {
-          options.signal.addEventListener('abort', () => {
+        if ((options as RequestInit | undefined)?.signal) {
+          (options as RequestInit).signal?.addEventListener('abort', () => {
             clearTimeout(timeoutId);
             controller.abort();
           });
         }
 
+        const tryUrls: string[] = [String(url)];
+        const asString = String(url);
+        if (asString.includes(primaryPath)) {
+          tryUrls.push(asString.replace(primaryPath, fallbackPath));
+        }
+        if (base) {
+          tryUrls.push(primaryPath, fallbackPath);
+        } else {
+          tryUrls.push(primaryUrl, fallbackUrl);
+        }
+
         try {
-          console.log('[tRPC] Making request to:', String(url));
-          let response = await makeRequest(String(url));
-          console.log('[tRPC] Response status:', response.status, response.statusText);
-          console.log('[tRPC] Response headers:', Object.fromEntries(response.headers.entries()));
+          let lastErr: unknown = null;
+          for (const target of tryUrls) {
+            try {
+              console.log('[tRPC] Trying URL:', target);
+              let response = await makeRequest(target);
+              console.log('[tRPC] Response status:', response.status, response.statusText);
+              console.log('[tRPC] Response headers:', Object.fromEntries(response.headers.entries()));
 
-          const isHtml = async (res: Response) => {
-            const contentType = res.headers.get('content-type') ?? '';
-            console.log('[tRPC] Response content-type:', contentType);
-            if (contentType.includes('text/html')) {
-              // Clone the response before reading it to avoid consuming the body
-              const clonedRes = res.clone();
-              const text = await clonedRes.text();
-              console.error('[tRPC] Received HTML instead of JSON:', text.slice(0, 200));
-              return true;
+              const contentType = response.headers.get('content-type') ?? '';
+              console.log('[tRPC] Response content-type:', contentType);
+              if (contentType.includes('text/html')) {
+                const text = await response.clone().text();
+                console.error('[tRPC] Received HTML instead of JSON:', text.slice(0, 200));
+                throw new Error('HTML_RESPONSE');
+              }
+
+              if (!response.ok) {
+                const text = await response.clone().text();
+                console.error(`[tRPC] HTTP ${response.status}:`, text.slice(0, 200));
+                if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+                  throw new Error('HTML_RESPONSE');
+                }
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+              }
+
+              clearTimeout(timeoutId);
+              if (!contentType.includes('application/json')) {
+                console.warn('[tRPC] Unexpected content-type:', contentType);
+              }
+              return response as Response;
+            } catch (innerErr) {
+              lastErr = innerErr;
+              const msg = String((innerErr as { message?: string } | null)?.message ?? '');
+              console.warn('[tRPC] Attempt failed for', target, msg);
+              continue;
             }
-            return false;
-          };
-
-          if (await isHtml(response) || (!response.ok && (response.headers.get('content-type') ?? '').includes('text/html'))) {
-            console.error('[tRPC] Server returned HTML instead of JSON. This usually means:');
-            console.error('1. The backend server is not running');
-            console.error('2. The API endpoint is not properly configured');
-            console.error('3. There\'s a routing issue with the server');
-            console.error('[tRPC] Request URL was:', String(url));
-            console.error('[tRPC] Base URL was:', base);
-            
-            // Don't retry, just throw an error immediately
-            throw new Error('Server returned HTML instead of JSON. Please check that the backend server is running and accessible.');
-          }
-          
-          clearTimeout(timeoutId);
-
-          if (!response.ok) {
-            // Clone the response before reading it to avoid consuming the body
-            const clonedRes = response.clone();
-            const text = await clonedRes.text();
-            console.error(`[tRPC] HTTP ${response.status}:`, text.slice(0, 200));
-            if (text.includes('<!DOCTYPE') || text.includes('<html')) {
-              throw new Error(`Server returned HTML instead of JSON (${response.status}). The backend server may not be running or the API endpoint is misconfigured. Please check that the server is started and accessible at the expected URL.`);
-            }
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          }
-          
-          const contentType = response.headers.get('content-type') ?? '';
-          if (!contentType.includes('application/json')) {
-            console.warn('[tRPC] Unexpected content-type:', contentType);
           }
 
-          return response as Response;
+          throw lastErr as Error;
         } catch (error: unknown) {
           clearTimeout(timeoutId);
 
           const anyErr = error as { name?: string; message?: string } | undefined;
-          
+
           if (anyErr?.name === 'AbortError') {
             const timeoutError = new Error('Request timeout - please check your internet connection');
             (timeoutError as any).name = 'TimeoutError';
@@ -199,7 +195,7 @@ export const trpcClient = trpc.createClient({
           }
 
           const msg: string = String(anyErr?.message ?? '');
-          
+
           if (msg.includes('Failed to fetch') || msg.includes('Network request failed') || msg.includes('TypeError: Network request failed')) {
             const networkError = new Error('Network error - please check your internet connection and ensure the API server is running');
             (networkError as any).name = 'NetworkError';
@@ -207,9 +203,9 @@ export const trpcClient = trpc.createClient({
             throw networkError;
           }
 
-          if (msg.includes('Server returned HTML')) {
-            console.error('[tRPC] Server configuration error:', msg);
-            throw new Error('API server configuration error - please check server setup');
+          if (msg.includes('HTML_RESPONSE')) {
+            console.error('[tRPC] Server returned HTML instead of JSON. Check that the API routes are mounted at /api/trpc or /trpc and the dev server is running.');
+            throw new Error('API server configuration error - server returned HTML instead of JSON');
           }
 
           throw error as Error;
