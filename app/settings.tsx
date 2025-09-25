@@ -47,21 +47,22 @@ function SettingItem({
   showChevron = true,
   chevronColor,
 }: SettingItemProps) {
+  const { colors } = useSettings();
   return (
-    <TouchableOpacity style={styles.settingItem} onPress={onPress}>
+    <TouchableOpacity style={[styles.settingItem, { borderBottomColor: colors.border }]} onPress={onPress} testID={`setting-${title.replace(/\s+/g, '-').toLowerCase()}`}>
       <View style={styles.settingLeft}>
-        <View style={styles.iconContainer}>
+        <View style={[styles.iconContainer, { backgroundColor: colors.accent }]}>
           {icon}
         </View>
         <View style={styles.settingContent}>
-          <Text style={styles.settingTitle}>{title}</Text>
-          {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
+          <Text style={[styles.settingTitle, { color: colors.text }]}>{title}</Text>
+          {subtitle && <Text style={[styles.settingSubtitle, { color: colors.secondary }]}>{subtitle}</Text>}
         </View>
       </View>
       <View style={styles.settingRight}>
         {rightElement}
         {showChevron && !rightElement && (
-          <ChevronRight size={20} color={chevronColor ?? '#6B7280'} />
+          <ChevronRight size={20} color={chevronColor ?? colors.secondary} />
         )}
       </View>
     </TouchableOpacity>
@@ -74,10 +75,11 @@ interface SettingSectionProps {
 }
 
 function SettingSection({ title, children }: SettingSectionProps) {
+  const { colors } = useSettings();
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <View style={styles.sectionContent}>
+      <Text style={[styles.sectionTitle, { color: colors.secondary }]}>{title}</Text>
+      <View style={[styles.sectionContent, { backgroundColor: colors.card, borderColor: colors.border }]}>
         {children}
       </View>
     </View>
@@ -189,17 +191,15 @@ export default function SettingsScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]} testID="settings-screen">
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} testID="settings-scroll">
         {/* Account Section */}
         <SettingSection title="Account">
           <View style={styles.userInfo}>
-            <Text style={styles.userDisplayName}>
+            <Text style={[styles.userDisplayName, { color: colors.text }]}>
               {user?.displayName || 'User'}
             </Text>
-            <Text style={styles.userContact}>
+            <Text style={[styles.userContact, { color: colors.secondary }]}>
               {user?.email || user?.phone || 'No contact info'}
             </Text>
           </View>
@@ -217,6 +217,7 @@ export default function SettingsScreen() {
                 onValueChange={handleNotificationToggle}
                 trackColor={{ false: colors.border, true: colors.accent }}
                 thumbColor={settings.notifications ? colors.tint : colors.secondary}
+                testID="toggle-notifications"
               />
             }
             showChevron={false}
@@ -231,6 +232,7 @@ export default function SettingsScreen() {
                 onValueChange={handleDarkModeToggle}
                 trackColor={{ false: colors.border, true: colors.accent }}
                 thumbColor={settings.darkMode ? colors.tint : colors.secondary}
+                testID="toggle-dark-mode"
               />
             }
             showChevron={false}
@@ -245,6 +247,7 @@ export default function SettingsScreen() {
                 onValueChange={handleLocationToggle}
                 trackColor={{ false: colors.border, true: colors.accent }}
                 thumbColor={settings.locationEnabled ? colors.tint : colors.secondary}
+                testID="toggle-location"
               />
             }
             showChevron={false}

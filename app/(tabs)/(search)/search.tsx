@@ -12,13 +12,14 @@ import { useRouter, Stack } from 'expo-router';
 import { trpc } from '@/lib/trpc';
 import RestaurantCard from '@/components/RestaurantCard';
 import SearchBar from '@/components/SearchBar';
-import Colors from '@/constants/colors';
+import { useSettings } from '@/providers/SettingsProvider';
 
 export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCuisine, setSelectedCuisine] = useState<string>('All');
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { colors } = useSettings();
 
   const restaurantsQuery = trpc.restaurants.douala.useQuery({}, { 
     staleTime: 1000 * 60 * 20,
@@ -29,17 +30,17 @@ export default function SearchScreen() {
 
   const cuisines = useMemo(() => {
     const set = new Set<string>(['All']);
-    (data?.restaurants ?? []).forEach(r => set.add(r.cuisine));
+    (data?.restaurants ?? []).forEach((r: import('@/types/restaurant').Restaurant) => set.add(r.cuisine));
     return Array.from(set);
   }, [data?.restaurants]);
 
   const filteredRestaurants = useMemo(() => {
-    const list = data?.restaurants ?? [];
-    return list.filter((restaurant) => {
+    const list: import('@/types/restaurant').Restaurant[] = data?.restaurants ?? [];
+    return list.filter((restaurant: import('@/types/restaurant').Restaurant) => {
       const query = searchQuery.toLowerCase();
       const matchesSearch = restaurant.name.toLowerCase().includes(query) ||
                            restaurant.cuisine.toLowerCase().includes(query) ||
-                           restaurant.tags.some(tag => tag.toLowerCase().includes(query));
+                           restaurant.tags.some((tag: string) => tag.toLowerCase().includes(query));
       
       const matchesCuisine = selectedCuisine === 'All' || restaurant.cuisine === selectedCuisine;
       
@@ -59,7 +60,7 @@ export default function SearchScreen() {
   }, []);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]} testID="search-screen">
       <Stack.Screen options={{ title: 'Search', headerShown: false }} />
       
       {/* Search Bar */}
@@ -74,20 +75,22 @@ export default function SearchScreen() {
         horizontal 
         showsHorizontalScrollIndicator={false}
         style={styles.filterContainer}
-        contentContainerStyle={styles.filterContent}
+        contentContainerStyle={[styles.filterContent, { backgroundColor: colors.background }]}
       >
         {cuisines.map((cuisine) => (
           <TouchableOpacity
             key={cuisine}
             style={[
               styles.filterChip,
-              selectedCuisine === cuisine && styles.filterChipActive
+              { backgroundColor: colors.border },
+              selectedCuisine === cuisine && { backgroundColor: colors.tint }
             ]}
             onPress={() => handleCuisineSelect(cuisine)}
           >
             <Text style={[
               styles.filterChipText,
-              selectedCuisine === cuisine && styles.filterChipTextActive
+              { color: colors.secondary },
+              selectedCuisine === cuisine && { color: '#FFFFFF' }
             ]}>
               {cuisine}
             </Text>
@@ -96,15 +99,18 @@ export default function SearchScreen() {
       </ScrollView>
 
       {/* Results */}
-      <View style={styles.resultsHeader}>
-        <Text style={styles.resultsCount}>
+      <View style={[styles.resultsHeader, { borderBottomColor: colors.border }]}>
+        <Text style={[styles.resultsCount, { color: colors.secondary }]}>
           {isLoading ? 'Loading…' : `${filteredRestaurants.length} restaurants found`}
         </Text>
       </View>
 
       {error ? (
-        <View style={styles.listContent}>
-          <Text style={styles.resultsCount}>Could not load restaurants</Text>
+        <View style={styles.listContent} testID="search-error">
+          <Text style={[styles.resultsCount, { color: colors.error }]}>Could not load restaurants</Text>
+          <TouchableOpacity onPress={() => restaurantsQuery.refetch()} style={[styles.retryBtn, { backgroundColor: colors.tint }]} testID="retry-load">
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -119,6 +125,12 @@ export default function SearchScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
           testID="search-results-list"
+          ListEmptyComponent={!isLoading ? (
+            <View style={styles.emptyState} testID="empty-results">
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>No restaurants match</Text>
+              <Text style={[styles.emptySubtitle, { color: colors.secondary }]}>Try a different search or filter</Text>
+            </View>
+          ) : null}
         />
       )}
     </View>
@@ -128,7 +140,6 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.background,
   },
   filterContainer: {
     maxHeight: 60,
@@ -138,36 +149,48 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   filterChip: {
-    backgroundColor: Colors.light.border,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
   },
-  filterChipActive: {
-    backgroundColor: Colors.light.tint,
-  },
   filterChipText: {
     fontSize: 14,
-    color: Colors.light.secondary,
     fontWeight: '500',
-  },
-  filterChipTextActive: {
-    color: 'white',
-    fontWeight: '600',
   },
   resultsHeader: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
   },
   resultsCount: {
     fontSize: 16,
-    color: Colors.light.secondary,
     fontWeight: '500',
   },
   listContent: {
     paddingBottom: 16,
+  },
+  retryBtn: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    alignSelf: 'flex-start',
+    borderRadius: 8,
+  },
+  retryText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  emptySubtitle: {
+    marginTop: 6,
+    fontSize: 14,
   },
 });
