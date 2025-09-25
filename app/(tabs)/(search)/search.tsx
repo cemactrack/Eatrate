@@ -300,7 +300,7 @@ export default function SearchScreen() {
     
     const forceBootstrapIfNeeded = async () => {
       // Wait a bit for queries to settle
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       if (!isMounted) return;
       
@@ -308,6 +308,7 @@ export default function SearchScreen() {
       const hasAnyRestaurants = allRestaurants.length > 0;
       const hasImportedData = (importedOneTimeQuery.data?.restaurants?.length ?? 0) > 0;
       
+      // Always try to bootstrap if we don't have data and haven't tried yet
       if (!hasAnyRestaurants && !hasImportedData && !bootstrapMutation.isPending && !bootstrapped) {
         console.log('[Search] No restaurants found, forcing bootstrap import...');
         setBootstrapped(true);
@@ -329,10 +330,13 @@ export default function SearchScreen() {
       }
     };
     
+    // Run immediately and also after a short delay
     forceBootstrapIfNeeded();
+    const timer = setTimeout(forceBootstrapIfNeeded, 2000);
     
     return () => {
       isMounted = false;
+      clearTimeout(timer);
     };
   }, [allRestaurants.length, importedOneTimeQuery.data?.restaurants?.length, bootstrapMutation, bootstrapped, setItem, importedOneTimeQuery]);
 
