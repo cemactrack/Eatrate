@@ -8,15 +8,17 @@ import { useAuth } from './AuthProvider';
 import { useRouter } from 'expo-router';
 
 // Configure notification behavior
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 interface NotificationContextType {
   notifications: AppNotification[];
@@ -94,9 +96,7 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
 
         // Get push token
         if (Platform.OS !== 'web') {
-          const token = await Notifications.getExpoPushTokenAsync({
-            projectId: process.env.EXPO_PUBLIC_PROJECT_ID,
-          });
+          const token = await Notifications.getExpoPushTokenAsync();
           setExpoPushToken(token.data);
           
           // Register token with backend
@@ -228,7 +228,7 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
           daily: updated.frequency?.daily ?? false,
           weekly: updated.frequency?.weekly ?? false,
         },
-      });
+      } as NotificationSettings);
     } catch (error) {
       console.error('Failed to update notification settings:', error);
     }
@@ -245,7 +245,6 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
           allowCriticalAlerts: false,
           provideAppNotificationSettings: false,
           allowProvisional: false,
-
         },
       });
       return status === 'granted';
