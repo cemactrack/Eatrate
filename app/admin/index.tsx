@@ -25,6 +25,7 @@ import {
   Truck,
   Flag,
   ClipboardList,
+  List,
 } from 'lucide-react-native';
 import { useAdmin } from '@/providers/AdminProvider';
 import { trpc } from '@/lib/trpc';
@@ -237,6 +238,15 @@ export default function AdminDashboard() {
             <Activity size={20} color="#06b6d4" />
             <Text style={styles.actionTitle}>Admin Activity</Text>
             <Text style={styles.actionSubtitle}>View admin actions and audit log</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionCard}
+            onPress={() => router.push('/admin/features')}
+          >
+            <List size={20} color="#3b82f6" />
+            <Text style={styles.actionTitle}>Feature Dashboard</Text>
+            <Text style={styles.actionSubtitle}>View all platform features and their status</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 

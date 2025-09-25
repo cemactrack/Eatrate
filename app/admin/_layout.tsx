@@ -101,6 +101,13 @@ export default function AdminLayout() {
           headerShown: true,
         }} 
       />
+      <Stack.Screen 
+        name="features" 
+        options={{ 
+          title: 'Feature Dashboard',
+          headerShown: true,
+        }} 
+      />
     </Stack>
   );
 }
