@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
+import { useEffect, useState } from 'react';
 import * as Localization from 'expo-localization';
 import createContextHook from '@nkzw/create-context-hook';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useStorage } from './StorageProvider';
 
 type Language = 'en' | 'fr';
 
@@ -255,21 +254,22 @@ const STORAGE_KEY = 'app_language';
 export const [LocalizationProvider, useLocalization] = createContextHook<LocalizationContextType>(() => {
   const [language, setLanguage] = useState<Language>('en');
   const [isLoading, setIsLoading] = useState(true);
+  const { getItem, setItem } = useStorage();
 
   useEffect(() => {
     const initializeLanguage = async () => {
       try {
         // Try to get saved language
-        const savedLanguage = await AsyncStorage.getItem(STORAGE_KEY);
+        const savedLanguage = await getItem(STORAGE_KEY);
         
         if (savedLanguage && (savedLanguage === 'en' || savedLanguage === 'fr')) {
           setLanguage(savedLanguage);
         } else {
           // Use device locale as fallback
-          const deviceLocale = Localization.locale;
+          const deviceLocale = Localization.getLocales()[0]?.languageTag || 'en';
           const deviceLanguage = deviceLocale.startsWith('fr') ? 'fr' : 'en';
           setLanguage(deviceLanguage);
-          await AsyncStorage.setItem(STORAGE_KEY, deviceLanguage);
+          await setItem(STORAGE_KEY, deviceLanguage);
         }
       } catch (error) {
         console.error('Failed to initialize language:', error);
@@ -285,7 +285,7 @@ export const [LocalizationProvider, useLocalization] = createContextHook<Localiz
   const changeLanguage = async (lang: Language) => {
     try {
       setLanguage(lang);
-      await AsyncStorage.setItem(STORAGE_KEY, lang);
+      await setItem(STORAGE_KEY, lang);
     } catch (error) {
       console.error('Failed to save language preference:', error);
     }

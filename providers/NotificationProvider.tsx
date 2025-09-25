@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Platform, AppState, AppStateStatus } from 'react-native';
+import { useEffect, useState, useRef } from 'react';
+import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import createContextHook from '@nkzw/create-context-hook';
 import { trpc } from '@/lib/trpc';
-import { AppNotification, NotificationSettings, PushNotificationPayload } from '@/types/notifications';
+import { AppNotification, NotificationSettings } from '@/types/notifications';
 import { useAuth } from './AuthProvider';
 import { useRouter } from 'expo-router';
 
@@ -13,6 +13,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -41,8 +43,8 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
   const { user } = useAuth();
   const router = useRouter();
-  const notificationListener = useRef<Notifications.Subscription>();
-  const responseListener = useRef<Notifications.Subscription>();
+  const notificationListener = useRef<Notifications.Subscription | null>(null);
+  const responseListener = useRef<Notifications.Subscription | null>(null);
 
   // Fetch notifications
   const notificationsQuery = trpc.notifications.getAll.useQuery(
@@ -93,7 +95,7 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
         // Get push token
         if (Platform.OS !== 'web') {
           const token = await Notifications.getExpoPushTokenAsync({
-            projectId: process.env.EXPO_PUBLIC_PROJECT_ID,
+            projectId: process.env.EXPO_PUBLIC_PROJECT_ID || undefined,
           });
           setExpoPushToken(token.data);
           
@@ -205,7 +207,28 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
   const updateSettings = async (newSettings: Partial<NotificationSettings>) => {
     try {
       const updated = await updateSettingsMutation.mutateAsync(newSettings);
-      setSettings(updated);
+      setSettings({
+        pushEnabled: updated.pushEnabled,
+        emailEnabled: updated.emailEnabled,
+        categories: {
+          social: updated.categories.social ?? false,
+          achievements: updated.categories.achievements ?? false,
+          events: updated.categories.events ?? false,
+          challenges: updated.categories.challenges ?? false,
+          restaurants: updated.categories.restaurants ?? false,
+          system: updated.categories.system ?? false,
+        },
+        quietHours: {
+          enabled: updated.quietHours?.enabled ?? false,
+          startTime: updated.quietHours?.startTime ?? '22:00',
+          endTime: updated.quietHours?.endTime ?? '08:00',
+        },
+        frequency: {
+          instant: updated.frequency?.instant ?? true,
+          daily: updated.frequency?.daily ?? false,
+          weekly: updated.frequency?.weekly ?? false,
+        },
+      });
     } catch (error) {
       console.error('Failed to update notification settings:', error);
     }
