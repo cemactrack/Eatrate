@@ -38,7 +38,7 @@ app.use(
 app.use(
   "/api/trpc/*",
   trpcServer({
-    endpoint: "/trpc",
+    endpoint: "/api/trpc",  // Changed to match the actual path
     router: appRouter,
     createContext,
     onError: ({ error, path }) => {
@@ -66,9 +66,17 @@ app.get("/api", (c) => {
   });
 });
 
+// Debug middleware to log all requests
+app.use('*', async (c, next) => {
+  const url = new URL(c.req.url);
+  console.log(`[DEBUG] ${c.req.method} ${url.pathname}${url.search}`);
+  await next();
+});
+
 // Catch-all for debugging
 app.all('*', (c) => {
-  console.log(`[404] Unhandled route: ${c.req.method} ${c.req.url}`);
+  const url = new URL(c.req.url);
+  console.log(`[404] Unhandled route: ${c.req.method} ${url.pathname}${url.search}`);
   return c.json({ error: 'Route not found', path: c.req.url }, 404);
 });
 
