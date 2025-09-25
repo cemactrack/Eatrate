@@ -7,16 +7,14 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  RefreshControl,
   Modal,
   TextInput,
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
-import { MapPin, Filter, SortAsc, Grid, List } from 'lucide-react-native';
+import { MapPin, SortAsc, Grid, List } from 'lucide-react-native';
 import { trpc } from '@/lib/trpc';
-import { DEFAULT_TRIPADVISOR_URLS } from '@/constants/tripadvisor-urls';
 import RestaurantCard from '@/components/RestaurantCard';
 import SearchBar from '@/components/SearchBar';
 import { useSettings } from '@/providers/SettingsProvider';
@@ -41,7 +39,7 @@ export default function SearchScreen() {
   const [selectedCuisine, setSelectedCuisine] = useState<string>('All');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [showFilters, setShowFilters] = useState<boolean>(false);
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [filters, setFilters] = useState<SearchFilters>({
     location: 'all',
@@ -187,20 +185,14 @@ export default function SearchScreen() {
   }, [router]);
 
   const handleSearch = useCallback((query: string) => {
-    setSearchQuery(query);
+    if (query && query.trim() && query.length <= 100) {
+      setSearchQuery(query.trim());
+    } else if (!query) {
+      setSearchQuery('');
+    }
   }, []);
 
-  const toggleFavorite = useCallback((restaurantId: string) => {
-    setFavorites(prev => {
-      const newFavorites = new Set(prev);
-      if (newFavorites.has(restaurantId)) {
-        newFavorites.delete(restaurantId);
-      } else {
-        newFavorites.add(restaurantId);
-      }
-      return newFavorites;
-    });
-  }, []);
+
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -218,12 +210,12 @@ export default function SearchScreen() {
         const parsed: Restaurant[] = JSON.parse(stored);
         setImportedRestaurants(parsed);
       }
-    } catch (e) {
-      console.log('[Search] refresh error');
+    } catch (error) {
+      console.log('[Search] refresh error:', error);
     } finally {
       setRefreshing(false);
     }
-  }, [doualaQuery, yaoundeQuery, bueaQuery, limbeQuery, getItem]);
+  }, [doualaQuery, yaoundeQuery, bueaQuery, limbeQuery, importedOneTimeQuery, needsImportQuery, getItem]);
 
   const updateFilter = useCallback(<K extends keyof SearchFilters>(key: K, value: SearchFilters[K]) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -293,11 +285,56 @@ export default function SearchScreen() {
           setImportedRestaurants(res.restaurants as Restaurant[]);
           await setItem('imported_restaurants', JSON.stringify(res.restaurants));
         }
+        
+        // Refresh the imported query after bootstrap
+        await importedOneTimeQuery.refetch();
       } catch (e) {
         console.error('[Search] Bootstrap import failed:', e);
       }
     })();
-  }, [needsImportQuery.data?.needsImport, bootstrapped, bootstrapMutation, setItem]);
+  }, [needsImportQuery.data?.needsImport, bootstrapped, bootstrapMutation, setItem, importedOneTimeQuery]);
+
+  // Force initial bootstrap on first load if needed
+  useEffect(() => {
+    let isMounted = true;
+    
+    const forceBootstrapIfNeeded = async () => {
+      // Wait a bit for queries to settle
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (!isMounted) return;
+      
+      // Check if we have any restaurants at all
+      const hasAnyRestaurants = allRestaurants.length > 0;
+      const hasImportedData = (importedOneTimeQuery.data?.restaurants?.length ?? 0) > 0;
+      
+      if (!hasAnyRestaurants && !hasImportedData && !bootstrapMutation.isPending && !bootstrapped) {
+        console.log('[Search] No restaurants found, forcing bootstrap import...');
+        setBootstrapped(true);
+        
+        try {
+          const res = await bootstrapMutation.mutateAsync();
+          console.log('[Search] Force bootstrap result:', res.message, 'Restaurants:', res.imported);
+          
+          if (res.restaurants && res.restaurants.length > 0) {
+            setImportedRestaurants(res.restaurants as Restaurant[]);
+            await setItem('imported_restaurants', JSON.stringify(res.restaurants));
+          }
+          
+          await importedOneTimeQuery.refetch();
+        } catch (e) {
+          console.error('[Search] Force bootstrap failed:', e);
+          setBootstrapped(false); // Allow retry
+        }
+      }
+    };
+    
+    forceBootstrapIfNeeded();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [allRestaurants.length, importedOneTimeQuery.data?.restaurants?.length, bootstrapMutation, bootstrapped, setItem, importedOneTimeQuery]);
 
   const parseUrls = useCallback((input: string): string[] => {
     const raw = input.split(/\s|,|;|\n|\r/).map(s => s.trim()).filter(Boolean);
@@ -319,7 +356,8 @@ export default function SearchScreen() {
       await setItem('imported_restaurants', JSON.stringify(list));
       setImportModalVisible(false);
       setImportInput('');
-    } catch (e) {
+    } catch (error) {
+      console.error('[Search] Import failed:', error);
     } finally {
       setIsImporting(false);
     }
@@ -353,8 +391,8 @@ export default function SearchScreen() {
               
               // Also refresh the imported query
               await importedOneTimeQuery.refetch();
-            } catch (e) {
-              console.error('[Search] Refresh failed:', e);
+            } catch (error) {
+              console.error('[Search] Refresh failed:', error);
             }
           }}
           style={[styles.importBtn, { backgroundColor: colors.tint }]}
@@ -502,14 +540,7 @@ export default function SearchScreen() {
           testID="search-results-list"
           numColumns={viewMode === 'grid' ? 2 : 1}
           key={viewMode} // Force re-render when view mode changes
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor={colors.tint}
-              colors={[colors.tint]}
-            />
-          }
+
           ListEmptyComponent={!isLoading ? (
             <View style={styles.emptyState} testID="empty-results">
               <Text style={[styles.emptyTitle, { color: colors.text }]}>No restaurants found</Text>
