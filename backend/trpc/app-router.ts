@@ -4,6 +4,7 @@ import { fetchYaoundeRestaurantsProcedure } from "./routes/restaurants/yaounde";
 import { fetchBueaRestaurantsProcedure } from "./routes/restaurants/buea";
 import { fetchLimbeRestaurantsProcedure } from "./routes/restaurants/limbe";
 import { searchRestaurantsProcedure } from "./routes/restaurants/search";
+import { searchByPhotoProcedure } from "./routes/restaurants/photo-search";
 import { importFromTripadvisorProcedure, getImportedOneTimeProcedure, needsInitialImportProcedure, bootstrapImportProcedure } from "./routes/restaurants/import";
 import hiRoute, {
   getPostsProcedure,
@@ -138,6 +139,16 @@ import {
   addDishToMenuProcedure,
 } from "./routes/menu/manage";
 
+// Support routes
+import {
+  getFAQsProcedure,
+  createSupportTicketProcedure,
+  getUserTicketsProcedure,
+  addTicketResponseProcedure,
+  chatWithSupportProcedure,
+  getSupportCategoriesProcedure,
+} from "./routes/support/manage";
+
 export const appRouter = createTRPCRouter({
   example: createTRPCRouter({
     hi: hiRoute,
@@ -168,6 +179,7 @@ export const appRouter = createTRPCRouter({
   restaurants: createTRPCRouter({
     list: getRestaurantsProcedure,
     search: searchRestaurantsProcedure,
+    searchByPhoto: searchByPhotoProcedure,
     douala: fetchDoualaRestaurantsProcedure,
     yaounde: fetchYaoundeRestaurantsProcedure,
     buea: fetchBueaRestaurantsProcedure,
@@ -308,6 +320,14 @@ export const appRouter = createTRPCRouter({
     get: getRestaurantMenuProcedure,
     createCategory: createMenuCategoryProcedure,
     addDish: addDishToMenuProcedure,
+  }),
+  support: createTRPCRouter({
+    getFAQs: getFAQsProcedure,
+    createTicket: createSupportTicketProcedure,
+    getUserTickets: getUserTicketsProcedure,
+    addTicketResponse: addTicketResponseProcedure,
+    chat: chatWithSupportProcedure,
+    getCategories: getSupportCategoriesProcedure,
   }),
 });
 
