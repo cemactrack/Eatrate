@@ -67,42 +67,45 @@ export default function SearchScreen() {
     retry: 0,
   });
 
+  const needsImportQuery = trpc.restaurants.needsInitialImport.useQuery(undefined, {
+    staleTime: 1000 * 60 * 60, // 1 hour
+    retry: 1,
+  });
+
+  const bootstrapMutation = trpc.restaurants.bootstrapImport.useMutation();
+
   // Fetch restaurants from multiple locations based on filter
-  const doualaQuery = trpc.restaurants.douala.useQuery(
-    { pages: [1, 2] }, 
-    { 
-      enabled: filters.location === 'all' || filters.location === 'douala',
-      staleTime: 1000 * 60 * 30,
-      retry: 1
-    }
-  );
+  const doualaQuery = trpc.restaurants.douala.useQuery({ 
+    pages: [1, 2] 
+  }, { 
+    enabled: filters.location === 'all' || filters.location === 'douala',
+    staleTime: 1000 * 60 * 30,
+    retry: 1
+  });
   
-  const yaoundeQuery = trpc.restaurants.yaounde.useQuery(
-    { pages: [1, 2] }, 
-    { 
-      enabled: filters.location === 'all' || filters.location === 'yaounde',
-      staleTime: 1000 * 60 * 30,
-      retry: 1
-    }
-  );
+  const yaoundeQuery = trpc.restaurants.yaounde.useQuery({ 
+    pages: [1, 2] 
+  }, { 
+    enabled: filters.location === 'all' || filters.location === 'yaounde',
+    staleTime: 1000 * 60 * 30,
+    retry: 1
+  });
   
-  const bueaQuery = trpc.restaurants.buea.useQuery(
-    { pages: [1] }, 
-    { 
-      enabled: filters.location === 'all' || filters.location === 'buea',
-      staleTime: 1000 * 60 * 30,
-      retry: 1
-    }
-  );
+  const bueaQuery = trpc.restaurants.buea.useQuery({ 
+    pages: [1] 
+  }, { 
+    enabled: filters.location === 'all' || filters.location === 'buea',
+    staleTime: 1000 * 60 * 30,
+    retry: 1
+  });
   
-  const limbeQuery = trpc.restaurants.limbe.useQuery(
-    { pages: [1] }, 
-    { 
-      enabled: filters.location === 'all' || filters.location === 'limbe',
-      staleTime: 1000 * 60 * 30,
-      retry: 1
-    }
-  );
+  const limbeQuery = trpc.restaurants.limbe.useQuery({ 
+    pages: [1] 
+  }, { 
+    enabled: filters.location === 'all' || filters.location === 'limbe',
+    staleTime: 1000 * 60 * 30,
+    retry: 1
+  });
 
   const allRestaurants = useMemo(() => {
     const restaurants: Restaurant[] = [];
@@ -120,7 +123,7 @@ export default function SearchScreen() {
     return Array.from(unique.values());
   }, [doualaQuery.data, yaoundeQuery.data, bueaQuery.data, limbeQuery.data, importedRestaurants]);
 
-  const isLoading = doualaQuery.isLoading || yaoundeQuery.isLoading || bueaQuery.isLoading || limbeQuery.isLoading || importedOneTimeQuery.isLoading;
+  const isLoading = doualaQuery.isLoading || yaoundeQuery.isLoading || bueaQuery.isLoading || limbeQuery.isLoading || importedOneTimeQuery.isLoading || needsImportQuery.isLoading || bootstrapMutation.isPending;
   const hasError = doualaQuery.error || yaoundeQuery.error || bueaQuery.error || limbeQuery.error || importedOneTimeQuery.error;
 
   const cuisines = useMemo(() => {
@@ -208,6 +211,7 @@ export default function SearchScreen() {
         bueaQuery.refetch(),
         limbeQuery.refetch(),
         importedOneTimeQuery.refetch(),
+        needsImportQuery.refetch(),
       ]);
       const stored = await getItem('imported_restaurants');
       if (stored) {
@@ -272,24 +276,28 @@ export default function SearchScreen() {
     }
   }, [importedOneTimeQuery.data]);
 
+  // Bootstrap import effect - runs once when app starts if database is empty
   useEffect(() => {
-    const shouldBootstrap = !bootstrapped && !isImporting && importedRestaurants.length === 0 && (importedOneTimeQuery.data?.restaurants?.length ?? 0) === 0;
+    const shouldBootstrap = needsImportQuery.data?.needsImport && !bootstrapped && !bootstrapMutation.isPending;
     if (!shouldBootstrap) return;
+    
     setBootstrapped(true);
-    console.log('[Search] Starting one-time import of TripAdvisor restaurants...');
+    console.log('[Search] Database is empty, starting bootstrap import...');
+    
     (async () => {
       try {
-        console.log('[Search] Importing from URLs:', DEFAULT_TRIPADVISOR_URLS);
-        const res = await importMutation.mutateAsync({ urls: DEFAULT_TRIPADVISOR_URLS, cityFallback: 'Cameroon' });
-        const list = res.restaurants as Restaurant[];
-        console.log('[Search] Import successful, imported', list.length, 'restaurants');
-        setImportedRestaurants(list);
-        await setItem('imported_restaurants', JSON.stringify(list));
+        const res = await bootstrapMutation.mutateAsync();
+        console.log('[Search] Bootstrap import result:', res.message, 'Restaurants:', res.imported);
+        
+        if (res.restaurants && res.restaurants.length > 0) {
+          setImportedRestaurants(res.restaurants as Restaurant[]);
+          await setItem('imported_restaurants', JSON.stringify(res.restaurants));
+        }
       } catch (e) {
-        console.error('[Search] bootstrap import failed:', e);
+        console.error('[Search] Bootstrap import failed:', e);
       }
     })();
-  }, [bootstrapped, isImporting, importedRestaurants.length, importedOneTimeQuery.data, importMutation, setItem]);
+  }, [needsImportQuery.data?.needsImport, bootstrapped, bootstrapMutation, setItem]);
 
   const parseUrls = useCallback((input: string): string[] => {
     const raw = input.split(/\s|,|;|\n|\r/).map(s => s.trim()).filter(Boolean);
@@ -330,27 +338,30 @@ export default function SearchScreen() {
 
       <View style={styles.importRow}>
         <TouchableOpacity
-          testID="open-import-modal"
+          testID="refresh-restaurants"
           onPress={async () => {
-            if (isImporting) return;
-            setIsImporting(true);
-            console.log('[Search] Manual import triggered');
+            if (bootstrapMutation.isPending) return;
+            console.log('[Search] Manual refresh triggered');
             try {
-              console.log('[Search] Importing from URLs:', DEFAULT_TRIPADVISOR_URLS);
-              const res = await importMutation.mutateAsync({ urls: DEFAULT_TRIPADVISOR_URLS, cityFallback: 'Cameroon' });
-              const list = res.restaurants as Restaurant[];
-              console.log('[Search] Manual import successful, imported', list.length, 'restaurants');
-              setImportedRestaurants(list);
-              await setItem('imported_restaurants', JSON.stringify(list));
+              const res = await bootstrapMutation.mutateAsync();
+              console.log('[Search] Refresh result:', res.message, 'Restaurants:', res.imported);
+              
+              if (res.restaurants && res.restaurants.length > 0) {
+                setImportedRestaurants(res.restaurants as Restaurant[]);
+                await setItem('imported_restaurants', JSON.stringify(res.restaurants));
+              }
+              
+              // Also refresh the imported query
+              await importedOneTimeQuery.refetch();
             } catch (e) {
-              console.error('[Search] one-click import failed:', e);
-            } finally {
-              setIsImporting(false);
+              console.error('[Search] Refresh failed:', e);
             }
           }}
           style={[styles.importBtn, { backgroundColor: colors.tint }]}
         >
-          <Text style={styles.importBtnText}>{isImporting ? 'Importing…' : 'Re-import Restaurants'}</Text>
+          <Text style={styles.importBtnText}>
+            {bootstrapMutation.isPending ? 'Refreshing…' : 'Refresh Restaurants'}
+          </Text>
         </TouchableOpacity>
         {importedRestaurants.length > 0 && (
           <View style={styles.importInfo}>

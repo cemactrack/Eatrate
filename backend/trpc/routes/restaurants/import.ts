@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { publicProcedure } from "@/backend/trpc/create-context";
+import { promises as fs } from 'fs';
+import { join } from 'path';
 
 interface ParsedRestaurant {
   id: string;
@@ -106,6 +108,64 @@ function extractJsonLd(html: string): any[] {
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 1000 * 60 * 60 * 12; // 12 hours
 
+// Simple file-based database for restaurants
+const DB_PATH = join(process.cwd(), 'data');
+const RESTAURANTS_DB_FILE = join(DB_PATH, 'restaurants.json');
+
+// Ensure data directory exists
+async function ensureDataDir() {
+  try {
+    await fs.mkdir(DB_PATH, { recursive: true });
+  } catch (e) {
+    // Directory might already exist
+  }
+}
+
+// Save restaurants to database
+async function saveRestaurantsToDb(restaurants: ParsedRestaurant[]): Promise<void> {
+  try {
+    await ensureDataDir();
+    const data = {
+      restaurants,
+      lastUpdated: new Date().toISOString(),
+      count: restaurants.length
+    };
+    await fs.writeFile(RESTAURANTS_DB_FILE, JSON.stringify(data, null, 2), 'utf8');
+    console.log(`[DB] Saved ${restaurants.length} restaurants to database`);
+  } catch (error) {
+    console.error('[DB] Failed to save restaurants:', error);
+    throw error;
+  }
+}
+
+// Load restaurants from database
+async function loadRestaurantsFromDb(): Promise<ParsedRestaurant[]> {
+  try {
+    const data = await fs.readFile(RESTAURANTS_DB_FILE, 'utf8');
+    const parsed = JSON.parse(data);
+    console.log(`[DB] Loaded ${parsed.restaurants?.length || 0} restaurants from database`);
+    return parsed.restaurants || [];
+  } catch (error) {
+    if ((error as any).code === 'ENOENT') {
+      console.log('[DB] No existing restaurant database found');
+      return [];
+    }
+    console.error('[DB] Failed to load restaurants:', error);
+    return [];
+  }
+}
+
+// Check if database exists and has data
+async function isDatabasePopulated(): Promise<boolean> {
+  try {
+    const data = await fs.readFile(RESTAURANTS_DB_FILE, 'utf8');
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed.restaurants) && parsed.restaurants.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 async function fetchPage(url: string): Promise<string> {
   const cacheKey = `page_${url}`;
   const cached = cache.get(cacheKey);
@@ -203,18 +263,136 @@ export const importFromTripadvisorProcedure = publicProcedure
 
     const restaurants = Array.from(unique.values());
 
-    // Persist once locally for demo (no DB available). Store in memory cache for the process lifetime.
+    // Save to persistent database
+    await saveRestaurantsToDb(restaurants);
+    
+    // Also keep in memory cache for faster access
     cache.set('ONE_TIME_IMPORTED_RESTAURANTS', { data: restaurants, timestamp: Date.now() });
 
+    console.log(`[tRPC] Successfully imported and saved ${restaurants.length} restaurants to database`);
     return { success: true as const, imported: restaurants.length, restaurants };
   });
 
-export function getOneTimeImportedRestaurants(): ParsedRestaurant[] {
+export async function getOneTimeImportedRestaurants(): Promise<ParsedRestaurant[]> {
+  // First try memory cache for speed
   const cached = cache.get('ONE_TIME_IMPORTED_RESTAURANTS');
-  return (cached?.data as ParsedRestaurant[]) ?? [];
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data as ParsedRestaurant[];
+  }
+  
+  // Load from database
+  const restaurants = await loadRestaurantsFromDb();
+  
+  // Update cache
+  if (restaurants.length > 0) {
+    cache.set('ONE_TIME_IMPORTED_RESTAURANTS', { data: restaurants, timestamp: Date.now() });
+  }
+  
+  return restaurants;
 }
 
-export const getImportedOneTimeProcedure = publicProcedure.query(() => {
-  const restaurants = getOneTimeImportedRestaurants();
+export const getImportedOneTimeProcedure = publicProcedure.query(async () => {
+  const restaurants = await getOneTimeImportedRestaurants();
   return { restaurants };
+});
+
+// New procedure to check if we need to do initial import
+export const needsInitialImportProcedure = publicProcedure.query(async () => {
+  const isPopulated = await isDatabasePopulated();
+  return { needsImport: !isPopulated };
+});
+
+// Procedure to do one-time bootstrap import
+export const bootstrapImportProcedure = publicProcedure.mutation(async () => {
+  const isPopulated = await isDatabasePopulated();
+  if (isPopulated) {
+    const restaurants = await loadRestaurantsFromDb();
+    return { success: true, imported: 0, restaurants, message: 'Database already populated' };
+  }
+
+  console.log('[tRPC] Starting bootstrap import from TripAdvisor...');
+  const DEFAULT_URLS = [
+    'https://www.tripadvisor.com/Restaurants-g293773-Douala_Littoral_Region.html',
+    'https://www.tripadvisor.com/Restaurants-g293770-Yaounde_Centre_Region.html',
+    'https://www.tripadvisor.com/Restaurants-g644023-Buea_South_West_Region.html',
+    'https://www.tripadvisor.com/Restaurants-g1202768-Limbe_South_West_Region.html',
+  ];
+
+  async function fetchAndParse(url: string): Promise<ParsedRestaurant[]> {
+    const html = await fetchPage(url);
+    const blocks = extractJsonLd(html);
+    const items: ParsedRestaurant[] = [];
+
+    for (const block of blocks) {
+      const graph = (block as any)['@graph'];
+      const itemList = (block as any).itemListElement;
+
+      if (Array.isArray(graph)) {
+        for (const node of graph) {
+          if (
+            node['@type'] === 'Restaurant' ||
+            (Array.isArray(node['@type']) && node['@type'].includes('Restaurant'))
+          ) {
+            const r = toRestaurant(node, 'Cameroon');
+            if (r) items.push(r);
+          }
+        }
+      }
+
+      if (Array.isArray(itemList)) {
+        for (const el of itemList) {
+          const item = (el as any).item ?? el;
+          if (
+            item &&
+            (item['@type'] === 'Restaurant' ||
+              (Array.isArray(item['@type']) && item['@type'].includes('Restaurant')))
+          ) {
+            const r = toRestaurant(item, 'Cameroon');
+            if (r) items.push(r);
+          }
+        }
+      }
+
+      if ((block as any)['@type'] === 'Restaurant') {
+        const r = toRestaurant(block, 'Cameroon');
+        if (r) items.push(r);
+      }
+    }
+
+    return items;
+  }
+
+  const allItems: ParsedRestaurant[] = [];
+  const maxConcurrent = 2;
+  for (let i = 0; i < DEFAULT_URLS.length; i += maxConcurrent) {
+    const batch = DEFAULT_URLS.slice(i, i + maxConcurrent);
+    const results = await Promise.all(
+      batch.map(async (url) => {
+        try {
+          return await fetchAndParse(url);
+        } catch (e: any) {
+          console.log('[tRPC] Bootstrap import page fetch error', url, e?.message ?? e);
+          return [];
+        }
+      })
+    );
+    results.forEach(items => allItems.push(...items));
+  }
+
+  const unique = new Map<string, ParsedRestaurant>();
+  for (const it of allItems) {
+    const key = it.name.trim().toLowerCase();
+    if (!unique.has(key)) unique.set(key, it);
+  }
+
+  const restaurants = Array.from(unique.values());
+  
+  // Save to database
+  await saveRestaurantsToDb(restaurants);
+  
+  // Update cache
+  cache.set('ONE_TIME_IMPORTED_RESTAURANTS', { data: restaurants, timestamp: Date.now() });
+
+  console.log(`[tRPC] Bootstrap import completed: ${restaurants.length} restaurants saved`);
+  return { success: true, imported: restaurants.length, restaurants, message: 'Bootstrap import completed' };
 });
