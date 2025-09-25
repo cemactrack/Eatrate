@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import { 
   View, 
   Text, 
@@ -8,7 +8,9 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
-  Modal
+  Modal,
+  TextInput,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
@@ -18,6 +20,7 @@ import RestaurantCard from '@/components/RestaurantCard';
 import SearchBar from '@/components/SearchBar';
 import { useSettings } from '@/providers/SettingsProvider';
 import { Restaurant } from '@/types/restaurant';
+import { useStorage } from '@/providers/StorageProvider';
 
 type SortOption = 'name' | 'rating' | 'reviewCount' | 'distance';
 type ViewMode = 'list' | 'grid';
@@ -47,10 +50,15 @@ export default function SearchScreen() {
     sortBy: 'rating',
     sortOrder: 'desc'
   });
+  const [importModalVisible, setImportModalVisible] = useState<boolean>(false);
+  const [importInput, setImportInput] = useState<string>('');
+  const [importedRestaurants, setImportedRestaurants] = useState<Restaurant[]>([]);
+  const [isImporting, setIsImporting] = useState<boolean>(false);
   
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { colors } = useSettings();
+  const { getItem, setItem } = useStorage();
 
   // Fetch restaurants from multiple locations based on filter
   const doualaQuery = trpc.restaurants.douala.useQuery(
@@ -89,34 +97,20 @@ export default function SearchScreen() {
     }
   );
 
-  // Combine all restaurant data
   const allRestaurants = useMemo(() => {
     const restaurants: Restaurant[] = [];
-    
-    if (doualaQuery.data?.restaurants) {
-      restaurants.push(...doualaQuery.data.restaurants);
-    }
-    if (yaoundeQuery.data?.restaurants) {
-      restaurants.push(...yaoundeQuery.data.restaurants);
-    }
-    if (bueaQuery.data?.restaurants) {
-      restaurants.push(...bueaQuery.data.restaurants);
-    }
-    if (limbeQuery.data?.restaurants) {
-      restaurants.push(...limbeQuery.data.restaurants);
-    }
-    
-    // Remove duplicates based on name
+    if (doualaQuery.data?.restaurants) restaurants.push(...doualaQuery.data.restaurants);
+    if (yaoundeQuery.data?.restaurants) restaurants.push(...yaoundeQuery.data.restaurants);
+    if (bueaQuery.data?.restaurants) restaurants.push(...bueaQuery.data.restaurants);
+    if (limbeQuery.data?.restaurants) restaurants.push(...limbeQuery.data.restaurants);
+    if (importedRestaurants.length > 0) restaurants.push(...importedRestaurants);
     const unique = new Map<string, Restaurant>();
-    restaurants.forEach(r => {
+    restaurants.forEach((r: Restaurant) => {
       const key = r.name.toLowerCase().trim();
-      if (!unique.has(key)) {
-        unique.set(key, r);
-      }
+      if (!unique.has(key)) unique.set(key, r);
     });
-    
     return Array.from(unique.values());
-  }, [doualaQuery.data, yaoundeQuery.data, bueaQuery.data, limbeQuery.data]);
+  }, [doualaQuery.data, yaoundeQuery.data, bueaQuery.data, limbeQuery.data, importedRestaurants]);
 
   const isLoading = doualaQuery.isLoading || yaoundeQuery.isLoading || bueaQuery.isLoading || limbeQuery.isLoading;
   const hasError = doualaQuery.error || yaoundeQuery.error || bueaQuery.error || limbeQuery.error;
@@ -206,10 +200,17 @@ export default function SearchScreen() {
         bueaQuery.refetch(),
         limbeQuery.refetch()
       ]);
+      const stored = await getItem('imported_restaurants');
+      if (stored) {
+        const parsed: Restaurant[] = JSON.parse(stored);
+        setImportedRestaurants(parsed);
+      }
+    } catch (e) {
+      console.log('[Search] refresh error');
     } finally {
       setRefreshing(false);
     }
-  }, [doualaQuery, yaoundeQuery, bueaQuery, limbeQuery]);
+  }, [doualaQuery, yaoundeQuery, bueaQuery, limbeQuery, getItem]);
 
   const updateFilter = useCallback(<K extends keyof SearchFilters>(key: K, value: SearchFilters[K]) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -234,17 +235,73 @@ export default function SearchScreen() {
     }
   }, []);
 
+  const importMutation = trpc.restaurants.importFromTripadvisor.useMutation();
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      const stored = await getItem('imported_restaurants');
+      if (stored && isMounted) {
+        const parsed: Restaurant[] = JSON.parse(stored);
+        setImportedRestaurants(parsed);
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, [getItem]);
+
+  const parseUrls = useCallback((input: string): string[] => {
+    const raw = input.split(/\s|,|;|\n|\r/).map(s => s.trim()).filter(Boolean);
+    const urls = Array.from(new Set(raw.filter((s) => /^https?:\/\//i.test(s))));
+    return urls.slice(0, 50);
+  }, []);
+
+  const handleImport = useCallback(async () => {
+    if (isImporting) return;
+    const urls = parseUrls(importInput);
+    if (urls.length === 0) {
+      return;
+    }
+    setIsImporting(true);
+    try {
+      const res = await importMutation.mutateAsync({ urls, cityFallback: 'Cameroon' });
+      const list = res.restaurants as Restaurant[];
+      setImportedRestaurants(list);
+      await setItem('imported_restaurants', JSON.stringify(list));
+      setImportModalVisible(false);
+      setImportInput('');
+    } catch (e) {
+    } finally {
+      setIsImporting(false);
+    }
+  }, [importInput, importMutation, parseUrls, setItem, isImporting]);
+
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]} testID="search-screen">
       <Stack.Screen options={{ title: 'Search', headerShown: false }} />
       
-      {/* Search Bar */}
       <SearchBar
         value={searchQuery}
         onChangeText={handleSearch}
         placeholder="Search restaurants, cuisines, locations..."
         onFilterPress={() => setShowFilters(true)}
       />
+
+      <View style={styles.importRow}>
+        <TouchableOpacity
+          testID="open-import-modal"
+          onPress={() => setImportModalVisible(true)}
+          style={[styles.importBtn, { backgroundColor: colors.tint }]}
+        >
+          <Text style={styles.importBtnText}>Import TripAdvisor</Text>
+        </TouchableOpacity>
+        {importedRestaurants.length > 0 && (
+          <View style={styles.importInfo}>
+            <Text style={[styles.importInfoText, { color: colors.secondary }]}>Imported: {importedRestaurants.length}</Text>
+          </View>
+        )}
+      </View>
 
       {/* Quick Actions */}
       <View style={[styles.quickActions, { backgroundColor: colors.background }]}>
@@ -409,7 +466,42 @@ export default function SearchScreen() {
         />
       )}
 
-      {/* Advanced Filters Modal */}
+      <Modal
+        visible={importModalVisible}
+        animationType="slide"
+        presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
+        onRequestClose={() => setImportModalVisible(false)}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>One-time Import</Text>
+            <TouchableOpacity onPress={() => setImportModalVisible(false)}>
+              <Text style={[styles.modalClose, { color: colors.tint }]}>Close</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.importContent}>
+            <Text style={[styles.importHelp, { color: colors.secondary }]}>Paste one or more TripAdvisor restaurant list URLs. Separate by space, comma, or newline.</Text>
+            <TextInput
+              testID="import-input"
+              value={importInput}
+              onChangeText={setImportInput}
+              placeholder="https://www.tripadvisor.com/Restaurants-..."
+              placeholderTextColor={colors.secondary}
+              multiline
+              style={[styles.input, { color: colors.text, borderColor: colors.border }]}
+            />
+            <TouchableOpacity
+              testID="run-import"
+              onPress={handleImport}
+              disabled={isImporting}
+              style={[styles.importPrimaryBtn, { backgroundColor: colors.tint, opacity: isImporting ? 0.6 : 1 }]}
+            >
+              <Text style={styles.importPrimaryText}>{isImporting ? 'Importing…' : 'Import Now'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <Modal
         visible={showFilters}
         animationType="slide"
@@ -550,6 +642,28 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  importRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  importBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  importBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  importInfo: {
+    marginLeft: 10,
+  },
+  importInfoText: {
+    fontSize: 12,
   },
   quickActions: {
     paddingVertical: 8,
@@ -709,6 +823,31 @@ const styles = StyleSheet.create({
   modalContent: {
     flex: 1,
     paddingHorizontal: 20,
+  },
+  importContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  importHelp: {
+    fontSize: 13,
+    marginBottom: 10,
+  },
+  input: {
+    minHeight: 100,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+  },
+  importPrimaryBtn: {
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  importPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
   filterSection: {
     marginVertical: 16,

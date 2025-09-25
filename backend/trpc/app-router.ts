@@ -4,6 +4,7 @@ import { fetchYaoundeRestaurantsProcedure } from "./routes/restaurants/yaounde";
 import { fetchBueaRestaurantsProcedure } from "./routes/restaurants/buea";
 import { fetchLimbeRestaurantsProcedure } from "./routes/restaurants/limbe";
 import { searchRestaurantsProcedure } from "./routes/restaurants/search";
+import { importFromTripadvisorProcedure } from "./routes/restaurants/import";
 import hiRoute, {
   getPostsProcedure,
   createPostProcedure,
@@ -140,6 +141,7 @@ export const appRouter = createTRPCRouter({
     yaounde: fetchYaoundeRestaurantsProcedure,
     buea: fetchBueaRestaurantsProcedure,
     limbe: fetchLimbeRestaurantsProcedure,
+    importFromTripadvisor: importFromTripadvisorProcedure,
     claims: createTRPCRouter({
       submit: submitClaimProcedure,
       list: listClaimsProcedure,
