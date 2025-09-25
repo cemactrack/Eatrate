@@ -35,6 +35,7 @@ interface SettingItemProps {
   onPress?: () => void;
   rightElement?: React.ReactNode;
   showChevron?: boolean;
+  chevronColor?: string;
 }
 
 function SettingItem({ 
@@ -43,7 +44,8 @@ function SettingItem({
   subtitle, 
   onPress, 
   rightElement, 
-  showChevron = true 
+  showChevron = true,
+  chevronColor,
 }: SettingItemProps) {
   return (
     <TouchableOpacity style={styles.settingItem} onPress={onPress}>
@@ -59,7 +61,7 @@ function SettingItem({
       <View style={styles.settingRight}>
         {rightElement}
         {showChevron && !rightElement && (
-          <ChevronRight size={20} color={Colors.light.secondary} />
+          <ChevronRight size={20} color={chevronColor ?? '#6B7280'} />
         )}
       </View>
     </TouchableOpacity>
@@ -256,18 +258,21 @@ export default function SettingsScreen() {
             title="Rate EatRate"
             subtitle="Love the app? Leave us a review"
             onPress={handleRateApp}
+            chevronColor={colors.secondary}
           />
           <SettingItem
             icon={<Share2 size={20} color={colors.tint} />}
             title="Share EatRate"
             subtitle="Tell your friends about us"
             onPress={handleShareApp}
+            chevronColor={colors.secondary}
           />
           <SettingItem
             icon={<HelpCircle size={20} color={colors.tint} />}
             title="Help & Support"
             subtitle="Get help or contact us"
             onPress={handleHelp}
+            chevronColor={colors.secondary}
           />
         </SettingSection>
 
@@ -278,12 +283,14 @@ export default function SettingsScreen() {
             title="Privacy Policy"
             subtitle="How we protect your data"
             onPress={handlePrivacy}
+            chevronColor={colors.secondary}
           />
           <SettingItem
             icon={<Camera size={20} color={colors.tint} />}
             title="Photo Permissions"
             subtitle="Manage camera and photo library access"
             onPress={() => Alert.alert('Photo Permissions', 'Manage your photo permissions in device settings.')}
+            chevronColor={colors.secondary}
           />
         </SettingSection>
 
@@ -294,6 +301,7 @@ export default function SettingsScreen() {
             title="Delete Account"
             subtitle="Permanently delete your account and data"
             onPress={handleDeleteAccount}
+            chevronColor={colors.secondary}
           />
           <SettingItem
             icon={<LogOut size={20} color={colors.destructive} />}
