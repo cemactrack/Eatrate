@@ -14,9 +14,9 @@ const typingUsers = new Map<string, Set<string>>();
 
 // Mock user data - In production, this would come from a real database
 const mockUsers: MockUser[] = [
-  { id: 'user1', username: 'john_doe', displayName: 'John Doe', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face', email: 'john@example.com', isOnline: true, lastSeen: new Date() },
-  { id: 'user2', username: 'jane_smith', displayName: 'Jane Smith', avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face', email: 'jane@example.com', isOnline: false, lastSeen: new Date(Date.now() - 300000) },
-  { id: 'user3', username: 'chef_mike', displayName: 'Chef Mike', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face', email: 'chef@example.com', isOnline: true, lastSeen: new Date() },
+  { id: 'user1', username: 'john_doe', displayName: 'John Doe', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face', email: 'john@example.com', isOnline: true, lastSeen: new Date(), bio: 'Food enthusiast' },
+  { id: 'user2', username: 'jane_smith', displayName: 'Jane Smith', avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face', email: 'jane@example.com', isOnline: false, lastSeen: new Date(Date.now() - 300000), bio: 'Chef and food blogger' },
+  { id: 'user3', username: 'chef_mike', displayName: 'Chef Mike', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face', email: 'chef@example.com', isOnline: true, lastSeen: new Date(), bio: 'Professional chef' },
 ];
 
 interface MockUser {
@@ -27,6 +27,7 @@ interface MockUser {
   email: string;
   isOnline: boolean;
   lastSeen: Date;
+  bio?: string;
 }
 
 interface MockRestaurant {
@@ -75,7 +76,11 @@ export const getConversations = protectedProcedure
         const user = mockUsers.find((u: MockUser) => u.id === otherParticipantId);
         if (user) {
           otherParticipant = {
-            ...user,
+            id: user.id,
+            username: user.username,
+            displayName: user.displayName,
+            avatar: user.avatar,
+            bio: user.bio,
             isOnline: onlineUsers.has(otherParticipantId),
             lastSeen: new Date(Date.now() - Math.random() * 3600000), // Random last seen within last hour
           };
@@ -889,6 +894,7 @@ export const getConversationParticipants = protectedProcedure
             username: user.username,
             displayName: user.displayName,
             avatar: user.avatar,
+            bio: user.bio,
             isOnline: onlineUsers.has(user.id),
             lastSeen: user.lastSeen,
           };

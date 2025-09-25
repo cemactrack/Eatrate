@@ -171,28 +171,18 @@ export default function ConversationScreen() {
   const handleSendMessage = useCallback(async () => {
     if (!inputText.trim() || !conversation) return;
 
-    const receiverId = conversation.participants.find(id => id !== 'current-user-id') || '';
+    // Use actual user ID from context - for now using mock ID
+    const currentUserId = 'user1'; // In production, get from auth context
+    const receiverId = conversation.participants.find(id => id !== currentUserId) || '';
     
     try {
-      // Optimistic update - add message to local state immediately
-      const optimisticMessage = {
-        id: `temp_${Date.now()}`,
-        conversationId,
-        senderId: 'current-user-id',
-        receiverId,
-        content: inputText.trim(),
-        type: 'text' as const,
-        isRead: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      
+      const messageContent = inputText.trim();
       setInputText('');
       
       await sendMessage({
         conversationId,
         receiverId,
-        content: inputText.trim(),
+        content: messageContent,
         type: 'text',
       });
       
@@ -242,8 +232,10 @@ export default function ConversationScreen() {
   }, [conversationId, isTyping, setTyping]);
 
   const handleMessageLongPress = useCallback((message: Message) => {
+    // Use actual user ID from context - for now using mock ID
+    const currentUserId = 'user1'; // In production, get from auth context
     // For now, just delete if it's the user's message
-    if (message.senderId === 'current-user-id') {
+    if (message.senderId === currentUserId) {
       deleteMessage(message.id).catch(() => {
         setToastMessage('Failed to delete message');
         setShowToast(true);
@@ -258,7 +250,9 @@ export default function ConversationScreen() {
   }, [conversationId, conversationMessages.length, loadMoreMessages]);
 
   const renderMessage = ({ item, index }: { item: Message; index: number }) => {
-    const isOwn = item.senderId === 'current-user-id';
+    // Use actual user ID from context - for now using mock ID
+    const currentUserId = 'user1'; // In production, get from auth context
+    const isOwn = item.senderId === currentUserId;
     const previousMessage = index > 0 ? conversationMessages[index - 1] : null;
     const showAvatar = !isOwn && (!previousMessage || previousMessage.senderId !== item.senderId);
 
