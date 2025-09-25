@@ -107,6 +107,12 @@ import {
   deleteAdminReportProcedure,
 } from "./routes/admin/reports";
 
+// New feature routes
+import { getStatsProcedure, checkAchievementsProcedure, claimRewardProcedure, joinChallengeProcedure, updateProgressProcedure } from "./routes/gamification/stats";
+import { getAllProcedure, getSettingsProcedure, markAsReadProcedure, markAllAsReadProcedure, deleteProcedure, updateSettingsProcedure, registerPushTokenProcedure } from "./routes/notifications/manage";
+import { getEventsProcedure, attendEventProcedure, getPollsProcedure, votePollProcedure, getChallengesProcedure, joinChallengeProcedure as joinEventChallengeProcedure } from "./routes/events/manage";
+import { estimateCaloriesProcedure } from "./routes/nutrition/analyze";
+
 export const appRouter = createTRPCRouter({
   example: createTRPCRouter({
     hi: hiRoute,
@@ -230,6 +236,34 @@ export const appRouter = createTRPCRouter({
       update: updateAdminReportProcedure,
       delete: deleteAdminReportProcedure,
     }),
+  }),
+  // New feature routes
+  gamification: createTRPCRouter({
+    getStats: getStatsProcedure,
+    checkAchievements: checkAchievementsProcedure,
+    claimReward: claimRewardProcedure,
+    joinChallenge: joinChallengeProcedure,
+    updateProgress: updateProgressProcedure,
+  }),
+  notifications: createTRPCRouter({
+    getAll: getAllProcedure,
+    getSettings: getSettingsProcedure,
+    markAsRead: markAsReadProcedure,
+    markAllAsRead: markAllAsReadProcedure,
+    delete: deleteProcedure,
+    updateSettings: updateSettingsProcedure,
+    registerPushToken: registerPushTokenProcedure,
+  }),
+  events: createTRPCRouter({
+    getEvents: getEventsProcedure,
+    attendEvent: attendEventProcedure,
+    getPolls: getPollsProcedure,
+    votePoll: votePollProcedure,
+    getChallenges: getChallengesProcedure,
+    joinChallenge: joinEventChallengeProcedure,
+  }),
+  nutrition: createTRPCRouter({
+    estimateCalories: estimateCaloriesProcedure,
   }),
 });
 

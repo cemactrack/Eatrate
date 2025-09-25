@@ -12,6 +12,9 @@ import { StorageProvider } from "@/providers/StorageProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { SettingsProvider, useSettings } from "@/providers/SettingsProvider";
 import { AdminProvider } from "@/providers/AdminProvider";
+import { GamificationProvider } from "@/providers/GamificationProvider";
+import { NotificationProvider } from "@/providers/NotificationProvider";
+import { LocalizationProvider } from "@/providers/LocalizationProvider";
 import Colors from "@/constants/colors";
 import { APP_CONFIG } from "@/constants/app-config";
 
@@ -226,13 +229,19 @@ export default function RootLayout() {
           <SafeAreaProvider>
             <ErrorBoundary>
               <StorageProvider>
-                <SettingsProvider>
-                  <AuthProvider>
-                    <AdminProvider>
-                      <RootLayoutNav />
-                    </AdminProvider>
-                  </AuthProvider>
-                </SettingsProvider>
+                <LocalizationProvider>
+                  <SettingsProvider>
+                    <AuthProvider>
+                      <NotificationProvider>
+                        <GamificationProvider>
+                          <AdminProvider>
+                            <RootLayoutNav />
+                          </AdminProvider>
+                        </GamificationProvider>
+                      </NotificationProvider>
+                    </AuthProvider>
+                  </SettingsProvider>
+                </LocalizationProvider>
               </StorageProvider>
             </ErrorBoundary>
           </SafeAreaProvider>
