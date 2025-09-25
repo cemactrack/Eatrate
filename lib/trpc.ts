@@ -11,7 +11,7 @@ function nativeDevOrigin(): string | null {
   try {
     const scriptURL = (NativeModules as any)?.SourceCode?.scriptURL as string | undefined;
     if (scriptURL && typeof scriptURL === 'string') {
-      const match = scriptURL.match(/^(https?:)\/\/([^/:]+):(\d+)/);
+      const match = scriptURL.match(/^(https?:):\/\/([^/:]+):(\d+)/);
       if (match) {
         const protocol = match[1];
         const host = match[2];
@@ -36,7 +36,6 @@ function expoHostOrigin(): string | null {
 }
 
 const getBaseUrl = (): string => {
-  // Always use relative URL on web to avoid cross-origin and CORS/proxy issues
   if (Platform.OS === 'web') {
     return '' as const;
   }
@@ -49,11 +48,10 @@ const getBaseUrl = (): string => {
   const origin = nativeDevOrigin();
   if (origin) return origin;
   
-  // Default fallback for different platforms
   if (Platform.OS === 'android') {
-    return "http://10.0.2.2:8081"; // Android emulator
+    return "http://10.0.2.2:8081";
   } else if (Platform.OS === 'ios') {
-    return "http://localhost:8081"; // iOS simulator
+    return "http://localhost:8081";
   }
   
   return "http://localhost:8081";
@@ -73,11 +71,11 @@ export const trpcClient = trpc.createClient({
       url: apiUrl,
       transformer: superjson,
       headers() {
-        return { authorization: 'dev' };
+        return { authorization: 'dev', accept: 'application/json' };
       },
       async fetch(url, options) {
         const controller = new AbortController();
-        const timeoutMs = 30000; // Reduced timeout
+        const timeoutMs = 30000;
         const timeoutId = setTimeout(() => {
           console.warn(`[tRPC] Request timeout after ${timeoutMs / 1000} seconds:`, url);
           controller.abort();
@@ -94,26 +92,30 @@ export const trpcClient = trpc.createClient({
           const response = await fetch(url, {
             ...options,
             signal: controller.signal,
-            // Keep connections same-origin on web to avoid CORS/proxy issues
             credentials: Platform.OS === 'web' ? 'same-origin' : 'omit',
             headers: {
               'Content-Type': 'application/json',
-              'x-trpc-source': 'react-native',
+              accept: 'application/json',
+              'x-trpc-source': Platform.OS === 'web' ? 'web' : 'react-native',
               ...options?.headers,
             },
           } as RequestInit);
           
           clearTimeout(timeoutId);
+
+          const contentType = response.headers.get('content-type') ?? '';
+          if (contentType.includes('text/html')) {
+            const text = await response.text();
+            console.error('[tRPC] Received HTML instead of JSON:', text.slice(0, 200));
+            throw new Error('Server returned HTML instead of JSON. Ensure API is mounted at /api/trpc and running.');
+          }
           
           if (!response.ok) {
             const text = await response.text();
             console.error(`[tRPC] HTTP ${response.status}:`, text);
-            
-            // Check if response is HTML (likely a 404 or server error page)
             if (text.includes('<!DOCTYPE') || text.includes('<html')) {
               throw new Error(`Server returned HTML instead of JSON. Check if the API server is running and tRPC routes are properly configured.`);
             }
-            
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           }
           

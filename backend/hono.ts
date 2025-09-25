@@ -59,6 +59,7 @@ app.get("/api", (c) => {
     message: "EatRate API is running", 
     endpoints: {
       trpc: "/api/trpc",
+      trpcAlt: "/trpc",
       health: "/api"
     },
     timestamp: new Date().toISOString() 
