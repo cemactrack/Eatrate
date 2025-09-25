@@ -146,6 +146,11 @@ export const trpcClient = trpc.createClient({
           };
 
           if (await isHtml(response) || (!response.ok && (response.headers.get('content-type') ?? '').includes('text/html'))) {
+            console.error('[tRPC] Server returned HTML instead of JSON. This usually means:');
+            console.error('1. The backend server is not running');
+            console.error('2. The API endpoint is not properly configured');
+            console.error('3. There\'s a routing issue with the server');
+            
             const urlStr = String(url);
             const altUrl = urlStr.includes(primaryPath)
               ? urlStr.replace(primaryPath, fallbackPath)
@@ -169,9 +174,9 @@ export const trpcClient = trpc.createClient({
             // Clone the response before reading it to avoid consuming the body
             const clonedRes = response.clone();
             const text = await clonedRes.text();
-            console.error(`[tRPC] HTTP ${response.status}:`, text);
+            console.error(`[tRPC] HTTP ${response.status}:`, text.slice(0, 200));
             if (text.includes('<!DOCTYPE') || text.includes('<html')) {
-              throw new Error('Server returned HTML instead of JSON. Ensure API is mounted at /api/trpc or /trpc and running.');
+              throw new Error(`Server returned HTML instead of JSON (${response.status}). The backend server may not be running or the API endpoint is misconfigured. Please check that the server is started and accessible at the expected URL.`);
             }
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           }

@@ -15,6 +15,8 @@ if (Platform.OS !== 'web') {
       shouldShowAlert: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
     }),
   });
 }
@@ -41,30 +43,40 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
+  const [, setExpoPushToken] = useState<string | null>(null);
   const { user } = useAuth();
   const router = useRouter();
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListener = useRef<Notifications.Subscription | null>(null);
 
   // Fetch notifications
-  const notificationsQuery = trpc.notifications.getAll.useQuery(
-    undefined,
-    {
-      enabled: !!user,
-      refetchOnWindowFocus: false,
-      refetchInterval: 30000, // Refetch every 30 seconds
-    }
-  );
+  const notificationsQuery = trpc.notifications.getAll.useQuery(undefined, {
+    enabled: !!user,
+    refetchOnWindowFocus: false,
+    refetchInterval: 30000, // Refetch every 30 seconds
+    retry: (failureCount, error: any) => {
+      // Don't retry if it's a server configuration error
+      if (error.message.includes('Server returned HTML') || error.message.includes('Network error')) {
+        console.log('[NotificationProvider] Not retrying due to server/network error');
+        return false;
+      }
+      return failureCount < 3;
+    },
+  });
 
   // Fetch settings
-  const settingsQuery = trpc.notifications.getSettings.useQuery(
-    undefined,
-    {
-      enabled: !!user,
-      refetchOnWindowFocus: false,
-    }
-  );
+  const settingsQuery = trpc.notifications.getSettings.useQuery(undefined, {
+    enabled: !!user,
+    refetchOnWindowFocus: false,
+    retry: (failureCount, error: any) => {
+      // Don't retry if it's a server configuration error
+      if (error.message.includes('Server returned HTML') || error.message.includes('Network error')) {
+        console.log('[NotificationProvider] Not retrying settings due to server/network error');
+        return false;
+      }
+      return failureCount < 3;
+    },
+  });
 
   // Mutations
   const markAsReadMutation = trpc.notifications.markAsRead.useMutation();
@@ -168,40 +180,111 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
   useEffect(() => {
     if (notificationsQuery.data) {
       setNotifications(notificationsQuery.data);
+    } else if (notificationsQuery.error && notifications.length === 0) {
+      // Provide fallback mock data if server is not available
+      console.log('[NotificationProvider] Using fallback notification data due to server error');
+      setNotifications([
+        {
+          id: 'fallback-1',
+          type: 'system' as const,
+          title: 'Server Unavailable',
+          message: 'Unable to connect to notification server. Please check your connection.',
+          imageUrl: undefined,
+          data: {},
+          userId: 'current-user',
+          isRead: false,
+          createdAt: new Date(),
+          actionUrl: undefined,
+          priority: 'normal' as const,
+          category: 'system',
+        },
+      ]);
     }
+    
     if (settingsQuery.data) {
       setSettings(settingsQuery.data);
+    } else if (settingsQuery.error && !settings) {
+      // Provide fallback settings if server is not available
+      console.log('[NotificationProvider] Using fallback notification settings due to server error');
+      setSettings({
+        pushEnabled: true,
+        emailEnabled: false,
+        categories: {
+          social: true,
+          achievements: true,
+          events: true,
+          challenges: true,
+          restaurants: true,
+          system: true,
+        },
+        quietHours: {
+          enabled: false,
+          startTime: '22:00',
+          endTime: '08:00',
+        },
+        frequency: {
+          instant: true,
+          daily: false,
+          weekly: false,
+        },
+      });
     }
+    
     setIsLoading(notificationsQuery.isLoading || settingsQuery.isLoading);
-  }, [notificationsQuery.data, settingsQuery.data, notificationsQuery.isLoading, settingsQuery.isLoading]);
+  }, [notificationsQuery.data, settingsQuery.data, notificationsQuery.isLoading, settingsQuery.isLoading, notificationsQuery.error, settingsQuery.error, notifications.length, settings]);
 
   // Actions
   const markAsRead = async (notificationId: string) => {
     try {
-      await markAsReadMutation.mutateAsync({ notificationId });
+      // Optimistically update UI first
       setNotifications(prev => 
         prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
       );
+      
+      // Then try to sync with server
+      await markAsReadMutation.mutateAsync({ notificationId });
     } catch (error) {
       console.error('Failed to mark notification as read:', error);
+      // Revert optimistic update on error
+      setNotifications(prev => 
+        prev.map(n => n.id === notificationId ? { ...n, isRead: false } : n)
+      );
     }
   };
 
   const markAllAsRead = async () => {
+    // Store previous state for potential rollback
+    const previousNotifications = [...notifications];
+    
     try {
-      await markAllAsReadMutation.mutateAsync();
+      // Optimistically update UI first
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      
+      // Then try to sync with server
+      await markAllAsReadMutation.mutateAsync();
     } catch (error) {
       console.error('Failed to mark all notifications as read:', error);
+      // Revert optimistic update on error
+      setNotifications(previousNotifications);
     }
   };
 
   const deleteNotification = async (notificationId: string) => {
+    // Store the notification for potential rollback
+    const notificationToDelete = notifications.find(n => n.id === notificationId);
+    
     try {
-      await deleteMutation.mutateAsync({ notificationId });
+      // Optimistically update UI first
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      
+      // Then try to sync with server
+      await deleteMutation.mutateAsync({ notificationId });
     } catch (error) {
       console.error('Failed to delete notification:', error);
+      // Revert optimistic update on error
+      if (notificationToDelete) {
+        setNotifications(prev => [...prev, notificationToDelete]);
+      }
     }
   };
 
