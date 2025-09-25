@@ -116,6 +116,7 @@ export default function SearchScreen() {
       const key = r.name.toLowerCase().trim();
       if (!unique.has(key)) unique.set(key, r);
     });
+    console.log('[Search] Total unique restaurants:', unique.size, 'Imported:', importedRestaurants.length);
     return Array.from(unique.values());
   }, [doualaQuery.data, yaoundeQuery.data, bueaQuery.data, limbeQuery.data, importedRestaurants]);
 
@@ -275,14 +276,17 @@ export default function SearchScreen() {
     const shouldBootstrap = !bootstrapped && !isImporting && importedRestaurants.length === 0 && (importedOneTimeQuery.data?.restaurants?.length ?? 0) === 0;
     if (!shouldBootstrap) return;
     setBootstrapped(true);
+    console.log('[Search] Starting one-time import of TripAdvisor restaurants...');
     (async () => {
       try {
+        console.log('[Search] Importing from URLs:', DEFAULT_TRIPADVISOR_URLS);
         const res = await importMutation.mutateAsync({ urls: DEFAULT_TRIPADVISOR_URLS, cityFallback: 'Cameroon' });
         const list = res.restaurants as Restaurant[];
+        console.log('[Search] Import successful, imported', list.length, 'restaurants');
         setImportedRestaurants(list);
         await setItem('imported_restaurants', JSON.stringify(list));
       } catch (e) {
-        console.log('[Search] bootstrap import failed');
+        console.error('[Search] bootstrap import failed:', e);
       }
     })();
   }, [bootstrapped, isImporting, importedRestaurants.length, importedOneTimeQuery.data, importMutation, setItem]);
@@ -330,20 +334,23 @@ export default function SearchScreen() {
           onPress={async () => {
             if (isImporting) return;
             setIsImporting(true);
+            console.log('[Search] Manual import triggered');
             try {
+              console.log('[Search] Importing from URLs:', DEFAULT_TRIPADVISOR_URLS);
               const res = await importMutation.mutateAsync({ urls: DEFAULT_TRIPADVISOR_URLS, cityFallback: 'Cameroon' });
               const list = res.restaurants as Restaurant[];
+              console.log('[Search] Manual import successful, imported', list.length, 'restaurants');
               setImportedRestaurants(list);
               await setItem('imported_restaurants', JSON.stringify(list));
             } catch (e) {
-              console.log('[Search] one-click import failed');
+              console.error('[Search] one-click import failed:', e);
             } finally {
               setIsImporting(false);
             }
           }}
           style={[styles.importBtn, { backgroundColor: colors.tint }]}
         >
-          <Text style={styles.importBtnText}>{isImporting ? 'Importing…' : 'One-click Import'}</Text>
+          <Text style={styles.importBtnText}>{isImporting ? 'Importing…' : 'Re-import Restaurants'}</Text>
         </TouchableOpacity>
         {importedRestaurants.length > 0 && (
           <View style={styles.importInfo}>
