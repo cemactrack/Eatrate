@@ -1,1 +1,347 @@
-import React, { useState, useCallback } from 'react';\nimport { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, FlatList } from 'react-native';\nimport { Stack, useRouter } from 'expo-router';\nimport { useSettings } from '@/providers/SettingsProvider';\nimport { trpc } from '@/lib/trpc';\nimport { Star, Gift, Trophy, Zap, Clock, CheckCircle } from 'lucide-react-native';\nimport { useSafeAreaInsets } from 'react-native-safe-area-context';\nimport type { Reward } from '@/types/advanced-features';\n\nexport default function LoyaltyRewardsScreen() {\n  const { colors } = useSettings();\n  const router = useRouter();\n  const insets = useSafeAreaInsets();\n  const [selectedCategory, setSelectedCategory] = useState<'all' | 'discount' | 'free_meal' | 'partner_reward'>('all');\n\n  const userPointsQuery = trpc.loyalty.getUserPoints.useQuery();\n  const rewardsQuery = trpc.loyalty.getAvailableRewards.useQuery({\n    category: selectedCategory === 'all' ? undefined : selectedCategory\n  });\n\n  const redeemMutation = trpc.loyalty.redeemReward.useMutation({\n    onSuccess: (data) => {\n      Alert.alert(\n        'Reward Redeemed!',\n        `Congratulations! Your redemption code is: ${data.redemptionCode}\\n\\n${data.instructions}`,\n        [{ text: 'OK' }]\n      );\n      userPointsQuery.refetch();\n      rewardsQuery.refetch();\n    },\n    onError: (error) => {\n      Alert.alert('Redemption Failed', error.message);\n    }\n  });\n\n  const handleRedeemReward = useCallback((reward: Reward) => {\n    Alert.alert(\n      'Redeem Reward',\n      `Are you sure you want to redeem \"${reward.title}\" for ${reward.pointsCost} points?`,\n      [\n        { text: 'Cancel', style: 'cancel' },\n        { \n          text: 'Redeem', \n          onPress: () => redeemMutation.mutate({ rewardId: reward.id })\n        }\n      ]\n    );\n  }, [redeemMutation]);\n\n  const renderReward = useCallback(({ item: reward }: { item: Reward }) => {\n    const canAfford = (userPointsQuery.data?.totalPoints || 0) >= reward.pointsCost;\n    const isExpiringSoon = reward.expiresAt && \n      new Date(reward.expiresAt).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000;\n\n    const getRewardIcon = () => {\n      switch (reward.type) {\n        case 'discount': return '💰';\n        case 'free_meal': return '🍽️';\n        case 'partner_reward': return '🎁';\n        default: return '⭐';\n      }\n    };\n\n    return (\n      <TouchableOpacity\n        style={[\n          styles.rewardCard,\n          {\n            backgroundColor: colors.card,\n            borderColor: canAfford ? colors.tint : colors.border,\n            borderWidth: canAfford ? 2 : 1,\n            opacity: canAfford ? 1 : 0.7\n          }\n        ]}\n        onPress={() => canAfford && handleRedeemReward(reward)}\n        disabled={!canAfford || redeemMutation.isLoading}\n      >\n        <View style={styles.rewardHeader}>\n          <Text style={styles.rewardIcon}>{getRewardIcon()}</Text>\n          <View style={styles.rewardInfo}>\n            <Text style={[styles.rewardTitle, { color: colors.text }]} numberOfLines={1}>\n              {reward.title}\n            </Text>\n            <Text style={[styles.rewardDescription, { color: colors.secondary }]} numberOfLines={2}>\n              {reward.description}\n            </Text>\n          </View>\n          <View style={styles.rewardPricing}>\n            <Text style={[styles.pointsCost, { color: canAfford ? colors.tint : colors.secondary }]}>\n              {reward.pointsCost}\n            </Text>\n            <Text style={[styles.pointsLabel, { color: colors.secondary }]}>points</Text>\n          </View>\n        </View>\n\n        {reward.value > 0 && (\n          <View style={styles.rewardValue}>\n            <Text style={[styles.valueText, { color: colors.text }]}>Value: {reward.value} CFA</Text>\n          </View>\n        )}\n\n        {isExpiringSoon && (\n          <View style={[styles.expiryWarning, { backgroundColor: colors.error + '20' }]}>\n            <Clock size={14} color={colors.error} />\n            <Text style={[styles.expiryText, { color: colors.error }]}>Expires soon!</Text>\n          </View>\n        )}\n\n        {canAfford && (\n          <View style={[styles.redeemButton, { backgroundColor: colors.tint }]}>\n            <Text style={styles.redeemButtonText}>Redeem Now</Text>\n          </View>\n        )}\n      </TouchableOpacity>\n    );\n  }, [colors, userPointsQuery.data, handleRedeemReward, redeemMutation.isLoading]);\n\n  const categories = [\n    { key: 'all' as const, label: 'All Rewards', icon: '🎯' },\n    { key: 'discount' as const, label: 'Discounts', icon: '💰' },\n    { key: 'free_meal' as const, label: 'Free Meals', icon: '🍽️' },\n    { key: 'partner_reward' as const, label: 'Partners', icon: '🎁' }\n  ];\n\n  if (userPointsQuery.isLoading) {\n    return (\n      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>\n        <ActivityIndicator size=\"large\" color={colors.tint} />\n        <Text style={[styles.loadingText, { color: colors.secondary }]}>Loading your rewards...</Text>\n      </View>\n    );\n  }\n\n  const userPoints = userPointsQuery.data;\n  const rewards = rewardsQuery.data?.rewards || [];\n\n  return (\n    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>\n      <Stack.Screen options={{ title: 'Loyalty Rewards' }} />\n      \n      <ScrollView style={styles.scrollView}>\n        {/* Points Summary */}\n        <View style={[styles.pointsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>\n          <View style={styles.pointsHeader}>\n            <Star size={24} color={colors.tint} />\n            <Text style={[styles.pointsTitle, { color: colors.text }]}>Your Points</Text>\n          </View>\n          \n          <View style={styles.pointsStats}>\n            <View style={styles.pointsStat}>\n              <Text style={[styles.pointsValue, { color: colors.tint }]}>{userPoints?.totalPoints || 0}</Text>\n              <Text style={[styles.pointsLabel, { color: colors.secondary }]}>Total Points</Text>\n            </View>\n            \n            <View style={styles.pointsStat}>\n              <Text style={[styles.pointsValue, { color: colors.text }]}>{userPoints?.thisMonthPoints || 0}</Text>\n              <Text style={[styles.pointsLabel, { color: colors.secondary }]}>This Month</Text>\n            </View>\n            \n            <View style={styles.pointsStat}>\n              <Trophy size={20} color={colors.tint} />\n              <Text style={[styles.levelText, { color: colors.text }]}>Level {userPoints?.level || 1}</Text>\n            </View>\n          </View>\n\n          {userPoints?.nextLevelPoints && userPoints.nextLevelPoints > 0 && (\n            <View style={styles.progressContainer}>\n              <Text style={[styles.progressText, { color: colors.secondary }]}>\n                {userPoints.nextLevelPoints} points to next level\n              </Text>\n              <View style={[styles.progressBar, { backgroundColor: colors.border }]}>\n                <View \n                  style={[\n                    styles.progressFill, \n                    { \n                      backgroundColor: colors.tint,\n                      width: `${Math.max(10, 100 - (userPoints.nextLevelPoints / 100) * 100)}%`\n                    }\n                  ]} \n                />\n              </View>\n            </View>\n          )}\n        </View>\n\n        {/* Achievements */}\n        {userPoints?.achievements && userPoints.achievements.length > 0 && (\n          <View style={[styles.achievementsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>\n            <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Achievements</Text>\n            <View style={styles.achievementsList}>\n              {userPoints.achievements.map((achievement, index) => (\n                <View key={index} style={styles.achievement}>\n                  <CheckCircle size={16} color={colors.tint} />\n                  <Text style={[styles.achievementText, { color: colors.text }]}>{achievement}</Text>\n                </View>\n              ))}\n            </View>\n          </View>\n        )}\n\n        {/* Category Filter */}\n        <View style={styles.categoriesContainer}>\n          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categories}>\n            {categories.map((category) => (\n              <TouchableOpacity\n                key={category.key}\n                style={[\n                  styles.categoryButton,\n                  {\n                    backgroundColor: selectedCategory === category.key ? colors.tint : colors.card,\n                    borderColor: colors.border\n                  }\n                ]}\n                onPress={() => setSelectedCategory(category.key)}\n              >\n                <Text style={styles.categoryIcon}>{category.icon}</Text>\n                <Text \n                  style={[\n                    styles.categoryText, \n                    { color: selectedCategory === category.key ? 'white' : colors.text }\n                  ]}\n                >\n                  {category.label}\n                </Text>\n              </TouchableOpacity>\n            ))}\n          </ScrollView>\n        </View>\n\n        {/* Rewards List */}\n        <View style={styles.rewardsContainer}>\n          <Text style={[styles.sectionTitle, { color: colors.text }]}>Available Rewards</Text>\n          \n          {rewardsQuery.isLoading ? (\n            <View style={styles.loadingContainer}>\n              <ActivityIndicator color={colors.tint} />\n              <Text style={[styles.loadingText, { color: colors.secondary }]}>Loading rewards...</Text>\n            </View>\n          ) : rewards.length === 0 ? (\n            <View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}>\n              <Gift size={48} color={colors.secondary} />\n              <Text style={[styles.emptyTitle, { color: colors.text }]}>No rewards available</Text>\n              <Text style={[styles.emptySubtitle, { color: colors.secondary }]}>\n                Keep earning points to unlock amazing rewards!\n              </Text>\n            </View>\n          ) : (\n            <FlatList\n              data={rewards}\n              renderItem={renderReward}\n              keyExtractor={(item) => item.id}\n              scrollEnabled={false}\n              contentContainerStyle={styles.rewardsList}\n            />\n          )}\n        </View>\n      </ScrollView>\n    </View>\n  );\n}\n\nconst styles = StyleSheet.create({\n  container: { flex: 1 },\n  centered: { justifyContent: 'center', alignItems: 'center', padding: 20 },\n  scrollView: { flex: 1 },\n  loadingText: { marginTop: 12, fontSize: 16 },\n  \n  pointsCard: { margin: 16, padding: 20, borderRadius: 16, borderWidth: 1 },\n  pointsHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },\n  pointsTitle: { fontSize: 20, fontWeight: '700' },\n  pointsStats: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 16 },\n  pointsStat: { alignItems: 'center', gap: 4 },\n  pointsValue: { fontSize: 24, fontWeight: '700' },\n  pointsLabel: { fontSize: 12, fontWeight: '500' },\n  levelText: { fontSize: 14, fontWeight: '600', marginTop: 4 },\n  \n  progressContainer: { gap: 8 },\n  progressText: { fontSize: 12, textAlign: 'center' },\n  progressBar: { height: 6, borderRadius: 3, overflow: 'hidden' },\n  progressFill: { height: '100%', borderRadius: 3 },\n  \n  achievementsCard: { margin: 16, marginTop: 0, padding: 16, borderRadius: 12, borderWidth: 1 },\n  sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12 },\n  achievementsList: { gap: 8 },\n  achievement: { flexDirection: 'row', alignItems: 'center', gap: 8 },\n  achievementText: { fontSize: 14, fontWeight: '500' },\n  \n  categoriesContainer: { marginHorizontal: 16, marginBottom: 16 },\n  categories: { gap: 12, paddingHorizontal: 4 },\n  categoryButton: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },\n  categoryIcon: { fontSize: 16 },\n  categoryText: { fontSize: 14, fontWeight: '500' },\n  \n  rewardsContainer: { margin: 16, marginTop: 0 },\n  loadingContainer: { alignItems: 'center', padding: 20, gap: 8 },\n  emptyState: { alignItems: 'center', padding: 32, borderRadius: 12, borderWidth: 1, gap: 12 },\n  emptyTitle: { fontSize: 18, fontWeight: '600' },\n  emptySubtitle: { fontSize: 14, textAlign: 'center' },\n  \n  rewardsList: { gap: 12 },\n  rewardCard: { borderRadius: 12, padding: 16, gap: 12 },\n  rewardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },\n  rewardIcon: { fontSize: 24 },\n  rewardInfo: { flex: 1, gap: 4 },\n  rewardTitle: { fontSize: 16, fontWeight: '600' },\n  rewardDescription: { fontSize: 14, lineHeight: 18 },\n  rewardPricing: { alignItems: 'flex-end' },\n  pointsCost: { fontSize: 18, fontWeight: '700' },\n  \n  rewardValue: { paddingLeft: 36 },\n  valueText: { fontSize: 12, fontWeight: '500' },\n  \n  expiryWarning: { flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8, borderRadius: 6 },\n  expiryText: { fontSize: 12, fontWeight: '500' },\n  \n  redeemButton: { paddingVertical: 12, borderRadius: 8, alignItems: 'center' },\n  redeemButtonText: { color: 'white', fontSize: 14, fontWeight: '600' },\n});
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, FlatList } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
+import { useSettings } from '@/providers/SettingsProvider';
+import { trpc } from '@/lib/trpc';
+import { Star, Gift, Trophy, Zap, Clock } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { Reward } from '@/types/advanced-features';
+
+export default function LoyaltyRewardsScreen() {
+  const { colors } = useSettings();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const [selectedCategory, setSelectedCategory] = useState<'all' | 'discount' | 'free_meal' | 'partner_reward'>('all');
+
+  const userPointsQuery = trpc.loyalty.getUserPoints.useQuery();
+  const rewardsQuery = trpc.loyalty.getAvailableRewards.useQuery({
+    category: selectedCategory === 'all' ? undefined : selectedCategory
+  });
+
+  const redeemMutation = trpc.loyalty.redeemReward.useMutation({
+    onSuccess: (data) => {
+      Alert.alert(
+        'Reward Redeemed!',
+        `Congratulations! Your redemption code is: ${data.redemptionCode}\n\n${data.instructions}`,
+        [{ text: 'OK' }]
+      );
+      userPointsQuery.refetch();
+      rewardsQuery.refetch();
+    },
+    onError: (error) => {
+      Alert.alert('Redemption Failed', error.message);
+    }
+  });
+
+  const handleRedeemReward = useCallback((reward: Reward) => {
+    Alert.alert(
+      'Redeem Reward',
+      `Are you sure you want to redeem "${reward.title}" for ${reward.pointsCost} points?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Redeem', 
+          onPress: () => redeemMutation.mutate({ rewardId: reward.id })
+        }
+      ]
+    );
+  }, [redeemMutation]);
+
+  const renderReward = useCallback(({ item: reward }: { item: Reward }) => {
+    const canAfford = (userPointsQuery.data?.totalPoints || 0) >= reward.pointsCost;
+    const isAvailable = reward.isActive;
+
+    return (
+      <View style={[styles.rewardCard, { backgroundColor: colors.card }]}>
+        <View style={styles.rewardHeader}>
+          <View style={styles.rewardIcon}>
+            {reward.type === 'discount' && <Star size={24} color={colors.tint} />}
+            {reward.type === 'free_meal' && <Gift size={24} color={colors.tint} />}
+            {reward.type === 'partner_reward' && <Trophy size={24} color={colors.tint} />}
+          </View>
+          <View style={styles.rewardInfo}>
+            <Text style={[styles.rewardTitle, { color: colors.text }]}>{reward.title}</Text>
+            <Text style={[styles.rewardDescription, { color: colors.secondary }]}>{reward.description}</Text>
+          </View>
+        </View>
+        
+        <View style={styles.rewardFooter}>
+          <View style={styles.pointsContainer}>
+            <Zap size={16} color={colors.tint} />
+            <Text style={[styles.pointsText, { color: colors.tint }]}>{reward.pointsCost} points</Text>
+          </View>
+          
+          <TouchableOpacity
+            style={[
+              styles.redeemButton,
+              {
+                backgroundColor: canAfford && isAvailable ? colors.tint : colors.border,
+                opacity: canAfford && isAvailable ? 1 : 0.5
+              }
+            ]}
+            onPress={() => handleRedeemReward(reward)}
+            disabled={!canAfford || !isAvailable || redeemMutation.isPending}
+          >
+            <Text style={[styles.redeemButtonText, { color: colors.background }]}>
+              {!isAvailable ? 'Unavailable' : !canAfford ? 'Not enough points' : 'Redeem'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        
+        {reward.expiresAt && (
+          <View style={styles.expiryContainer}>
+            <Clock size={12} color={colors.secondary} />
+            <Text style={[styles.expiryText, { color: colors.secondary }]}>
+              Expires: {new Date(reward.expiresAt).toLocaleDateString()}
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  }, [colors, userPointsQuery.data, handleRedeemReward, redeemMutation.isPending]);
+
+  const categories = [
+    { key: 'all' as const, label: 'All Rewards', icon: Gift },
+    { key: 'discount' as const, label: 'Discounts', icon: Star },
+    { key: 'free_meal' as const, label: 'Free Meals', icon: Gift },
+    { key: 'partner_reward' as const, label: 'Partner Rewards', icon: Trophy }
+  ];
+
+  if (userPointsQuery.isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Stack.Screen options={{ title: 'Loyalty Rewards', headerStyle: { backgroundColor: colors.card } }} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.tint} />
+          <Text style={[styles.loadingText, { color: colors.text }]}>Loading your rewards...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      <Stack.Screen options={{ 
+        title: 'Loyalty Rewards',
+        headerStyle: { backgroundColor: colors.card },
+        headerTintColor: colors.text
+      }} />
+      
+      {/* Points Header */}
+      <View style={[styles.pointsHeader, { backgroundColor: colors.tint }]}>
+        <View style={styles.pointsContent}>
+          <Zap size={32} color={colors.background} />
+          <View style={styles.pointsInfo}>
+            <Text style={[styles.pointsValue, { color: colors.background }]}>
+              {userPointsQuery.data?.totalPoints || 0}
+            </Text>
+            <Text style={[styles.pointsLabel, { color: colors.background }]}>EatRate Points</Text>
+          </View>
+        </View>
+        <TouchableOpacity 
+          style={styles.historyButton}
+          onPress={() => router.push('/loyalty/history')}
+        >
+          <Text style={[styles.historyButtonText, { color: colors.background }]}>History</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Category Filter */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFilter}>
+        {categories.map((category) => {
+          const Icon = category.icon;
+          const isSelected = selectedCategory === category.key;
+          
+          return (
+            <TouchableOpacity
+              key={category.key}
+              style={[
+                styles.categoryButton,
+                {
+                  backgroundColor: isSelected ? colors.tint : colors.card,
+                  borderColor: colors.border
+                }
+              ]}
+              onPress={() => setSelectedCategory(category.key)}
+            >
+              <Icon size={16} color={isSelected ? colors.background : colors.text} />
+              <Text style={[
+                styles.categoryButtonText,
+                { color: isSelected ? colors.background : colors.text }
+              ]}>
+                {category.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {/* Rewards List */}
+      <FlatList
+        data={rewardsQuery.data?.rewards || []}
+        renderItem={renderReward}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.rewardsList}
+        showsVerticalScrollIndicator={false}
+        refreshing={rewardsQuery.isLoading}
+        onRefresh={() => {
+          userPointsQuery.refetch();
+          rewardsQuery.refetch();
+        }}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Gift size={48} color={colors.secondary} />
+            <Text style={[styles.emptyText, { color: colors.secondary }]}>
+              No rewards available in this category
+            </Text>
+          </View>
+        }
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+  },
+  pointsHeader: {
+    padding: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pointsContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  pointsInfo: {
+    gap: 4,
+  },
+  pointsValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  pointsLabel: {
+    fontSize: 14,
+    opacity: 0.9,
+  },
+  historyButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  historyButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  categoryFilter: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  categoryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginRight: 12,
+  },
+  categoryButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  rewardsList: {
+    padding: 20,
+    gap: 16,
+  },
+  rewardCard: {
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  rewardHeader: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  rewardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rewardInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  rewardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  rewardDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  rewardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pointsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  pointsText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  redeemButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  redeemButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  expiryContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+  },
+  expiryText: {
+    fontSize: 12,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    gap: 16,
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: 'center',
+  },
+});
