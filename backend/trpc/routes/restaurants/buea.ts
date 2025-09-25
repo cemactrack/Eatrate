@@ -12,6 +12,8 @@ interface ParsedRestaurant {
   priceRange: '$' | '$$' | '$$$' | '$$$$';
   isOpen: boolean;
   tags: string[];
+  verified: boolean;
+  claimed: boolean;
 }
 
 function safeNumber(n: unknown): number {
@@ -67,6 +69,8 @@ function toRestaurant(item: any): ParsedRestaurant | null {
       priceRange,
       isOpen: true,
       tags,
+      verified: false,
+      claimed: false,
     };
 
     return restaurant;
@@ -142,12 +146,12 @@ export const fetchBueaRestaurantsProcedure = publicProcedure
       .optional(),
   )
   .query(async ({ input }) => {
-    const baseUrl = 'https://www.tripadvisor.com/Restaurants-g482837-Buea_Southwest_Region.html';
+    const baseUrl = 'https://www.tripadvisor.com/Restaurants-g1024681-Buea_Southwest_Region.html';
 
     function pageToUrl(p: number): string {
       const offset = (p - 1) * 30;
       if (offset <= 0) return baseUrl;
-      return `https://www.tripadvisor.com/Restaurants-g482837-oa${offset}-Buea_Southwest_Region.html`;
+      return `https://www.tripadvisor.com/Restaurants-g1024681-oa${offset}-Buea_Southwest_Region.html`;
     }
 
     const targetUrls: string[] = [];

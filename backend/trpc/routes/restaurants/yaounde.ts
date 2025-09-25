@@ -12,6 +12,8 @@ interface ParsedRestaurant {
   priceRange: '$' | '$$' | '$$$' | '$$$$';
   isOpen: boolean;
   tags: string[];
+  verified: boolean;
+  claimed: boolean;
 }
 
 function safeNumber(n: unknown): number {
@@ -67,6 +69,8 @@ function toRestaurant(item: any): ParsedRestaurant | null {
       priceRange,
       isOpen: true,
       tags,
+      verified: false,
+      claimed: false,
     };
 
     return restaurant;

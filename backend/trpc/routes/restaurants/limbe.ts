@@ -12,6 +12,8 @@ interface ParsedRestaurant {
   priceRange: '$' | '$$' | '$$$' | '$$$$';
   isOpen: boolean;
   tags: string[];
+  verified: boolean;
+  claimed: boolean;
 }
 
 function safeNumber(n: unknown): number {
@@ -67,6 +69,8 @@ function toRestaurant(item: any): ParsedRestaurant | null {
       priceRange,
       isOpen: true,
       tags,
+      verified: false,
+      claimed: false,
     };
 
     return restaurant;
@@ -135,18 +139,19 @@ export const fetchLimbeRestaurantsProcedure = publicProcedure
   .input(
     z
       .object({
-        page: z.number().min(1).max(20).optional(),
-        pages: z.array(z.number().min(1).max(20)).optional(),
+        page: z.number().min(1).max(10).optional(),
+        pages: z.array(z.number().min(1).max(10)).optional(),
         urls: z.array(z.string().url()).optional(),
       })
       .optional(),
   )
   .query(async ({ input }) => {
-    const baseUrl = 'https://www.tripadvisor.com/Search?q=restaurants+in+Limbe&geo=482837&ssrc=a&searchNearby=false&searchSessionId=001397de33d5c954.ssid&offset=0';
+    const baseUrl = 'https://www.tripadvisor.com/Restaurants-g1024682-Limbe_Southwest_Region.html';
 
     function pageToUrl(p: number): string {
       const offset = (p - 1) * 30;
-      return baseUrl.replace(/offset=\d+/, `offset=${offset}`);
+      if (offset <= 0) return baseUrl;
+      return `https://www.tripadvisor.com/Restaurants-g1024682-oa${offset}-Limbe_Southwest_Region.html`;
     }
 
     const targetUrls: string[] = [];

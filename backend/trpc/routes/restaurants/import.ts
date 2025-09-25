@@ -14,6 +14,8 @@ interface ParsedRestaurant {
   priceRange: '$' | '$$' | '$$$' | '$$$$';
   isOpen: boolean;
   tags: string[];
+  verified: boolean;
+  claimed: boolean;
 }
 
 function safeNumber(n: unknown): number {
@@ -69,6 +71,8 @@ function toRestaurant(item: any, fallbackCity: string): ParsedRestaurant | null 
       priceRange,
       isOpen: true,
       tags,
+      verified: false,
+      claimed: false,
     };
 
     return restaurant;
@@ -395,14 +399,14 @@ export const bootstrapImportProcedure = publicProcedure.mutation(async () => {
       restaurants = existing;
     } else {
       restaurants = [
-        { id: 'seed-la-chaumiere', name: 'La Chaumière', cuisine: 'French', rating: 4.4, reviewCount: 128, image: 'https://images.unsplash.com/photo-1528605248644-14dd04022da1?w=800&h=600&fit=crop', address: 'Douala, Cameroon', priceRange: '$$$', isOpen: true, tags: ['French','Fine Dining'] },
-        { id: 'seed-le-wagon', name: 'Le Wagon', cuisine: 'International', rating: 4.2, reviewCount: 96, image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&h=600&fit=crop', address: 'Yaoundé, Cameroon', priceRange: '$$', isOpen: true, tags: ['Grill','Casual'] },
-        { id: 'seed-aroma', name: 'Aroma', cuisine: 'Italian', rating: 4.5, reviewCount: 210, image: 'https://images.unsplash.com/photo-1543352634-8730b1b1c49b?w=800&h=600&fit=crop', address: 'Buea, Cameroon', priceRange: '$$', isOpen: true, tags: ['Pizza','Pasta'] },
-        { id: 'seed-sea-breeze', name: 'Sea Breeze', cuisine: 'Seafood', rating: 4.3, reviewCount: 142, image: 'https://images.unsplash.com/photo-1553621042-f6e147245754?w=800&h=600&fit=crop', address: 'Limbe, Cameroon', priceRange: '$$$', isOpen: true, tags: ['Seafood','Coastal'] },
-        { id: 'seed-green-garden', name: 'Green Garden', cuisine: 'Vegetarian', rating: 4.1, reviewCount: 88, image: 'https://images.unsplash.com/photo-1466637574441-749b8f19452f?w=800&h=600&fit=crop', address: 'Yaoundé, Cameroon', priceRange: '$$', isOpen: true, tags: ['Vegan','Healthy'] },
-        { id: 'seed-spice-route', name: 'Spice Route', cuisine: 'Indian', rating: 4.6, reviewCount: 176, image: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=800&h=600&fit=crop', address: 'Douala, Cameroon', priceRange: '$$', isOpen: true, tags: ['Curry','Tandoori'] },
-        { id: 'seed-sakura', name: 'Sakura', cuisine: 'Japanese', rating: 4.4, reviewCount: 132, image: 'https://images.unsplash.com/photo-1553621042-2d28fab91f7a?w=800&h=600&fit=crop', address: 'Douala, Cameroon', priceRange: '$$$', isOpen: true, tags: ['Sushi','Ramen'] },
-        { id: 'seed-bakery-bliss', name: 'Bakery Bliss', cuisine: 'Cafe', rating: 4.0, reviewCount: 64, image: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=800&h=600&fit=crop', address: 'Buea, Cameroon', priceRange: '$', isOpen: true, tags: ['Cafe','Dessert'] },
+        { id: 'seed-la-chaumiere', name: 'La Chaumière', cuisine: 'French', rating: 4.4, reviewCount: 128, image: 'https://images.unsplash.com/photo-1528605248644-14dd04022da1?w=800&h=600&fit=crop', address: 'Douala, Cameroon', priceRange: '$$$' as const, isOpen: true, tags: ['French','Fine Dining'], verified: false, claimed: false },
+        { id: 'seed-le-wagon', name: 'Le Wagon', cuisine: 'International', rating: 4.2, reviewCount: 96, image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&h=600&fit=crop', address: 'Yaoundé, Cameroon', priceRange: '$$' as const, isOpen: true, tags: ['Grill','Casual'], verified: false, claimed: false },
+        { id: 'seed-aroma', name: 'Aroma', cuisine: 'Italian', rating: 4.5, reviewCount: 210, image: 'https://images.unsplash.com/photo-1543352634-8730b1b1c49b?w=800&h=600&fit=crop', address: 'Buea, Cameroon', priceRange: '$$' as const, isOpen: true, tags: ['Pizza','Pasta'], verified: false, claimed: false },
+        { id: 'seed-sea-breeze', name: 'Sea Breeze', cuisine: 'Seafood', rating: 4.3, reviewCount: 142, image: 'https://images.unsplash.com/photo-1553621042-f6e147245754?w=800&h=600&fit=crop', address: 'Limbe, Cameroon', priceRange: '$$$' as const, isOpen: true, tags: ['Seafood','Coastal'], verified: false, claimed: false },
+        { id: 'seed-green-garden', name: 'Green Garden', cuisine: 'Vegetarian', rating: 4.1, reviewCount: 88, image: 'https://images.unsplash.com/photo-1466637574441-749b8f19452f?w=800&h=600&fit=crop', address: 'Yaoundé, Cameroon', priceRange: '$$' as const, isOpen: true, tags: ['Vegan','Healthy'], verified: false, claimed: false },
+        { id: 'seed-spice-route', name: 'Spice Route', cuisine: 'Indian', rating: 4.6, reviewCount: 176, image: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=800&h=600&fit=crop', address: 'Douala, Cameroon', priceRange: '$$' as const, isOpen: true, tags: ['Curry','Tandoori'], verified: false, claimed: false },
+        { id: 'seed-sakura', name: 'Sakura', cuisine: 'Japanese', rating: 4.4, reviewCount: 132, image: 'https://images.unsplash.com/photo-1553621042-2d28fab91f7a?w=800&h=600&fit=crop', address: 'Douala, Cameroon', priceRange: '$$$' as const, isOpen: true, tags: ['Sushi','Ramen'], verified: false, claimed: false },
+        { id: 'seed-bakery-bliss', name: 'Bakery Bliss', cuisine: 'Cafe', rating: 4.0, reviewCount: 64, image: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=800&h=600&fit=crop', address: 'Buea, Cameroon', priceRange: '$' as const, isOpen: true, tags: ['Cafe','Dessert'], verified: false, claimed: false },
       ];
     }
   }
