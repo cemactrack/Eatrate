@@ -5,7 +5,18 @@ import { useSettings } from '@/providers/SettingsProvider';
 import { trpc } from '@/lib/trpc';
 import { Star, Gift, Trophy, Zap, Clock } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { Reward } from '@/types/advanced-features';
+
+interface Reward {
+  id: string;
+  title: string;
+  description: string;
+  type: 'discount' | 'free_meal' | 'partner_reward';
+  pointsCost: number;
+  isActive: boolean;
+  expiresAt?: Date | string;
+  canAfford?: boolean;
+  daysUntilExpiry?: number | null;
+}
 
 export default function LoyaltyRewardsScreen() {
   const { colors } = useSettings();
@@ -127,7 +138,6 @@ export default function LoyaltyRewardsScreen() {
         headerTintColor: colors.text
       }} />
       
-      {/* Points Header */}
       <View style={[styles.pointsHeader, { backgroundColor: colors.tint }]}>
         <View style={styles.pointsContent}>
           <Zap size={32} color={colors.background} />
@@ -146,7 +156,6 @@ export default function LoyaltyRewardsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Category Filter */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFilter}>
         {categories.map((category) => {
           const Icon = category.icon;
@@ -176,7 +185,6 @@ export default function LoyaltyRewardsScreen() {
         })}
       </ScrollView>
 
-      {/* Rewards List */}
       <FlatList
         data={rewardsQuery.data?.rewards || []}
         renderItem={renderReward}
@@ -230,7 +238,7 @@ const styles = StyleSheet.create({
   },
   pointsValue: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as const,
   },
   pointsLabel: {
     fontSize: 14,
@@ -245,7 +253,7 @@ const styles = StyleSheet.create({
   },
   historyButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   categoryFilter: {
     paddingHorizontal: 20,
@@ -263,7 +271,7 @@ const styles = StyleSheet.create({
   },
   categoryButtonText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '500' as const,
   },
   rewardsList: {
     padding: 20,
@@ -297,7 +305,7 @@ const styles = StyleSheet.create({
   },
   rewardTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   rewardDescription: {
     fontSize: 14,
@@ -315,7 +323,7 @@ const styles = StyleSheet.create({
   },
   pointsText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   redeemButton: {
     paddingHorizontal: 16,
@@ -324,7 +332,7 @@ const styles = StyleSheet.create({
   },
   redeemButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '600' as const,
   },
   expiryContainer: {
     flexDirection: 'row',

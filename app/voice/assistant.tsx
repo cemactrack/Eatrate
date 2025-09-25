@@ -86,11 +86,8 @@ export default function VoiceAssistantScreen() {
 
   const startListening = useCallback(() => {
     setIsListening(true);
-    // In a real implementation, you would start voice recording here
-    // For now, we'll simulate it
     setTimeout(() => {
       setIsListening(false);
-      // Simulate voice recognition result
       const mockCommands = [
         'Find me the best pizza in Douala',
         'Show me restaurants near me',
@@ -140,7 +137,6 @@ export default function VoiceAssistantScreen() {
       }} />
       
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Current Response */}
         {currentResponse && (
           <View style={[styles.responseContainer, { backgroundColor: colors.card }]}>
             <MessageCircle size={20} color={colors.tint} />
@@ -148,7 +144,6 @@ export default function VoiceAssistantScreen() {
           </View>
         )}
 
-        {/* Voice Input */}
         <View style={styles.voiceSection}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Voice Commands</Text>
           <TouchableOpacity
@@ -167,7 +162,6 @@ export default function VoiceAssistantScreen() {
           </Text>
         </View>
 
-        {/* Text Input */}
         <View style={styles.textSection}>
           <View style={[styles.textInputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <TextInput
@@ -189,7 +183,6 @@ export default function VoiceAssistantScreen() {
           </View>
         </View>
 
-        {/* Suggestions */}
         <View style={styles.suggestionsSection}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Try asking:</Text>
           <View style={styles.suggestionsList}>
@@ -209,7 +202,6 @@ export default function VoiceAssistantScreen() {
           </View>
         </View>
 
-        {/* Recent History */}
         {historyQuery.data && historyQuery.data.commands && historyQuery.data.commands.length > 0 && (
           <View style={styles.historySection}>
             <View style={styles.historyHeader}>
@@ -258,7 +250,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 18,
-    fontWeight: '500',
+    fontWeight: '500' as const,
   },
   responseContainer: {
     flexDirection: 'row',
@@ -279,7 +271,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '600' as const,
     marginBottom: 8,
   },
   voiceButton: {
@@ -354,7 +346,7 @@ const styles = StyleSheet.create({
   },
   historyQuery: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '500' as const,
   },
   historyTime: {
     fontSize: 12,

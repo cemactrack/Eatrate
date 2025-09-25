@@ -66,13 +66,6 @@ app.get("/api", (c) => {
   });
 });
 
-// Debug middleware to log all requests
-app.use('*', async (c, next) => {
-  const url = new URL(c.req.url);
-  console.log(`[DEBUG] ${c.req.method} ${url.pathname}${url.search}`);
-  await next();
-});
-
 // Catch-all for debugging
 app.all('*', (c) => {
   const url = new URL(c.req.url);
