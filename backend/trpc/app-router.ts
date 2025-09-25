@@ -196,6 +196,27 @@ import {
   getUserAchievementsSummaryProcedure,
 } from "./routes/reputation/manage";
 
+// Messaging routes
+import {
+  getConversations,
+  getMessages,
+  sendMessage,
+  startConversation,
+  markAsRead,
+  deleteMessage,
+  archiveConversation,
+  blockUser,
+  getBlockedUsers,
+  reportMessage,
+  addReaction,
+  removeReaction,
+  getMessageReactions,
+  setTyping,
+  getTypingIndicators,
+  searchConversations,
+  getUnreadCount,
+} from "./routes/messaging/manage";
+
 export const appRouter = createTRPCRouter({
   // Health check endpoint
   health: publicProcedure.query(() => {
@@ -419,6 +440,25 @@ export const appRouter = createTRPCRouter({
     getAvailableBadges: getAvailableBadgesProcedure,
     updateTrustScore: updateTrustScoreProcedure,
     getAchievementsSummary: getUserAchievementsSummaryProcedure,
+  }),
+  messaging: createTRPCRouter({
+    getConversations: getConversations,
+    getMessages: getMessages,
+    sendMessage: sendMessage,
+    startConversation: startConversation,
+    markAsRead: markAsRead,
+    deleteMessage: deleteMessage,
+    archiveConversation: archiveConversation,
+    blockUser: blockUser,
+    getBlockedUsers: getBlockedUsers,
+    reportMessage: reportMessage,
+    addReaction: addReaction,
+    removeReaction: removeReaction,
+    getMessageReactions: getMessageReactions,
+    setTyping: setTyping,
+    getTypingIndicators: getTypingIndicators,
+    searchConversations: searchConversations,
+    getUnreadCount: getUnreadCount,
   }),
 });
 

@@ -15,6 +15,7 @@ import { AdminProvider } from "@/providers/AdminProvider";
 import { GamificationProvider } from "@/providers/GamificationProvider";
 import { NotificationProvider } from "@/providers/NotificationProvider";
 import { LocalizationProvider } from "@/providers/LocalizationProvider";
+import { MessagingProvider } from "@/providers/MessagingProvider";
 import Colors from "@/constants/colors";
 import { APP_CONFIG } from "@/constants/app-config";
 
@@ -195,6 +196,12 @@ function ThemedStack() {
           title: "Reputation & Badges",
         }} 
       />
+      <Stack.Screen 
+        name="messages" 
+        options={{ 
+          title: "Messages",
+        }} 
+      />
     </Stack>
   );
 }
@@ -266,9 +273,11 @@ export default function RootLayout() {
                     <AuthProvider>
                       <NotificationProvider>
                         <GamificationProvider>
-                          <AdminProvider>
-                            <RootLayoutNav />
-                          </AdminProvider>
+                          <MessagingProvider>
+                            <AdminProvider>
+                              <RootLayoutNav />
+                            </AdminProvider>
+                          </MessagingProvider>
                         </GamificationProvider>
                       </NotificationProvider>
                     </AuthProvider>
