@@ -1,0 +1,48 @@
+export const APP_CONFIG = {
+  name: 'EatRate',
+  version: '1.0.0',
+  api: {
+    timeout: 45000,
+    retryAttempts: 2,
+    staleTime: 30 * 60 * 1000, // 30 minutes
+    cacheTime: 45 * 60 * 1000, // 45 minutes
+  },
+  features: {
+    enablePerformanceMonitoring: __DEV__,
+    enableAnalytics: !__DEV__,
+    enablePushNotifications: true,
+    enableLocationServices: true,
+  },
+  ui: {
+    animationDuration: 300,
+    debounceDelay: 500,
+    loadMoreThreshold: 0.8,
+  },
+  limits: {
+    maxImageSize: 5 * 1024 * 1024, // 5MB
+    maxVideoSize: 50 * 1024 * 1024, // 50MB
+    maxPostLength: 2000,
+    maxImagesPerPost: 10,
+  },
+} as const;
+
+export const CITIES = {
+  DOUALA: 'douala',
+  YAOUNDE: 'yaounde',
+  BUEA: 'buea',
+  LIMBE: 'limbe',
+} as const;
+
+export const POST_TYPES = {
+  REVIEW: 'review',
+  PHOTO: 'photo',
+  VIDEO: 'video',
+  STORY: 'story',
+} as const;
+
+export const USER_ROLES = {
+  USER: 'user',
+  RESTAURANT_OWNER: 'restaurant_owner',
+  SUPPLIER: 'supplier',
+  ADMIN: 'admin',
+} as const;

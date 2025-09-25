@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -16,8 +16,7 @@ import { useRouter } from 'expo-router';
 
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import { trpc } from '@/lib/trpc';
-import { Restaurant, Post, Dish, User } from '@/types/restaurant';
+import { Restaurant, Post } from '@/types/restaurant';
 import RestaurantCard from '@/components/RestaurantCard';
 import DishCard from '@/components/DishCard';
 import SearchBar from '@/components/SearchBar';
@@ -27,6 +26,16 @@ import PerformanceMonitor from '@/components/PerformanceMonitor';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAdmin } from '@/providers/AdminProvider';
 import { useSettings } from '@/providers/SettingsProvider';
+import { 
+  useFeaturedRestaurants, 
+  useTrendingPosts, 
+  useTrendingDishes, 
+  useTopFoodies,
+  useOptimisticLike,
+  useOptimisticFollow
+} from '@/hooks/useQueries';
+
+import { formatNumber } from '@/utils/helpers';
 
 interface TrendingPostProps {
   post: Post;
@@ -91,60 +100,17 @@ function HomeScreenContent() {
 
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const utils = trpc.useUtils();
 
-
-  // Load restaurants first (priority data)
-  const restaurantsQuery = trpc.restaurants.list.useQuery(undefined, { 
-    staleTime: 1000 * 60 * 30,
-    retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
-    refetchOnMount: false,
-  });
-  const { data: restaurantsData, isLoading: isLoadingRestaurants, error: restaurantsError } = restaurantsQuery;
-
-  // Fallback to Yaoundé restaurants if main list fails
-  const yaoundeQuery = trpc.restaurants.yaounde.useQuery({ 
-    page: 1 
-  }, { 
-    staleTime: 1000 * 60 * 30, // Increased to 30 minutes for better caching
-    enabled: !restaurantsData?.restaurants?.length && !isLoadingRestaurants && !!restaurantsError,
-    retry: 0,
-  });
-  const { data: yaoundeData, isLoading: isLoadingYaounde } = yaoundeQuery;
-
-  // Load posts using infinite query for better performance
-  const shouldLoadPosts = useMemo(() => {
-    return !isLoadingRestaurants && !isLoadingYaounde;
-  }, [isLoadingRestaurants, isLoadingYaounde]);
+  // Use optimized hooks
+  const { restaurants: featuredRestaurants, isLoading: isLoadingRestaurants, error: restaurantsError } = useFeaturedRestaurants(3);
+  const { posts: trendingPosts, isLoading: isLoadingPosts, error: postsError, refetch: refetchPosts } = useTrendingPosts(2);
   
-  const {
-    data: postsData,
-    error: postsError,
-    isLoading: isLoadingPosts,
-    fetchNextPage: fetchNextPostsPage,
-    hasNextPage,
-    isFetchingNextPage,
-    refetch: refetchPosts,
-  } = trpc.posts.feed.useInfiniteQuery(
-    { type: 'recent', limit: 10 },
-    {
-      getNextPageParam: (lastPage) => lastPage?.nextCursor,
-      staleTime: 1000 * 60 * 20,
-      enabled: shouldLoadPosts,
-      retry: 1,
-      retryDelay: 1000,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-    }
-  );
-
-  // Defer dishes and users data (load after 2 seconds)
+  // Defer loading of dishes and users
   const [shouldLoadDeferred, setShouldLoadDeferred] = useState<boolean>(false);
-  const deferredTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const deferredTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   useEffect(() => {
-    if (shouldLoadPosts && !shouldLoadDeferred && !deferredTimerRef.current) {
+    if (!isLoadingRestaurants && !isLoadingPosts && !shouldLoadDeferred && !deferredTimerRef.current) {
       deferredTimerRef.current = setTimeout(() => {
         setShouldLoadDeferred(true);
         deferredTimerRef.current = null;
@@ -157,58 +123,24 @@ function HomeScreenContent() {
         deferredTimerRef.current = null;
       }
     };
-  }, [shouldLoadPosts, shouldLoadDeferred]);
+  }, [isLoadingRestaurants, isLoadingPosts, shouldLoadDeferred]);
 
-  const dishesQuery = trpc.dishes.list.useQuery(undefined, { 
-    staleTime: 1000 * 60 * 45,
-    enabled: shouldLoadDeferred,
-    retry: 0,
-  });
-  const { data: dishesData, error: dishesError } = dishesQuery;
+  const { dishes: trendingDishes, isLoading: isLoadingDishes, error: dishesError } = useTrendingDishes(10, shouldLoadDeferred);
+  const { users: topFoodies, isLoading: isLoadingUsers, error: usersError } = useTopFoodies(10, shouldLoadDeferred);
 
-  const usersQuery = trpc.users.list.useQuery(undefined, { 
-    staleTime: 1000 * 60 * 45,
-    enabled: shouldLoadDeferred,
-    retry: 0,
-  });
-  const { data: usersData, error: usersError } = usersQuery;
-
-  const featuredRestaurants = useMemo(() => {
-    // Try main restaurants list first, then fallback to Yaoundé
-    const mainList = restaurantsData?.restaurants ?? [];
-    const fallbackList = yaoundeData?.restaurants ?? [];
-    const list = mainList.length > 0 ? mainList : fallbackList;
-    return list.slice(0, 3);
-  }, [restaurantsData?.restaurants, yaoundeData?.restaurants]);
-  
-  const trendingPosts = useMemo(() => {
-    if (!postsData?.pages?.length) return [] as Post[];
-    const allPosts = postsData.pages.flatMap(page => page.posts || []);
-    return allPosts.slice(0, 2) as Post[];
-  }, [postsData?.pages]);
-
-
-  
-  const trendingDishes = useMemo(() => {
-    const list = dishesData?.dishes ?? [];
-    return list.slice(0, 10) as Dish[];
-  }, [dishesData?.dishes]);
-
-  const topFoodies = useMemo(() => {
-    const list = usersData?.users ?? [];
-    return list.slice(0, 10) as User[];
-  }, [usersData?.users]);
-
-  const followUser = trpc.users.follow.useMutation();
+  // Use optimistic mutations
+  const likeMutation = useOptimisticLike();
+  const followMutation = useOptimisticFollow();
 
   const onToggleFollow = useCallback(async (userId: string) => {
+    if (followMutation.isPending) return;
     try {
-      const res = await followUser.mutateAsync({ targetUserId: userId });
-      console.log('[Home] toggled follow', userId, res);
+      await followMutation.mutateAsync({ targetUserId: userId });
+      console.log('[Home] toggled follow', userId);
     } catch (e) {
       console.log('[Home] follow error', e);
     }
-  }, [followUser]);
+  }, [followMutation]);
 
   const handleRestaurantPress = useCallback((restaurantId: string) => {
     console.log('Restaurant pressed:', restaurantId);
@@ -226,55 +158,7 @@ function HomeScreenContent() {
     router.push(`/posts/${postId}`);
   }, [router]);
 
-  const likeMutation = trpc.posts.like.useMutation({
-    onMutate: async ({ postId }: { postId: string }) => {
-      try {
-        // Cancel outgoing refetches
-        await utils.posts.feed.cancel({ type: 'recent', limit: 10 });
-        
-        // Snapshot the previous value
-        const previousData = utils.posts.feed.getInfiniteData({ type: 'recent', limit: 10 });
-        
-        // Optimistically update
-        utils.posts.feed.setInfiniteData({ type: 'recent', limit: 10 }, (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            pages: old.pages.map(page => ({
-              ...page,
-              posts: page.posts.map(post => 
-                post.id === postId 
-                  ? { 
-                      ...post, 
-                      isLiked: !post.isLiked, 
-                      likesCount: post.isLiked ? post.likesCount - 1 : post.likesCount + 1 
-                    }
-                  : post
-              )
-            }))
-          };
-        });
-        
-        return { previousData };
-      } catch (error) {
-        console.error('[Home] like mutation error:', error);
-        return { previousData: null };
-      }
-    },
-    onError: (error: any, variables: any, context: any) => {
-      console.error('[Home] like error:', error?.message || 'Unknown error occurred');
-      // Rollback on error
-      if (context?.previousData) {
-        utils.posts.feed.setInfiniteData({ type: 'recent', limit: 10 }, context.previousData);
-      }
-    },
-    onSettled: () => {
-      // Use Promise.allSettled to prevent unhandled promise rejections
-      Promise.allSettled([
-        utils.posts.feed.invalidate({ type: 'recent', limit: 10 })
-      ]).catch(console.error);
-    }
-  });
+
 
   const handlePostLike = useCallback(async (postId: string) => {
     if (likeMutation.isPending) return;
@@ -312,33 +196,14 @@ function HomeScreenContent() {
 
   const handleRefreshFeed = useCallback(async () => {
     try {
-      const results = await Promise.allSettled([
-        restaurantsQuery.refetch(),
-        refetchPosts(),
-        ...(shouldLoadDeferred ? [dishesQuery.refetch(), usersQuery.refetch()] : [])
-      ]);
-      
-      const failedResults = results.filter(result => result.status === 'rejected');
-      if (failedResults.length > 0) {
-        console.warn('[Home] Some refresh operations failed:', failedResults);
-      } else {
-        console.log('[Home] Feed refreshed successfully');
-      }
+      await refetchPosts();
+      console.log('[Home] Feed refreshed successfully');
     } catch (error) {
       console.error('[Home] Failed to refresh feed:', error);
     }
-  }, [restaurantsQuery, refetchPosts, shouldLoadDeferred, dishesQuery, usersQuery]);
+  }, [refetchPosts]);
 
-  const handleLoadMorePosts = useCallback(async () => {
-    if (hasNextPage && !isFetchingNextPage) {
-      try {
-        await fetchNextPostsPage();
-        console.log('[Home] Loaded more posts');
-      } catch (error) {
-        console.error('[Home] Failed to load more posts:', error);
-      }
-    }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPostsPage]);
+
 
 
 
@@ -350,7 +215,7 @@ function HomeScreenContent() {
 
 
   // Only show loading for critical data
-  if (isLoadingRestaurants && isLoadingYaounde) {
+  if (isLoadingRestaurants) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <LoadingSpinner text="Loading restaurants..." showGradient />
@@ -444,17 +309,17 @@ function HomeScreenContent() {
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
             <Flame size={24} color={'#FF6B35'} />
-            <Text style={styles.statNumber}>2.4K</Text>
+            <Text style={styles.statNumber}>{formatNumber(trendingPosts.length * 1200)}</Text>
             <Text style={styles.statLabel}>Hot Posts</Text>
           </View>
           <View style={styles.statCard}>
             <Users size={24} color={'#10B981'} />
-            <Text style={styles.statNumber}>15K</Text>
+            <Text style={styles.statNumber}>{formatNumber(topFoodies.length * 1500)}</Text>
             <Text style={styles.statLabel}>Foodies</Text>
           </View>
           <View style={styles.statCard}>
             <MapPin size={24} color={'#F59E0B'} />
-            <Text style={styles.statNumber}>850</Text>
+            <Text style={styles.statNumber}>{formatNumber(featuredRestaurants.length * 283)}</Text>
             <Text style={styles.statLabel}>Restaurants</Text>
           </View>
         </View>
@@ -472,7 +337,7 @@ function HomeScreenContent() {
             <View style={styles.emptySection}>
               <Text style={styles.emptySectionText}>No restaurants available</Text>
               <Text style={styles.emptySectionSubtext}>
-                {isLoadingRestaurants || isLoadingYaounde ? 'Loading...' : 'Try refreshing the app'}
+                {isLoadingRestaurants ? 'Loading...' : 'Try refreshing the app'}
               </Text>
             </View>
           ) : (
@@ -494,10 +359,10 @@ function HomeScreenContent() {
               <TouchableOpacity 
                 onPress={handleRefreshFeed} 
                 style={styles.refreshButton}
-                disabled={isLoadingPosts || isFetchingNextPage}
+                disabled={isLoadingPosts}
               >
-                <Text style={[styles.refreshText, { color: colors.secondary }, (isLoadingPosts || isFetchingNextPage) && { opacity: 0.5 }]}>
-                  {isLoadingPosts || isFetchingNextPage ? 'Loading...' : 'Refresh'}
+                <Text style={[styles.refreshText, { color: colors.secondary }, isLoadingPosts && { opacity: 0.5 }]}>
+                  {isLoadingPosts ? 'Loading...' : 'Refresh'}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleSeeAllFeed}>
@@ -536,17 +401,6 @@ function HomeScreenContent() {
                   onComments={handlePostComments}
                 />
               ))}
-              {hasNextPage && (
-                <TouchableOpacity 
-                  onPress={handleLoadMorePosts} 
-                  style={styles.loadMoreButton}
-                  disabled={isFetchingNextPage}
-                >
-                  <Text style={styles.loadMoreText}>
-                    {isFetchingNextPage ? 'Loading...' : 'Load More Posts'}
-                  </Text>
-                </TouchableOpacity>
-              )}
             </>
           )}
         </View>
@@ -555,12 +409,12 @@ function HomeScreenContent() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Top Foodies</Text>
-            <TouchableOpacity onPress={() => router.push('/users')}>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/(profile)/profile')}>
               <Text style={styles.seeAll}>See All</Text>
             </TouchableOpacity>
           </View>
           
-          {usersQuery.isLoading ? (
+          {isLoadingUsers ? (
             <View style={styles.loadingSection}>
               <Text style={[styles.loadingSectionText, { color: colors.secondary }]}>Loading foodies...</Text>
             </View>
@@ -615,7 +469,7 @@ function HomeScreenContent() {
             </TouchableOpacity>
           </View>
           
-          {dishesQuery.isLoading ? (
+          {!shouldLoadDeferred ? (
             <View style={styles.loadingSection}>
               <Text style={[styles.loadingSectionText, { color: colors.secondary }]}>Loading dishes...</Text>
             </View>
