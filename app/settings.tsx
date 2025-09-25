@@ -25,7 +25,6 @@ import {
   Trash2,
   ChevronRight,
 } from 'lucide-react-native';
-import Colors from '@/constants/colors';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSettings } from '@/providers/SettingsProvider';
 
@@ -88,7 +87,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const authContext = useAuth();
   const { user, logout } = authContext || { user: null, logout: async () => {} };
-  const { settings, updateSettings } = useSettings();
+  const { settings, updateSettings, colors, setTheme } = useSettings();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = () => {
@@ -123,6 +122,7 @@ export default function SettingsScreen() {
 
   const handleDarkModeToggle = (value: boolean) => {
     updateSettings({ darkMode: value });
+    setTheme(value ? 'dark' : 'light');
   };
 
   const handleLocationToggle = (value: boolean) => {
@@ -187,7 +187,8 @@ export default function SettingsScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Account Section */}
@@ -205,43 +206,43 @@ export default function SettingsScreen() {
         {/* Preferences */}
         <SettingSection title="Preferences">
           <SettingItem
-            icon={<Bell size={20} color={Colors.light.tint} />}
+            icon={<Bell size={20} color={colors.tint} />}
             title="Push Notifications"
             subtitle="Get notified about new reviews and updates"
             rightElement={
               <Switch
                 value={settings.notifications}
                 onValueChange={handleNotificationToggle}
-                trackColor={{ false: Colors.light.border, true: Colors.light.accent }}
-                thumbColor={settings.notifications ? Colors.light.tint : Colors.light.secondary}
+                trackColor={{ false: colors.border, true: colors.accent }}
+                thumbColor={settings.notifications ? colors.tint : colors.secondary}
               />
             }
             showChevron={false}
           />
           <SettingItem
-            icon={<Moon size={20} color={Colors.light.tint} />}
+            icon={<Moon size={20} color={colors.tint} />}
             title="Dark Mode"
             subtitle="Switch to dark theme"
             rightElement={
               <Switch
                 value={settings.darkMode}
                 onValueChange={handleDarkModeToggle}
-                trackColor={{ false: Colors.light.border, true: Colors.light.accent }}
-                thumbColor={settings.darkMode ? Colors.light.tint : Colors.light.secondary}
+                trackColor={{ false: colors.border, true: colors.accent }}
+                thumbColor={settings.darkMode ? colors.tint : colors.secondary}
               />
             }
             showChevron={false}
           />
           <SettingItem
-            icon={<Globe size={20} color={Colors.light.tint} />}
+            icon={<Globe size={20} color={colors.tint} />}
             title="Location Services"
             subtitle="Help us find restaurants near you"
             rightElement={
               <Switch
                 value={settings.locationEnabled}
                 onValueChange={handleLocationToggle}
-                trackColor={{ false: Colors.light.border, true: Colors.light.accent }}
-                thumbColor={settings.locationEnabled ? Colors.light.tint : Colors.light.secondary}
+                trackColor={{ false: colors.border, true: colors.accent }}
+                thumbColor={settings.locationEnabled ? colors.tint : colors.secondary}
               />
             }
             showChevron={false}
@@ -251,19 +252,19 @@ export default function SettingsScreen() {
         {/* Support */}
         <SettingSection title="Support">
           <SettingItem
-            icon={<Star size={20} color={Colors.light.warning} />}
+            icon={<Star size={20} color={colors.warning} />}
             title="Rate EatRate"
             subtitle="Love the app? Leave us a review"
             onPress={handleRateApp}
           />
           <SettingItem
-            icon={<Share2 size={20} color={Colors.light.tint} />}
+            icon={<Share2 size={20} color={colors.tint} />}
             title="Share EatRate"
             subtitle="Tell your friends about us"
             onPress={handleShareApp}
           />
           <SettingItem
-            icon={<HelpCircle size={20} color={Colors.light.tint} />}
+            icon={<HelpCircle size={20} color={colors.tint} />}
             title="Help & Support"
             subtitle="Get help or contact us"
             onPress={handleHelp}
@@ -273,13 +274,13 @@ export default function SettingsScreen() {
         {/* Legal */}
         <SettingSection title="Legal">
           <SettingItem
-            icon={<Shield size={20} color={Colors.light.tint} />}
+            icon={<Shield size={20} color={colors.tint} />}
             title="Privacy Policy"
             subtitle="How we protect your data"
             onPress={handlePrivacy}
           />
           <SettingItem
-            icon={<Camera size={20} color={Colors.light.tint} />}
+            icon={<Camera size={20} color={colors.tint} />}
             title="Photo Permissions"
             subtitle="Manage camera and photo library access"
             onPress={() => Alert.alert('Photo Permissions', 'Manage your photo permissions in device settings.')}
@@ -289,13 +290,13 @@ export default function SettingsScreen() {
         {/* Danger Zone */}
         <SettingSection title="Account Management">
           <SettingItem
-            icon={<Trash2 size={20} color={Colors.light.destructive} />}
+            icon={<Trash2 size={20} color={colors.destructive} />}
             title="Delete Account"
             subtitle="Permanently delete your account and data"
             onPress={handleDeleteAccount}
           />
           <SettingItem
-            icon={<LogOut size={20} color={Colors.light.destructive} />}
+            icon={<LogOut size={20} color={colors.destructive} />}
             title={isLoggingOut ? 'Signing Out...' : 'Sign Out'}
             subtitle="Sign out of your account"
             onPress={handleLogout}
@@ -312,7 +313,6 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.background,
   },
 
   content: {
@@ -324,14 +324,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.light.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     paddingHorizontal: 16,
     marginBottom: 8,
   },
   sectionContent: {
-    backgroundColor: Colors.light.card,
     marginHorizontal: 16,
     borderRadius: 12,
     overflow: 'hidden',
@@ -343,7 +341,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
   },
   settingLeft: {
     flexDirection: 'row',
@@ -354,7 +351,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: Colors.light.accent,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -365,11 +361,9 @@ const styles = StyleSheet.create({
   settingTitle: {
     fontSize: 16,
     fontWeight: '500',
-    color: Colors.light.text,
   },
   settingSubtitle: {
     fontSize: 14,
-    color: Colors.light.secondary,
     marginTop: 2,
   },
   settingRight: {
@@ -384,11 +378,9 @@ const styles = StyleSheet.create({
   userDisplayName: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.light.text,
   },
   userContact: {
     fontSize: 14,
-    color: Colors.light.secondary,
     marginTop: 2,
   },
   bottomSpacing: {

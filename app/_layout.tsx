@@ -10,7 +10,7 @@ import { trpc, trpcClient } from "@/lib/trpc";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { StorageProvider } from "@/providers/StorageProvider";
 import { AuthProvider } from "@/providers/AuthProvider";
-import { SettingsProvider } from "@/providers/SettingsProvider";
+import { SettingsProvider, useSettings } from "@/providers/SettingsProvider";
 import { AdminProvider } from "@/providers/AdminProvider";
 import Colors from "@/constants/colors";
 
@@ -36,23 +36,24 @@ const queryClient = new QueryClient({
   },
 });
 
-function RootLayoutNav() {
+function ThemedStack() {
+  const { colors } = useSettings();
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="restaurants" options={{ 
         headerShown: true, 
         title: "Restaurants",
-        headerStyle: { backgroundColor: Colors.light.background },
-        headerTintColor: Colors.light.text,
+        headerStyle: { backgroundColor: colors.background },
+        headerTintColor: colors.text,
         headerTitleStyle: { fontWeight: '700' },
         headerBackTitle: "Back"
       }} />
       <Stack.Screen name="comments/[postId]" options={{ 
         presentation: "modal", 
         title: "Comments",
-        headerStyle: { backgroundColor: Colors.light.background },
-        headerTintColor: Colors.light.text
+        headerStyle: { backgroundColor: colors.background },
+        headerTintColor: colors.text
       }} />
       <Stack.Screen name="welcome" options={{ 
         headerShown: false,
@@ -68,23 +69,23 @@ function RootLayoutNav() {
       }} />
       <Stack.Screen name="settings" options={{ 
         title: "Settings",
-        headerStyle: { backgroundColor: Colors.light.background },
-        headerTintColor: Colors.light.text,
+        headerStyle: { backgroundColor: colors.background },
+        headerTintColor: colors.text,
         headerTitleStyle: { fontWeight: '700' },
         headerBackTitle: "Back"
       }} />
       <Stack.Screen name="profile/edit" options={{ 
         title: "Edit Profile", 
         presentation: "modal",
-        headerStyle: { backgroundColor: Colors.light.background },
-        headerTintColor: Colors.light.text,
+        headerStyle: { backgroundColor: colors.background },
+        headerTintColor: colors.text,
         headerTitleStyle: { fontWeight: '700' }
       }} />
       <Stack.Screen name="status" options={{ 
         title: "Post Status", 
         presentation: "modal",
-        headerStyle: { backgroundColor: Colors.light.background },
-        headerTintColor: Colors.light.text,
+        headerStyle: { backgroundColor: colors.background },
+        headerTintColor: colors.text,
         headerTitleStyle: { fontWeight: '700' }
       }} />
       <Stack.Screen name="admin" options={{ 
@@ -93,8 +94,8 @@ function RootLayoutNav() {
       }} />
       <Stack.Screen name="users/[id]" options={{ 
         title: "User Profile",
-        headerStyle: { backgroundColor: Colors.light.background },
-        headerTintColor: Colors.light.text,
+        headerStyle: { backgroundColor: colors.background },
+        headerTintColor: colors.text,
         headerTitleStyle: { fontWeight: '700' },
         headerBackTitle: "Back"
       }} />
@@ -108,6 +109,10 @@ function RootLayoutNav() {
       }} />
     </Stack>
   );
+}
+
+function RootLayoutNav() {
+  return <ThemedStack />;
 }
 
 export default function RootLayout() {

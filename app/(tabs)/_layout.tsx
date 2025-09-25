@@ -2,7 +2,7 @@ import { Tabs, useRouter } from "expo-router";
 import { Home, Search, User, Truck } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef } from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
-import Colors from "@/constants/colors";
+import { useSettings } from "@/providers/SettingsProvider";
 import { useAuth } from "@/providers/AuthProvider";
 
 export default function TabsLayout() {
@@ -11,25 +11,26 @@ export default function TabsLayout() {
   const user = auth?.user ?? null;
   const isLoading = auth?.isLoading ?? true;
   const redirectedRef = useRef<boolean>(false);
+  const { colors } = useSettings();
 
   const screenOptions = useMemo(
     () => ({
-      tabBarActiveTintColor: Colors.light.tint,
-      tabBarInactiveTintColor: Colors.light.tabIconDefault,
+      tabBarActiveTintColor: colors.tint,
+      tabBarInactiveTintColor: colors.tabIconDefault,
       headerShown: false,
       lazy: true,
       tabBarHideOnKeyboard: true,
       tabBarStyle: {
-        backgroundColor: Colors.light.background,
+        backgroundColor: colors.background,
         borderTopWidth: 1,
-        borderTopColor: Colors.light.border,
+        borderTopColor: colors.border,
       },
       tabBarLabelStyle: {
         fontSize: 11,
         fontWeight: '600' as const,
       },
     }),
-    []
+    [colors]
   );
 
   useEffect(() => {
@@ -41,18 +42,18 @@ export default function TabsLayout() {
         console.log('[Tabs/_layout] redirect error', e);
       }
     }
-  }, [isLoading, user]);
+  }, [isLoading, user, router]);
 
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer} testID="tabs-auth-loading">
-        <ActivityIndicator size="large" color={Colors.light.tint} />
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]} testID="tabs-auth-loading">
+        <ActivityIndicator size="large" color={colors.tint} />
       </View>
     );
   }
 
   if (!user) {
-    return <View style={styles.loadingContainer} testID="tabs-no-user" />;
+    return <View style={[styles.loadingContainer, { backgroundColor: colors.background }]} testID="tabs-no-user" />;
   }
 
   return (
@@ -96,7 +97,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.light.background,
   },
   tabsRoot: {
     flex: 1,

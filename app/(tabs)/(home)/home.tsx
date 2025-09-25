@@ -21,11 +21,12 @@ import { Restaurant, Post, Dish, User } from '@/types/restaurant';
 import RestaurantCard from '@/components/RestaurantCard';
 import DishCard from '@/components/DishCard';
 import SearchBar from '@/components/SearchBar';
-import Colors, { gradients } from '@/constants/colors';
+import { gradients } from '@/constants/colors';
 import PostComposer from '@/components/PostComposer';
 import PerformanceMonitor from '@/components/PerformanceMonitor';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAdmin } from '@/providers/AdminProvider';
+import { useSettings } from '@/providers/SettingsProvider';
 
 interface TrendingPostProps {
   post: Post;
@@ -35,8 +36,9 @@ interface TrendingPostProps {
 }
 
 const TrendingPost = React.memo(function TrendingPost({ post, onPress, onLike, onComments }: TrendingPostProps) {
+  const { colors } = useSettings();
   return (
-    <TouchableOpacity style={styles.trendingPost} onPress={onPress}>
+    <TouchableOpacity style={[styles.trendingPost, { backgroundColor: colors.card }]} onPress={onPress}>
       <Image
         source={{ uri: post.content.images?.[0] || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&h=200&fit=crop' }}
         style={styles.trendingImage}
@@ -46,13 +48,13 @@ const TrendingPost = React.memo(function TrendingPost({ post, onPress, onLike, o
         <View style={styles.trendingHeader}>
           <Image source={{ uri: post.user.avatar }} style={styles.trendingAvatar} />
           <View style={styles.trendingUserInfo}>
-            <Text style={styles.trendingUsername}>{post.user.displayName}</Text>
+            <Text style={[styles.trendingUsername, { color: colors.text }]}>{post.user.displayName}</Text>
             {post.restaurant && (
-              <Text style={styles.trendingRestaurant}>{post.restaurant.name}</Text>
+              <Text style={[styles.trendingRestaurant, { color: colors.tint }]}>{post.restaurant.name}</Text>
             )}
           </View>
         </View>
-        <Text style={styles.trendingText} numberOfLines={2}>
+        <Text style={[styles.trendingText, { color: colors.text }]} numberOfLines={2}>
           {post.content.text}
         </Text>
         <View style={styles.trendingStats}>
@@ -62,8 +64,8 @@ const TrendingPost = React.memo(function TrendingPost({ post, onPress, onLike, o
             onPress={() => onLike(post.id)}
             activeOpacity={0.8}
           >
-            <Heart size={14} color={Colors.light.tint} />
-            <Text style={styles.trendingLikes}>{post.likesCount} likes</Text>
+            <Heart size={14} color={colors.tint} />
+            <Text style={[styles.trendingLikes, { color: colors.secondary }]}>{post.likesCount} likes</Text>
           </TouchableOpacity>
           <TouchableOpacity
             testID={`post-comments-${post.id}`}
@@ -71,8 +73,8 @@ const TrendingPost = React.memo(function TrendingPost({ post, onPress, onLike, o
             onPress={() => onComments(post.id)}
             activeOpacity={0.8}
           >
-            <MessageSquare size={14} color={Colors.light.secondary} />
-            <Text style={styles.trendingComments}>{post.commentsCount} comments</Text>
+            <MessageSquare size={14} color={colors.secondary} />
+            <Text style={[styles.trendingComments, { color: colors.secondary }]}>{post.commentsCount} comments</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -83,6 +85,7 @@ const TrendingPost = React.memo(function TrendingPost({ post, onPress, onLike, o
 function HomeScreenContent() {
   const { user } = useAuth();
   const { isAdmin, unreadCount } = useAdmin();
+  const { colors } = useSettings();
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showComposer, setShowComposer] = useState<boolean>(false);
 
@@ -357,7 +360,7 @@ function HomeScreenContent() {
 
   return (
     <ErrorBoundary>
-      <View style={[styles.container, { paddingTop: insets.top }]}> 
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}> 
       {(restaurantsError || postsError || dishesError || usersError) ? (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>
@@ -423,7 +426,7 @@ function HomeScreenContent() {
           </View>
           <View style={styles.createPostActions}>
             <View style={styles.createActionChip}>
-              <Plus size={16} color={Colors.light.tint} />
+              <Plus size={16} color={'#FF6B35'} />
               <Text style={styles.createActionText}>Create Post</Text>
             </View>
             <TouchableOpacity
@@ -431,8 +434,8 @@ function HomeScreenContent() {
               onPress={() => router.push('/status')}
               style={[styles.createActionChip, { marginLeft: 8 }]}
             >
-              <Plus size={16} color={Colors.light.success} />
-              <Text style={[styles.createActionText, { color: Colors.light.success }]}>Post Status</Text>
+              <Plus size={16} color={'#10B981'} />
+              <Text style={[styles.createActionText, { color: '#10B981' }]}>Post Status</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -440,17 +443,17 @@ function HomeScreenContent() {
         {/* Quick Stats */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
-            <Flame size={24} color={Colors.light.tint} />
+            <Flame size={24} color={'#FF6B35'} />
             <Text style={styles.statNumber}>2.4K</Text>
             <Text style={styles.statLabel}>Hot Posts</Text>
           </View>
           <View style={styles.statCard}>
-            <Users size={24} color={Colors.light.success} />
+            <Users size={24} color={'#10B981'} />
             <Text style={styles.statNumber}>15K</Text>
             <Text style={styles.statLabel}>Foodies</Text>
           </View>
           <View style={styles.statCard}>
-            <MapPin size={24} color={Colors.light.warning} />
+            <MapPin size={24} color={'#F59E0B'} />
             <Text style={styles.statNumber}>850</Text>
             <Text style={styles.statLabel}>Restaurants</Text>
           </View>
@@ -459,9 +462,9 @@ function HomeScreenContent() {
         {/* Featured Restaurants */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Featured Restaurants</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Featured Restaurants</Text>
             <TouchableOpacity onPress={handleSeeAllRestaurants}>
-              <Text style={styles.seeAll}>See All</Text>
+              <Text style={[styles.seeAll, { color: colors.tint }]}>See All</Text>
             </TouchableOpacity>
           </View>
           
@@ -486,40 +489,40 @@ function HomeScreenContent() {
         {/* Trending Posts */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Trending Posts</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Trending Posts</Text>
             <View style={styles.sectionHeaderActions}>
               <TouchableOpacity 
                 onPress={handleRefreshFeed} 
                 style={styles.refreshButton}
                 disabled={isLoadingPosts || isFetchingNextPage}
               >
-                <Text style={[styles.refreshText, (isLoadingPosts || isFetchingNextPage) && { opacity: 0.5 }]}>
+                <Text style={[styles.refreshText, { color: colors.secondary }, (isLoadingPosts || isFetchingNextPage) && { opacity: 0.5 }]}>
                   {isLoadingPosts || isFetchingNextPage ? 'Loading...' : 'Refresh'}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleSeeAllFeed}>
-                <Text style={styles.seeAll}>See All</Text>
+                <Text style={[styles.seeAll, { color: colors.tint }]}>See All</Text>
               </TouchableOpacity>
             </View>
           </View>
           
           {isLoadingPosts ? (
             <View style={styles.loadingSection}>
-              <Text style={styles.loadingSectionText}>Loading posts...</Text>
+              <Text style={[styles.loadingSectionText, { color: colors.secondary }]}>Loading posts...</Text>
             </View>
           ) : postsError ? (
             <View style={styles.errorSection}>
-              <Text style={styles.errorSectionText}>Failed to load posts</Text>
+              <Text style={[styles.errorSectionText, { color: '#EF4444' }]}>Failed to load posts</Text>
               <TouchableOpacity onPress={handleRefreshFeed} style={styles.retryButton}>
-                <Text style={styles.retryButtonText}>Try Again</Text>
+                <Text style={[styles.retryButtonText, { color: 'white', backgroundColor: 'transparent' }]}>Try Again</Text>
               </TouchableOpacity>
             </View>
           ) : trendingPosts.length === 0 ? (
             <View style={styles.emptySection}>
-              <Text style={styles.emptySectionText}>No trending posts</Text>
-              <Text style={styles.emptySectionSubtext}>Be the first to share your food experience!</Text>
+              <Text style={[styles.emptySectionText, { color: colors.secondary }]}>No trending posts</Text>
+              <Text style={[styles.emptySectionSubtext, { color: colors.secondary }]}>Be the first to share your food experience!</Text>
               <TouchableOpacity onPress={() => setShowComposer(true)} style={styles.createFirstPostButton}>
-                <Text style={styles.createFirstPostButtonText}>Create Post</Text>
+                <Text style={[styles.createFirstPostButtonText, { color: 'white' }]}>Create Post</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -551,7 +554,7 @@ function HomeScreenContent() {
         {/* Top Foodies */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Top Foodies</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Top Foodies</Text>
             <TouchableOpacity onPress={() => router.push('/users')}>
               <Text style={styles.seeAll}>See All</Text>
             </TouchableOpacity>
@@ -559,7 +562,7 @@ function HomeScreenContent() {
           
           {usersQuery.isLoading ? (
             <View style={styles.loadingSection}>
-              <Text style={styles.loadingSectionText}>Loading foodies...</Text>
+              <Text style={[styles.loadingSectionText, { color: colors.secondary }]}>Loading foodies...</Text>
             </View>
           ) : topFoodies.length === 0 ? (
             <View style={styles.emptySection}>
@@ -570,28 +573,28 @@ function HomeScreenContent() {
             <FlatList
               data={topFoodies}
               renderItem={({ item }) => (
-                <View style={styles.foodieCard}>
+                <View style={[styles.foodieCard, { backgroundColor: colors.card }]}>
                   <TouchableOpacity onPress={() => handleUserPress(item.id)} activeOpacity={0.9}>
                     <Image source={{ uri: item.avatar }} style={styles.foodieAvatar} />
                   </TouchableOpacity>
-                  <Text style={styles.foodieName}>{item.displayName}</Text>
-                  <Text style={styles.foodieStats}>{item.followersCount.toLocaleString()} followers</Text>
+                  <Text style={[styles.foodieName, { color: colors.text }]}>{item.displayName}</Text>
+                  <Text style={[styles.foodieStats, { color: colors.secondary }]}>{item.followersCount.toLocaleString()} followers</Text>
                   <View style={styles.foodieBadges}>
                     {item.badges.slice(0, 1).map((badge: string) => (
-                      <View key={`${item.id}-${badge}`} style={styles.foodieBadge}>
-                        <Award size={10} color={Colors.light.warning} />
-                        <Text style={styles.foodieBadgeText}>{badge}</Text>
+                      <View key={`${item.id}-${badge}`} style={[styles.foodieBadge, { backgroundColor: colors.accent }]}>
+                        <Award size={10} color={colors.warning} />
+                        <Text style={[styles.foodieBadgeText, { color: colors.warning }]}>{badge}</Text>
                       </View>
                     ))}
                   </View>
                   <TouchableOpacity
                     testID={`follow-user-${item.id}`}
                     onPress={() => onToggleFollow(item.id)}
-                    style={styles.followChip}
+                    style={[styles.followChip, { backgroundColor: colors.accent, borderColor: colors.border, borderWidth: 1 }]}
                     activeOpacity={0.9}
                   >
-                    <UserPlus size={14} color={Colors.light.tint} />
-                    <Text style={styles.followChipText}>Follow</Text>
+                    <UserPlus size={14} color={colors.tint} />
+                    <Text style={[styles.followChipText, { color: colors.tint }]}>Follow</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -606,7 +609,7 @@ function HomeScreenContent() {
         {/* Trending Dishes */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Trending Dishes</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Trending Dishes</Text>
             <TouchableOpacity onPress={handleSeeAllSearch}>
               <Text style={styles.seeAll}>See All</Text>
             </TouchableOpacity>
@@ -614,7 +617,7 @@ function HomeScreenContent() {
           
           {dishesQuery.isLoading ? (
             <View style={styles.loadingSection}>
-              <Text style={styles.loadingSectionText}>Loading dishes...</Text>
+              <Text style={[styles.loadingSectionText, { color: colors.secondary }]}>Loading dishes...</Text>
             </View>
           ) : trendingDishes.length === 0 ? (
             <View style={styles.emptySection}>
@@ -640,7 +643,7 @@ function HomeScreenContent() {
 
 
         {/* Bottom spacing */}
-        <View style={styles.bottomSpacing} />
+        <View style={[styles.bottomSpacing]} />
       </ScrollView>
 
         <Modal visible={showComposer} animationType="slide" presentationStyle="pageSheet">
@@ -656,7 +659,6 @@ function HomeScreenContent() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.background,
   },
   header: {
     paddingHorizontal: 16,
@@ -727,7 +729,6 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: Colors.light.card,
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
@@ -741,12 +742,10 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 20,
     fontWeight: '700',
-    color: Colors.light.text,
     marginTop: 8,
   },
   statLabel: {
     fontSize: 12,
-    color: Colors.light.secondary,
     marginTop: 4,
   },
   section: {
@@ -770,24 +769,20 @@ const styles = StyleSheet.create({
   },
   refreshText: {
     fontSize: 12,
-    color: Colors.light.secondary,
     fontWeight: '500',
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: Colors.light.text,
   },
   seeAll: {
     fontSize: 14,
-    color: Colors.light.tint,
     fontWeight: '600',
   },
   dishList: {
     paddingHorizontal: 16,
   },
   trendingPost: {
-    backgroundColor: Colors.light.card,
     borderRadius: 12,
     marginHorizontal: 16,
     marginBottom: 16,
@@ -823,15 +818,12 @@ const styles = StyleSheet.create({
   trendingUsername: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.light.text,
   },
   trendingRestaurant: {
     fontSize: 12,
-    color: Colors.light.tint,
   },
   trendingText: {
     fontSize: 14,
-    color: Colors.light.text,
     lineHeight: 20,
     marginBottom: 8,
   },
@@ -847,19 +839,16 @@ const styles = StyleSheet.create({
   },
   trendingLikes: {
     fontSize: 12,
-    color: Colors.light.secondary,
     fontWeight: '500',
   },
   trendingComments: {
     fontSize: 12,
-    color: Colors.light.secondary,
     fontWeight: '500',
   },
   foodieList: {
     paddingHorizontal: 16,
   },
   foodieCard: {
-    backgroundColor: Colors.light.card,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -880,13 +869,11 @@ const styles = StyleSheet.create({
   foodieName: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.light.text,
     textAlign: 'center',
     marginBottom: 4,
   },
   foodieStats: {
     fontSize: 12,
-    color: Colors.light.secondary,
     textAlign: 'center',
     marginBottom: 8,
   },
@@ -896,14 +883,12 @@ const styles = StyleSheet.create({
   foodieBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.light.accent,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
   },
   foodieBadgeText: {
     fontSize: 10,
-    color: Colors.light.warning,
     marginLeft: 2,
     fontWeight: '500',
   },
@@ -912,15 +897,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginTop: 10,
-    backgroundColor: Colors.light.accent,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
   },
   followChipText: {
-    color: Colors.light.tint,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -930,7 +911,6 @@ const styles = StyleSheet.create({
   createPostCard: {
     marginHorizontal: 16,
     marginTop: 16,
-    backgroundColor: Colors.light.card,
     borderRadius: 16,
     padding: 12,
     shadowColor: '#000',
@@ -947,12 +927,10 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.light.border,
     marginRight: 10,
   },
   createPostPlaceholder: {
     flex: 1,
-    color: Colors.light.secondary,
     fontSize: 14,
   },
   createPostActions: {
@@ -962,14 +940,12 @@ const styles = StyleSheet.create({
   createActionChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.light.accent,
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   createActionText: {
     marginLeft: 6,
-    color: Colors.light.tint,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -984,16 +960,13 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   errorText: {
-    color: Colors.light.secondary,
   },
   emptySection: {
     paddingHorizontal: 16,
   },
   emptySectionText: {
-    color: Colors.light.secondary,
   },
   emptySectionSubtext: {
-    color: Colors.light.secondary,
     fontSize: 12,
     marginTop: 4,
   },
@@ -1003,7 +976,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingSectionText: {
-    color: Colors.light.secondary,
     fontSize: 14,
   },
   errorSection: {
@@ -1012,54 +984,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   errorSectionText: {
-    color: Colors.light.error,
     fontSize: 14,
     marginBottom: 8,
   },
   retryButton: {
-    backgroundColor: Colors.light.tint,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 16,
   },
   retryButtonText: {
-    color: 'white',
     fontSize: 12,
     fontWeight: '600',
   },
   createFirstPostButton: {
-    backgroundColor: Colors.light.tint,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
     marginTop: 12,
   },
   createFirstPostButtonText: {
-    color: 'white',
     fontSize: 14,
     fontWeight: '600',
   },
   loadMoreButton: {
-    backgroundColor: Colors.light.card,
     marginHorizontal: 16,
     marginTop: 12,
     paddingVertical: 12,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
     alignItems: 'center',
   },
   loadMoreText: {
-    color: Colors.light.tint,
     fontSize: 14,
     fontWeight: '600',
+  },
+  rootBg: {
+    flex: 1,
   },
 });
 
 export default function HomeScreen() {
+  const { colors } = useSettings();
   return (
     <ErrorBoundary>
-      <HomeScreenContent />
+      <View style={[styles.rootBg, { backgroundColor: colors.background }]}>
+        <HomeScreenContent />
+      </View>
     </ErrorBoundary>
   );
 }
