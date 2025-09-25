@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Settings, Grid, Heart, Bookmark, Award, Users, MapPin, LogOut, Shield } from 'lucide-react-native';
+import { Settings, Grid, Heart, Bookmark, Award, Users, MapPin, LogOut, Shield, Calendar, Trophy, Star } from 'lucide-react-native';
 import { Stack, useRouter } from 'expo-router';
 import Colors from '@/constants/colors';
 import { Post } from '@/types/restaurant';
@@ -327,6 +327,45 @@ export default function ProfileScreen() {
             </TouchableOpacity>
             <TouchableOpacity testID="share-profile-button" style={styles.shareButton}>
               <MapPin size={16} color={Colors.light.text} />
+            </TouchableOpacity>
+          </View>
+          
+          {/* Quick Access Features */}
+          <View style={styles.quickAccessContainer}>
+            <TouchableOpacity 
+              style={styles.quickAccessItem}
+              onPress={() => router.push('/bookmarks')}
+              testID="bookmarks-button"
+            >
+              <Bookmark size={20} color={Colors.light.tint} />
+              <Text style={styles.quickAccessText}>Bookmarks</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.quickAccessItem}
+              onPress={() => router.push('/achievements')}
+              testID="achievements-button"
+            >
+              <Trophy size={20} color={Colors.light.warning} />
+              <Text style={styles.quickAccessText}>Achievements</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.quickAccessItem}
+              onPress={() => router.push('/events')}
+              testID="events-button"
+            >
+              <Calendar size={20} color={Colors.light.success} />
+              <Text style={styles.quickAccessText}>Events</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.quickAccessItem}
+              onPress={() => router.push('/reservations')}
+              testID="reservations-button"
+            >
+              <Star size={20} color={Colors.light.error} />
+              <Text style={styles.quickAccessText}>Reservations</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -655,5 +694,29 @@ const styles = StyleSheet.create({
   tabIcon: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  quickAccessContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+    paddingHorizontal: 8,
+  },
+  quickAccessItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    marginHorizontal: 4,
+    backgroundColor: Colors.light.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  quickAccessText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.light.text,
+    marginTop: 6,
+    textAlign: 'center',
   },
 });

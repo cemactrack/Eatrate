@@ -137,6 +137,30 @@ function ThemedStack() {
           headerShown: false,
         }} 
       />
+      <Stack.Screen 
+        name="bookmarks" 
+        options={{ 
+          title: "Bookmarks",
+        }} 
+      />
+      <Stack.Screen 
+        name="achievements" 
+        options={{ 
+          title: "Achievements",
+        }} 
+      />
+      <Stack.Screen 
+        name="events" 
+        options={{ 
+          title: "Events & Challenges",
+        }} 
+      />
+      <Stack.Screen 
+        name="reservations" 
+        options={{ 
+          title: "Reservations",
+        }} 
+      />
     </Stack>
   );
 }
