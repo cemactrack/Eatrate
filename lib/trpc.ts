@@ -40,6 +40,7 @@ const getBaseUrl = (): string => {
     try {
       const origin = typeof window !== 'undefined' && window.location ? window.location.origin : '';
       console.log('[tRPC] Web origin:', origin);
+      // For web, the backend should be served from the same origin
       return origin || '';
     } catch (error) {
       console.error('[tRPC] Error getting web origin:', error);
@@ -47,31 +48,38 @@ const getBaseUrl = (): string => {
     }
   }
 
+  // Check for environment variables first
   const envUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL ?? ((Constants as any)?.expoConfig?.extra?.apiBaseUrl as string | undefined);
   if (envUrl && envUrl.length > 0) {
     console.log('[tRPC] Using environment URL:', envUrl);
     return envUrl.replace(/\/$/, '');
   }
 
+  // Try to get the Expo development server URL
   const expoOrigin = expoHostOrigin();
   if (expoOrigin) {
     console.log('[tRPC] Using Expo host origin:', expoOrigin);
     return expoOrigin;
   }
   
+  // Try to get the native development server URL
   const origin = nativeDevOrigin();
   if (origin) {
     console.log('[tRPC] Using native dev origin:', origin);
     return origin;
   }
   
+  // Fallback to default development URLs
   let defaultUrl;
   if (Platform.OS === 'android') {
+    // Android emulator uses 10.0.2.2 to access host machine
     defaultUrl = "http://10.0.2.2:8081";
   } else if (Platform.OS === 'ios') {
+    // iOS simulator can use localhost
     defaultUrl = "http://localhost:8081";
   } else {
-    defaultUrl = "http://localhost:8081";
+    // Web and other platforms - use same origin for web
+    defaultUrl = "";
   }
   
   console.log('[tRPC] Using default URL:', defaultUrl);
@@ -80,7 +88,6 @@ const getBaseUrl = (): string => {
 
 const base = getBaseUrl();
 const primaryPath = '/api/trpc';
-const fallbackPath = '/trpc';
 const apiUrl = base ? `${base}${primaryPath}` : primaryPath;
 console.log('[tRPC] Using API URL:', apiUrl);
 console.log('[tRPC] API Base URL:', base || '(relative)');
@@ -131,10 +138,14 @@ export const trpcClient = trpc.createClient({
         }
 
         try {
+          console.log('[tRPC] Making request to:', String(url));
           let response = await makeRequest(String(url));
+          console.log('[tRPC] Response status:', response.status, response.statusText);
+          console.log('[tRPC] Response headers:', Object.fromEntries(response.headers.entries()));
 
           const isHtml = async (res: Response) => {
             const contentType = res.headers.get('content-type') ?? '';
+            console.log('[tRPC] Response content-type:', contentType);
             if (contentType.includes('text/html')) {
               // Clone the response before reading it to avoid consuming the body
               const clonedRes = res.clone();
@@ -150,6 +161,8 @@ export const trpcClient = trpc.createClient({
             console.error('1. The backend server is not running');
             console.error('2. The API endpoint is not properly configured');
             console.error('3. There\'s a routing issue with the server');
+            console.error('[tRPC] Request URL was:', String(url));
+            console.error('[tRPC] Base URL was:', base);
             
             // Don't retry, just throw an error immediately
             throw new Error('Server returned HTML instead of JSON. Please check that the backend server is running and accessible.');

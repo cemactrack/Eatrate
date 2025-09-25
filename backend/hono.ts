@@ -20,6 +20,7 @@ app.use('*', async (c, next) => {
   const url = new URL(c.req.url);
   console.log(`[${new Date().toISOString()}] ${c.req.method} ${url.pathname}${url.search}`);
   console.log(`[Headers] Content-Type: ${c.req.header('content-type')}, Accept: ${c.req.header('accept')}`);
+  console.log(`[Headers] x-trpc-source: ${c.req.header('x-trpc-source')}`);
   await next();
 });
 
@@ -74,6 +75,19 @@ app.get("/test-trpc", (c) => {
     message: "tRPC router is accessible",
     routerKeys: Object.keys(appRouter._def.procedures),
     timestamp: new Date().toISOString()
+  });
+});
+
+// Debug endpoint to test server status
+app.get("/debug/server-status", (c) => {
+  return c.json({ 
+    success: true, 
+    message: "Server is running and responding",
+    serverTime: new Date().toISOString(),
+    userAgent: c.req.header('user-agent'),
+    method: c.req.method,
+    url: c.req.url,
+    headers: Object.fromEntries(c.req.raw.headers.entries())
   });
 });
 
