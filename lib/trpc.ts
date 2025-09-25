@@ -36,12 +36,13 @@ function expoHostOrigin(): string | null {
 }
 
 const getBaseUrl = (): string => {
-  const envUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL ?? (Constants as any)?.expoConfig?.extra?.apiBaseUrl as string | undefined;
-  if (envUrl && envUrl.length > 0) return envUrl.replace(/\/$/, '');
-
+  // Always use relative URL on web to avoid cross-origin and CORS/proxy issues
   if (Platform.OS === 'web') {
     return '' as const;
   }
+
+  const envUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL ?? ((Constants as any)?.expoConfig?.extra?.apiBaseUrl as string | undefined);
+  if (envUrl && envUrl.length > 0) return envUrl.replace(/\/$/, '');
 
   const expoOrigin = expoHostOrigin();
   if (expoOrigin) return expoOrigin;
@@ -53,6 +54,10 @@ const getBaseUrl = (): string => {
 const base = getBaseUrl();
 const apiUrl = base ? `${base}/api/trpc` : `/api/trpc`;
 console.log('[tRPC] API Base URL:', base || '(relative)');
+if (Platform.OS === 'web') {
+  const href = typeof window !== 'undefined' ? window.location.href : 'unknown';
+  console.log('[tRPC] Using relative API on web. Page:', href);
+}
 
 export const trpcClient = trpc.createClient({
   links: [
