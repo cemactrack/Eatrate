@@ -1,55 +1,25 @@
 import { Tabs, useRouter } from "expo-router";
 import { Home, Search, User, Truck } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/providers/AuthProvider";
 
 export default function TabsLayout() {
-  const [isMounted, setIsMounted] = useState<boolean>(false);
   const router = useRouter();
-
-  // Ensure component is mounted before accessing auth context
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  // Always call hooks in the same order
-  const authContext = useAuth();
+  const { user, isLoading } = useAuth();
+  const redirectedRef = useRef<boolean>(false);
 
   useEffect(() => {
-    if (!isMounted || !authContext) {
-      return;
-    }
-    
-    const { user, isLoading } = authContext;
-    
-    if (!isLoading && !user) {
+    if (!isLoading && !user && !redirectedRef.current) {
+      redirectedRef.current = true;
       try {
         router.replace('/login' as const);
       } catch (e) {
         console.log('[Tabs/_layout] redirect error', e);
       }
     }
-  }, [isMounted, authContext?.user, authContext?.isLoading, router]);
-
-  if (!isMounted) {
-    return (
-      <View style={styles.loadingContainer} testID="tabs-mounting">
-        <ActivityIndicator size="large" color={Colors.light.tint} />
-      </View>
-    );
-  }
-
-  if (!authContext) {
-    return (
-      <View style={styles.loadingContainer} testID="tabs-no-auth-context">
-        <ActivityIndicator size="large" color={Colors.light.tint} />
-      </View>
-    );
-  }
-
-  const { user, isLoading } = authContext;
+  }, [isLoading, user, router]);
 
   if (isLoading) {
     return (
@@ -60,11 +30,7 @@ export default function TabsLayout() {
   }
 
   if (!user) {
-    return (
-      <View style={styles.loadingContainer} testID="tabs-no-user">
-        <ActivityIndicator size="large" color={Colors.light.tint} />
-      </View>
-    );
+    return <View style={styles.loadingContainer} testID="tabs-no-user" />;
   }
 
   return (
