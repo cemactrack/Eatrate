@@ -35,10 +35,14 @@ function expoHostOrigin(): string | null {
   return null;
 }
 
-const getBaseUrl = () => {
-  const envUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
+const getBaseUrl = (): string => {
+  const envUrl = process.env.EXPO_PUBLIC_RORK_API_BASE_URL ?? (Constants as any)?.expoConfig?.extra?.apiBaseUrl as string | undefined;
   if (envUrl && envUrl.length > 0) return envUrl.replace(/\/$/, '');
-  if (Platform.OS === 'web' && typeof window !== "undefined" && window.location?.origin) return window.location.origin;
+
+  if (Platform.OS === 'web') {
+    return '' as const;
+  }
+
   const expoOrigin = expoHostOrigin();
   if (expoOrigin) return expoOrigin;
   const origin = nativeDevOrigin();
@@ -46,10 +50,14 @@ const getBaseUrl = () => {
   return "http://10.0.2.2:8081";
 };
 
+const base = getBaseUrl();
+const apiUrl = base ? `${base}/api/trpc` : `/api/trpc`;
+console.log('[tRPC] API Base URL:', base || '(relative)');
+
 export const trpcClient = trpc.createClient({
   links: [
     httpLink({
-      url: `${getBaseUrl()}/api/trpc`,
+      url: apiUrl,
       transformer: superjson,
       headers() {
         return { authorization: 'dev' };
@@ -72,24 +80,27 @@ export const trpcClient = trpc.createClient({
         return fetch(url, {
           ...options,
           signal: controller.signal,
-        })
+          // Keep connections same-origin on web to avoid CORS/proxy issues
+          credentials: Platform.OS === 'web' ? 'same-origin' : 'omit',
+        } as RequestInit)
           .then(response => {
             clearTimeout(timeoutId);
             if (!response.ok) {
               throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-            return response;
+            return response as Response;
           })
-          .catch((error: any) => {
+          .catch((error: unknown) => {
             clearTimeout(timeoutId);
 
-            if (error?.name === 'AbortError') {
+            const anyErr = error as { name?: string; message?: string } | undefined;
+            if (anyErr?.name === 'AbortError') {
               const timeoutError = new Error('Request timeout - please check your internet connection');
               (timeoutError as any).name = 'TimeoutError';
               throw timeoutError;
             }
 
-            const msg: string = String(error?.message ?? '');
+            const msg: string = String(anyErr?.message ?? '');
             if (msg.includes('Failed to fetch') || msg.includes('Network request failed') || msg.includes('TypeError: Network request failed')) {
               const networkError = new Error('Network error - please check your internet connection');
               (networkError as any).name = 'NetworkError';
@@ -97,7 +108,7 @@ export const trpcClient = trpc.createClient({
               throw networkError;
             }
 
-            throw error;
+            throw error as Error;
           });
       },
     }),
