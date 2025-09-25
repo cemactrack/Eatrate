@@ -19,12 +19,14 @@ import { NutritionInfo, CalorieEstimationResponse, DIETARY_TAGS } from '@/types/
 
 interface CalorieEstimatorProps {
   onEstimationComplete?: (nutrition: NutritionInfo) => void;
+  onRecognizedDish?: (dishName: string) => void;
   dishName?: string;
   restaurantContext?: string;
 }
 
 export default function CalorieEstimator({
   onEstimationComplete,
+  onRecognizedDish,
   dishName,
   restaurantContext,
 }: CalorieEstimatorProps) {
@@ -128,6 +130,10 @@ export default function CalorieEstimator({
       setNutritionData(result);
       if (onEstimationComplete) {
         onEstimationComplete(result.nutrition);
+      }
+      const recognized = result?.recognizedFood?.name;
+      if (recognized && typeof recognized === 'string') {
+        onRecognizedDish?.(recognized);
       }
     } catch (error) {
       console.error('Failed to analyze image:', error);

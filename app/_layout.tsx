@@ -142,6 +142,12 @@ function ThemedStack() {
         }} 
       />
       <Stack.Screen 
+        name="ai/scanner" 
+        options={{ 
+          title: "AI Food Scanner",
+        }} 
+      />
+      <Stack.Screen 
         name="bookmarks" 
         options={{ 
           title: "Bookmarks",

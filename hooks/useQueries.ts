@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useEffect, useState } from 'react';
 import { trpc } from '@/lib/trpc';
 import { APP_CONFIG } from '@/constants/app-config';
 import { Restaurant, Post, Dish, User } from '@/types/restaurant';
@@ -244,6 +244,15 @@ export function useInfinitePostsFeed(type: 'recent' | 'trending' = 'recent') {
       refetchOnWindowFocus: false,
     }
   );
+}
+
+export function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState<T>(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
 }
 
 // Performance optimized restaurant hook with fallback
