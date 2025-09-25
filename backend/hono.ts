@@ -23,9 +23,9 @@ app.use('*', async (c, next) => {
   await next();
 });
 
-// Mount tRPC router at /trpc
+// Mount tRPC router at /api/trpc (primary endpoint)
 app.use(
-  "/trpc/*",
+  "/api/trpc/*",
   trpcServer({
     router: appRouter,
     createContext,
@@ -35,9 +35,9 @@ app.use(
   })
 );
 
-// Also mount at /api/trpc for environments mounting this app at /api
+// Also mount at /trpc as fallback
 app.use(
-  "/api/trpc/*",
+  "/trpc/*",
   trpcServer({
     router: appRouter,
     createContext,
@@ -77,11 +77,19 @@ app.get("/test-trpc", (c) => {
   });
 });
 
+
+
 // Catch-all for debugging
 app.all('*', (c) => {
   const url = new URL(c.req.url);
   console.log(`[404] Unhandled route: ${c.req.method} ${url.pathname}${url.search}`);
-  return c.json({ error: 'Route not found', path: c.req.url }, 404);
+  console.log(`[404] Available routes: /api, /api/trpc/*, /trpc/*, /test-trpc`);
+  return c.json({ 
+    error: 'Route not found', 
+    path: c.req.url,
+    availableRoutes: ['/api', '/api/trpc/*', '/trpc/*', '/test-trpc'],
+    timestamp: new Date().toISOString()
+  }, 404);
 });
 
 export default app;

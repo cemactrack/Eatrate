@@ -9,52 +9,69 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 interface VoiceCommand {
   id: string;
   query: string;
+  response: string;
   timestamp: string;
 }
 
+interface VoiceSuggestion {
+  id: string;
+  text: string;
+  category: 'search' | 'recommendation' | 'action';
+}
+
 export default function VoiceAssistantScreen() {
-  const { colors } = useSettings();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [isListening, setIsListening] = useState(false);
-  const [textInput, setTextInput] = useState('');
-  const [currentResponse, setCurrentResponse] = useState<string | null>(null);
+  const { colors } = useSettings();
+  const [isListening, setIsListening] = useState<boolean>(false);
+  const [textInput, setTextInput] = useState<string>('');
+  const [currentResponse, setCurrentResponse] = useState<string>('');
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
+  // Queries
+  const historyQuery = trpc.voice.getHistory.useQuery({});
+  const suggestionsQuery = trpc.voice.getSuggestions.useQuery({});
+
+  // Mutations
   const processCommandMutation = trpc.voice.processCommand.useMutation({
     onSuccess: (data) => {
       setCurrentResponse(data.response);
-      if (data.actions.length > 0) {
-        Alert.alert(
-          'Quick Actions',
-          'What would you like to do next?',
-          data.actions.map(action => ({
-            text: action.text,
-            onPress: () => handleAction(action.action)
-          }))
-        );
-      }
+      setIsProcessing(false);
+      historyQuery.refetch();
     },
     onError: (error) => {
-      Alert.alert('Voice Assistant Error', error.message);
-    }
+      Alert.alert('Error', error.message || 'Failed to process voice command');
+      setIsProcessing(false);
+    },
   });
 
-  const historyQuery = trpc.voice.getHistory.useQuery({
-    limit: 5
-  });
-
-  const handleVoiceCommand = useCallback((command: string) => {
+  const handleVoiceCommand = useCallback(async (command: string) => {
     if (!command.trim()) return;
+
+    setIsProcessing(true);
+    setCurrentResponse('');
     
-    processCommandMutation.mutate({
-      command: command.trim(),
-      location: {
-        latitude: 4.0511,
-        longitude: 9.7679,
-        city: 'Douala'
-      }
-    });
+    try {
+      await processCommandMutation.mutateAsync({ command: command.trim() });
+    } catch (error) {
+      console.error('Voice command error:', error);
+    }
   }, [processCommandMutation]);
+
+  const handleVoiceToggle = useCallback(() => {
+    if (isListening) {
+      setIsListening(false);
+      // In a real implementation, you would stop voice recording here
+    } else {
+      setIsListening(true);
+      // In a real implementation, you would start voice recording here
+      // For demo purposes, we'll simulate voice input after 3 seconds
+      setTimeout(() => {
+        setIsListening(false);
+        handleVoiceCommand('Find me the best pizza places nearby');
+      }, 3000);
+    }
+  }, [isListening, handleVoiceCommand]);
 
   const handleTextSubmit = useCallback(() => {
     if (textInput.trim()) {
@@ -63,66 +80,25 @@ export default function VoiceAssistantScreen() {
     }
   }, [textInput, handleVoiceCommand]);
 
-  const handleAction = useCallback((action: string) => {
-    if (!action?.trim()) return;
-    
-    switch (action) {
-      case 'search_restaurants':
-        router.push('/(tabs)/(search)/search');
-        break;
-      case 'view_profile':
-        router.push('/(tabs)/(profile)/profile');
-        break;
-      case 'create_post':
-        router.push('/(tabs)/(home)/create-post');
-        break;
-      case 'view_suppliers':
-        router.push('/(tabs)/(suppliers)/suppliers');
-        break;
-      default:
-        console.log('Unknown action:', action);
-    }
-  }, [router]);
-
-  const startListening = useCallback(() => {
-    setIsListening(true);
-    setTimeout(() => {
-      setIsListening(false);
-      const mockCommands = [
-        'Find me the best pizza in Douala',
-        'Show me restaurants near me',
-        'What are the trending dishes today?',
-        'Find vegetarian restaurants in Yaounde'
-      ];
-      const randomCommand = mockCommands[Math.floor(Math.random() * mockCommands.length)];
-      handleVoiceCommand(randomCommand);
-    }, 2000);
+  const handleSuggestionPress = useCallback((suggestion: VoiceSuggestion) => {
+    handleVoiceCommand(suggestion.text);
   }, [handleVoiceCommand]);
 
-  const suggestions = [
-    'Find restaurants near me',
-    'What are the trending dishes?',
-    'Show me vegetarian options',
-    'Find the best rated restaurants',
-    'What\'s popular in Douala today?',
-    'Show me my favorite restaurants'
-  ];
-
-  if (processCommandMutation.isPending || isListening) {
+  if (isProcessing) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Stack.Screen options={{ 
-          title: 'Voice Assistant',
-          headerStyle: { backgroundColor: colors.card },
-          headerTintColor: colors.text
-        }} />
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+        <Stack.Screen
+          options={{
+            title: 'Voice Assistant',
+            headerStyle: { backgroundColor: colors.card },
+            headerTintColor: colors.text,
+          }}
+        />
         <View style={styles.loadingContainer}>
-          <View style={[styles.pulseCircle, { backgroundColor: colors.tint }]}>
-            <Mic size={32} color={colors.background} />
+          <View style={[styles.pulseCircle, { backgroundColor: colors.tint + '20' }]}>
+            <Mic size={32} color={colors.tint} />
           </View>
-          <Text style={[styles.loadingText, { color: colors.text }]}>
-            {isListening ? 'Listening...' : 'Processing your request...'}
-          </Text>
+          <Text style={[styles.loadingText, { color: colors.text }]}>Processing your request...</Text>
         </View>
       </View>
     );
@@ -130,13 +106,16 @@ export default function VoiceAssistantScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      <Stack.Screen options={{ 
-        title: 'Voice Assistant',
-        headerStyle: { backgroundColor: colors.card },
-        headerTintColor: colors.text
-      }} />
-      
+      <Stack.Screen
+        options={{
+          title: 'Voice Assistant',
+          headerStyle: { backgroundColor: colors.card },
+          headerTintColor: colors.text,
+        }}
+      />
+
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Current Response */}
         {currentResponse && (
           <View style={[styles.responseContainer, { backgroundColor: colors.card }]}>
             <MessageCircle size={20} color={colors.tint} />
@@ -144,12 +123,17 @@ export default function VoiceAssistantScreen() {
           </View>
         )}
 
+        {/* Voice Input Section */}
         <View style={styles.voiceSection}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Voice Commands</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Voice Command</Text>
           <TouchableOpacity
-            style={[styles.voiceButton, { backgroundColor: colors.tint }]}
-            onPress={startListening}
-            disabled={isListening}
+            style={[
+              styles.voiceButton,
+              {
+                backgroundColor: isListening ? colors.destructive : colors.tint,
+              },
+            ]}
+            onPress={handleVoiceToggle}
           >
             {isListening ? (
               <MicOff size={32} color={colors.background} />
@@ -158,18 +142,20 @@ export default function VoiceAssistantScreen() {
             )}
           </TouchableOpacity>
           <Text style={[styles.voiceHint, { color: colors.secondary }]}>
-            Tap to speak or type your request below
+            {isListening ? 'Listening... Tap to stop' : 'Tap to start voice command'}
           </Text>
         </View>
 
+        {/* Text Input Section */}
         <View style={styles.textSection}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Type Your Query</Text>
           <View style={[styles.textInputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <TextInput
               style={[styles.textInput, { color: colors.text }]}
-              placeholder="Type your food question here..."
-              placeholderTextColor={colors.secondary}
               value={textInput}
               onChangeText={setTextInput}
+              placeholder="Ask me anything about restaurants..."
+              placeholderTextColor={colors.secondary}
               multiline
               onSubmitEditing={handleTextSubmit}
             />
@@ -183,25 +169,25 @@ export default function VoiceAssistantScreen() {
           </View>
         </View>
 
-        <View style={styles.suggestionsSection}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Try asking:</Text>
-          <View style={styles.suggestionsList}>
-            {suggestions.map((suggestion, index) => (
-              <TouchableOpacity
-                key={`suggestion-${index}`}
-                style={[styles.suggestionChip, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onPress={() => {
-                  if (suggestion?.trim()) {
-                    handleVoiceCommand(suggestion);
-                  }
-                }}
-              >
-                <Text style={[styles.suggestionText, { color: colors.text }]}>{suggestion}</Text>
-              </TouchableOpacity>
-            ))}
+        {/* Suggestions */}
+        {suggestionsQuery.data && suggestionsQuery.data.suggestions && suggestionsQuery.data.suggestions.length > 0 && (
+          <View style={styles.suggestionsSection}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Quick Suggestions</Text>
+            <View style={styles.suggestionsList}>
+              {suggestionsQuery.data.suggestions.map((suggestion: any) => (
+                <TouchableOpacity
+                  key={suggestion.id}
+                  style={[styles.suggestionChip, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => handleSuggestionPress(suggestion)}
+                >
+                  <Text style={[styles.suggestionText, { color: colors.text }]}>{suggestion.text}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
+        {/* History */}
         {historyQuery.data && historyQuery.data.commands && historyQuery.data.commands.length > 0 && (
           <View style={styles.historySection}>
             <View style={styles.historyHeader}>

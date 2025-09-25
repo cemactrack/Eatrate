@@ -10,121 +10,144 @@ interface Reward {
   id: string;
   title: string;
   description: string;
-  type: 'discount' | 'free_meal' | 'partner_reward';
   pointsCost: number;
+  type: 'discount' | 'free_meal' | 'partner_reward';
+  expiresAt?: Date;
   isActive: boolean;
-  expiresAt?: Date | string;
   canAfford?: boolean;
   daysUntilExpiry?: number | null;
 }
 
+interface UserPoints {
+  total: number;
+  available: number;
+  earned: number;
+  redeemed: number;
+}
+
+const REWARD_CATEGORIES = [
+  { id: 'all', label: 'All', icon: Gift },
+  { id: 'food', label: 'Food', icon: Star },
+  { id: 'discount', label: 'Discounts', icon: Zap },
+  { id: 'experience', label: 'Experiences', icon: Trophy },
+  { id: 'merchandise', label: 'Merchandise', icon: Gift },
+] as const;
+
 export default function LoyaltyRewardsScreen() {
-  const { colors } = useSettings();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [selectedCategory, setSelectedCategory] = useState<'all' | 'discount' | 'free_meal' | 'partner_reward'>('all');
+  const { colors } = useSettings();
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  const userPointsQuery = trpc.loyalty.getUserPoints.useQuery();
+  // Queries
+  const pointsQuery = trpc.loyalty.getUserPoints.useQuery();
   const rewardsQuery = trpc.loyalty.getAvailableRewards.useQuery({
-    category: selectedCategory === 'all' ? undefined : selectedCategory
+    category: selectedCategory === 'all' ? undefined : selectedCategory as any,
   });
 
+  // Mutations
   const redeemMutation = trpc.loyalty.redeemReward.useMutation({
-    onSuccess: (data) => {
-      Alert.alert(
-        'Reward Redeemed!',
-        `Congratulations! Your redemption code is: ${data.redemptionCode}\n\n${data.instructions}`,
-        [{ text: 'OK' }]
-      );
-      userPointsQuery.refetch();
+    onSuccess: () => {
+      Alert.alert('Success', 'Reward redeemed successfully!');
+      pointsQuery.refetch();
       rewardsQuery.refetch();
     },
     onError: (error) => {
-      Alert.alert('Redemption Failed', error.message);
-    }
+      Alert.alert('Error', error.message || 'Failed to redeem reward');
+    },
   });
 
-  const handleRedeemReward = useCallback((reward: Reward) => {
+  const handleRedeemReward = useCallback(async (reward: Reward) => {
+    if (!pointsQuery.data || pointsQuery.data.totalPoints < reward.pointsCost) {
+      Alert.alert('Insufficient Points', 'You do not have enough points to redeem this reward.');
+      return;
+    }
+
     Alert.alert(
-      'Redeem Reward',
+      'Confirm Redemption',
       `Are you sure you want to redeem "${reward.title}" for ${reward.pointsCost} points?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Redeem', 
-          onPress: () => redeemMutation.mutate({ rewardId: reward.id })
-        }
+        {
+          text: 'Redeem',
+          onPress: () => redeemMutation.mutate({ rewardId: reward.id }),
+        },
       ]
     );
-  }, [redeemMutation]);
+  }, [pointsQuery.data, redeemMutation]);
 
-  const renderReward = useCallback(({ item: reward }: { item: Reward }) => {
-    const canAfford = (userPointsQuery.data?.totalPoints || 0) >= reward.pointsCost;
-    const isAvailable = reward.isActive;
+  const renderRewardCard = useCallback(({ item: reward }: { item: Reward }) => {
+    const canRedeem = pointsQuery.data && pointsQuery.data.totalPoints >= reward.pointsCost && reward.isActive;
+    const isExpiringSoon = reward.expiresAt && new Date(reward.expiresAt).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000;
 
     return (
       <View style={[styles.rewardCard, { backgroundColor: colors.card }]}>
         <View style={styles.rewardHeader}>
-          <View style={styles.rewardIcon}>
-            {reward.type === 'discount' && <Star size={24} color={colors.tint} />}
-            {reward.type === 'free_meal' && <Gift size={24} color={colors.tint} />}
-            {reward.type === 'partner_reward' && <Trophy size={24} color={colors.tint} />}
+          <View style={[styles.rewardIcon, { backgroundColor: colors.tint + '20' }]}>
+            <Gift size={20} color={colors.tint} />
           </View>
           <View style={styles.rewardInfo}>
             <Text style={[styles.rewardTitle, { color: colors.text }]}>{reward.title}</Text>
-            <Text style={[styles.rewardDescription, { color: colors.secondary }]}>{reward.description}</Text>
+            <Text style={[styles.rewardDescription, { color: colors.secondary }]}>
+              {reward.description}
+            </Text>
           </View>
         </View>
-        
+
         <View style={styles.rewardFooter}>
           <View style={styles.pointsContainer}>
-            <Zap size={16} color={colors.tint} />
-            <Text style={[styles.pointsText, { color: colors.tint }]}>{reward.pointsCost} points</Text>
+            <Star size={16} color={colors.tint} />
+            <Text style={[styles.pointsText, { color: colors.tint }]}>
+              {reward.pointsCost} points
+            </Text>
           </View>
-          
+
           <TouchableOpacity
             style={[
               styles.redeemButton,
               {
-                backgroundColor: canAfford && isAvailable ? colors.tint : colors.border,
-                opacity: canAfford && isAvailable ? 1 : 0.5
-              }
+                backgroundColor: canRedeem ? colors.tint : colors.secondary + '40',
+              },
             ]}
             onPress={() => handleRedeemReward(reward)}
-            disabled={!canAfford || !isAvailable || redeemMutation.isPending}
+            disabled={!canRedeem || redeemMutation.isPending}
           >
-            <Text style={[styles.redeemButtonText, { color: colors.background }]}>
-              {!isAvailable ? 'Unavailable' : !canAfford ? 'Not enough points' : 'Redeem'}
+            <Text
+              style={[
+                styles.redeemButtonText,
+                { color: canRedeem ? colors.background : colors.secondary },
+              ]}
+            >
+              {redeemMutation.isPending ? 'Redeeming...' : 'Redeem'}
             </Text>
           </TouchableOpacity>
         </View>
-        
+
         {reward.expiresAt && (
           <View style={styles.expiryContainer}>
-            <Clock size={12} color={colors.secondary} />
-            <Text style={[styles.expiryText, { color: colors.secondary }]}>
-              Expires: {new Date(reward.expiresAt).toLocaleDateString()}
+            <Clock size={12} color={isExpiringSoon ? '#ff6b6b' : colors.secondary} />
+            <Text style={[styles.expiryText, { color: isExpiringSoon ? '#ff6b6b' : colors.secondary }]}>
+              Expires {new Date(reward.expiresAt).toLocaleDateString()}
             </Text>
           </View>
         )}
       </View>
     );
-  }, [colors, userPointsQuery.data, handleRedeemReward, redeemMutation.isPending]);
+  }, [colors, pointsQuery.data, handleRedeemReward, redeemMutation.isPending]);
 
-  const categories = [
-    { key: 'all' as const, label: 'All Rewards', icon: Gift },
-    { key: 'discount' as const, label: 'Discounts', icon: Star },
-    { key: 'free_meal' as const, label: 'Free Meals', icon: Gift },
-    { key: 'partner_reward' as const, label: 'Partner Rewards', icon: Trophy }
-  ];
-
-  if (userPointsQuery.isLoading) {
+  if (pointsQuery.isLoading || rewardsQuery.isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Stack.Screen options={{ title: 'Loyalty Rewards', headerStyle: { backgroundColor: colors.card } }} />
+        <Stack.Screen
+          options={{
+            title: 'Loyalty Rewards',
+            headerStyle: { backgroundColor: colors.card },
+            headerTintColor: colors.text,
+          }}
+        />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.tint} />
-          <Text style={[styles.loadingText, { color: colors.text }]}>Loading your rewards...</Text>
+          <Text style={[styles.loadingText, { color: colors.text }]}>Loading rewards...</Text>
         </View>
       </View>
     );
@@ -132,70 +155,76 @@ export default function LoyaltyRewardsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-      <Stack.Screen options={{ 
-        title: 'Loyalty Rewards',
-        headerStyle: { backgroundColor: colors.card },
-        headerTintColor: colors.text
-      }} />
-      
+      <Stack.Screen
+        options={{
+          title: 'Loyalty Rewards',
+          headerStyle: { backgroundColor: colors.card },
+          headerTintColor: colors.text,
+        }}
+      />
+
+      {/* Points Header */}
       <View style={[styles.pointsHeader, { backgroundColor: colors.tint }]}>
         <View style={styles.pointsContent}>
-          <Zap size={32} color={colors.background} />
+          <Star size={32} color={colors.background} />
           <View style={styles.pointsInfo}>
             <Text style={[styles.pointsValue, { color: colors.background }]}>
-              {userPointsQuery.data?.totalPoints || 0}
+              {pointsQuery.data?.totalPoints || 0}
             </Text>
-            <Text style={[styles.pointsLabel, { color: colors.background }]}>EatRate Points</Text>
+            <Text style={[styles.pointsLabel, { color: colors.background }]}>Available Points</Text>
           </View>
         </View>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.historyButton}
-          onPress={() => router.push('/loyalty/history')}
+          onPress={() => router.push('/loyalty/history' as any)}
         >
           <Text style={[styles.historyButtonText, { color: colors.background }]}>History</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFilter}>
-        {categories.map((category) => {
-          const Icon = category.icon;
-          const isSelected = selectedCategory === category.key;
-          
-          return (
-            <TouchableOpacity
-              key={category.key}
-              style={[
-                styles.categoryButton,
-                {
-                  backgroundColor: isSelected ? colors.tint : colors.card,
-                  borderColor: colors.border
-                }
-              ]}
-              onPress={() => setSelectedCategory(category.key)}
-            >
-              <Icon size={16} color={isSelected ? colors.background : colors.text} />
-              <Text style={[
-                styles.categoryButtonText,
-                { color: isSelected ? colors.background : colors.text }
-              ]}>
-                {category.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      {/* Category Filter */}
+      <View style={styles.categoryFilter}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {REWARD_CATEGORIES.map((category) => {
+            const Icon = category.icon;
+            const isSelected = selectedCategory === category.id;
+            return (
+              <TouchableOpacity
+                key={category.id}
+                style={[
+                  styles.categoryButton,
+                  {
+                    backgroundColor: isSelected ? colors.tint : 'transparent',
+                    borderColor: isSelected ? colors.tint : colors.border,
+                  },
+                ]}
+                onPress={() => setSelectedCategory(category.id)}
+              >
+                <Icon
+                  size={16}
+                  color={isSelected ? colors.background : colors.text}
+                />
+                <Text
+                  style={[
+                    styles.categoryButtonText,
+                    { color: isSelected ? colors.background : colors.text },
+                  ]}
+                >
+                  {category.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
 
+      {/* Rewards List */}
       <FlatList
-        data={rewardsQuery.data?.rewards || []}
-        renderItem={renderReward}
+        data={(rewardsQuery.data?.rewards || []) as Reward[]}
+        renderItem={renderRewardCard}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.rewardsList}
         showsVerticalScrollIndicator={false}
-        refreshing={rewardsQuery.isLoading}
-        onRefresh={() => {
-          userPointsQuery.refetch();
-          rewardsQuery.refetch();
-        }}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Gift size={48} color={colors.secondary} />

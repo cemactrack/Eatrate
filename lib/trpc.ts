@@ -151,21 +151,8 @@ export const trpcClient = trpc.createClient({
             console.error('2. The API endpoint is not properly configured');
             console.error('3. There\'s a routing issue with the server');
             
-            const urlStr = String(url);
-            const altUrl = urlStr.includes(primaryPath)
-              ? urlStr.replace(primaryPath, fallbackPath)
-              : urlStr.replace(fallbackPath, primaryPath);
-            console.warn('[tRPC] Retrying request on alternate endpoint:', altUrl);
-            try {
-              response = await makeRequest(altUrl);
-              // If the alternate endpoint works, log it for future reference
-              if (response.ok && !(await isHtml(response))) {
-                console.log('[tRPC] Alternate endpoint successful:', altUrl);
-              }
-            } catch (retryError) {
-              console.error('[tRPC] Retry failed:', retryError);
-              // Continue with original response
-            }
+            // Don't retry, just throw an error immediately
+            throw new Error('Server returned HTML instead of JSON. Please check that the backend server is running and accessible.');
           }
           
           clearTimeout(timeoutId);
