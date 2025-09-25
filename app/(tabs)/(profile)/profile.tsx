@@ -9,9 +9,10 @@ import {
   FlatList,
   useWindowDimensions,
   ActivityIndicator,
+
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Settings, Grid, Heart, Bookmark, Award, MapPin, LogOut, Shield, Calendar, Trophy, Star, TrendingUp, Eye, Clock, CheckCircle, Camera, Share2 } from 'lucide-react-native';
+import { Settings, Grid, Heart, Bookmark, Award, MapPin, LogOut, Shield, Calendar, Trophy, Star, TrendingUp, Eye, Clock, CheckCircle, Camera, Share2, MessageCircle, Bell, Gift, Target, BarChart3, Medal, Crown, Flame } from 'lucide-react-native';
 import { Stack, useRouter } from 'expo-router';
 import Colors from '@/constants/colors';
 import { Post } from '@/types/restaurant';
@@ -75,8 +76,9 @@ const PostGridItem = React.memo(function PostGridItem({ post, onPress }: PostGri
 });
 
 export default function ProfileScreen() {
-  const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'saved'>('posts');
-  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'saved' | 'reviews' | 'photos'>('posts');
+  const [showFullBio, setShowFullBio] = useState<boolean>(false);
+  const [selectedStatsPeriod] = useState<'week' | 'month' | 'year'>('month');
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
   const { isAdmin } = useAdmin();
@@ -114,20 +116,41 @@ export default function ProfileScreen() {
     { enabled: !!user?.id }
   );
 
-  // Mock user achievements - memoized to prevent re-renders
+  // Enhanced user achievements - memoized to prevent re-renders
   const userAchievements = useMemo(() => ({
-    totalBadges: 3,
+    totalBadges: 8,
     recentBadges: [
-      { name: 'Food Explorer', earnedAt: new Date().toISOString() },
-      { name: 'Review Master', earnedAt: new Date(Date.now() - 86400000).toISOString() }
-    ]
+      { name: 'Food Explorer', earnedAt: new Date().toISOString(), icon: '🍽️', rarity: 'common' },
+      { name: 'Review Master', earnedAt: new Date(Date.now() - 86400000).toISOString(), icon: '⭐', rarity: 'rare' },
+      { name: 'Photo Pro', earnedAt: new Date(Date.now() - 172800000).toISOString(), icon: '📸', rarity: 'epic' },
+      { name: 'Social Butterfly', earnedAt: new Date(Date.now() - 259200000).toISOString(), icon: '🦋', rarity: 'common' }
+    ],
+    streaks: {
+      currentLoginStreak: 7,
+      longestLoginStreak: 23,
+      currentReviewStreak: 3,
+      longestReviewStreak: 12
+    },
+    milestones: {
+      totalReviews: 47,
+      totalPhotos: 156,
+      totalLikes: 892,
+      totalFollowers: 234
+    }
   }), []);
 
-  // Mock activity stats - memoized to prevent re-renders
+  // Enhanced activity stats - memoized to prevent re-renders
   const mockActivityStats = useMemo(() => ({
-    totalViews: Math.floor(Math.random() * 10000),
-    totalLikes: Math.floor(Math.random() * 1000),
-    avgRating: 4.2 + Math.random() * 0.8
+    totalViews: Math.floor(Math.random() * 10000) + 5000,
+    totalLikes: Math.floor(Math.random() * 1000) + 500,
+    avgRating: 4.2 + Math.random() * 0.8,
+    engagementRate: Math.floor(Math.random() * 30) + 15,
+    monthlyGrowth: Math.floor(Math.random() * 20) + 5,
+    topCuisines: ['Italian', 'Asian', 'Local'],
+    favoriteTimeToEat: 'Evening',
+    averageSpending: '$25-50',
+    reviewsThisMonth: Math.floor(Math.random() * 15) + 5,
+    photosThisMonth: Math.floor(Math.random() * 25) + 10
   }), []);
   
   // Fetch bookmarked posts
@@ -186,6 +209,12 @@ export default function ProfileScreen() {
         return likedPosts;
       case 'saved':
         return savedPosts;
+      case 'reviews':
+        // Filter posts that are reviews
+        return userPosts.filter(post => post.content.rating && post.content.rating > 0);
+      case 'photos':
+        // Filter posts that have images
+        return userPosts.filter(post => post.content.images && post.content.images.length > 0);
       default:
         return userPosts;
     }
@@ -218,27 +247,14 @@ export default function ProfileScreen() {
     router.push('/admin');
   }, [router]);
 
-  const handleTabChange = useCallback((tab: 'posts' | 'liked' | 'saved') => {
+  const handleTabChange = useCallback((tab: 'posts' | 'liked' | 'saved' | 'reviews' | 'photos') => {
     if (!tab?.trim() || tab.length > 20) return;
-    const sanitizedTab = tab.trim() as 'posts' | 'liked' | 'saved';
-    if (!['posts', 'liked', 'saved'].includes(sanitizedTab)) return;
+    const sanitizedTab = tab.trim() as 'posts' | 'liked' | 'saved' | 'reviews' | 'photos';
+    if (!['posts', 'liked', 'saved', 'reviews', 'photos'].includes(sanitizedTab)) return;
     setActiveTab(sanitizedTab);
   }, []);
   
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await Promise.all([
-        userPostsQuery.refetch(),
-        bookmarkedPostsQuery.refetch(),
-        activeTab === 'liked' ? feedQuery.refetch() : Promise.resolve(),
-      ]);
-    } catch (error) {
-      console.error('Refresh error:', error);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [userPostsQuery, bookmarkedPostsQuery, feedQuery, activeTab]);
+
   
   if (!user || !currentUser) {
     return (
@@ -255,19 +271,17 @@ export default function ProfileScreen() {
       
       <ScrollView 
         showsVerticalScrollIndicator={false}
+
       >
-        {/* Custom Pull to Refresh */}
-        <TouchableOpacity 
-          style={styles.refreshButton}
-          onPress={handleRefresh}
-          disabled={refreshing}
-        >
-          {refreshing ? (
-            <ActivityIndicator size="small" color={Colors.light.tint} />
-          ) : (
-            <Text style={styles.refreshButtonText}>Pull to refresh</Text>
-          )}
-        </TouchableOpacity>
+        {/* Enhanced Header with Cover Photo */}
+        <View style={styles.coverPhotoContainer}>
+          <Image 
+            source={{ uri: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&h=300&fit=crop' }}
+            style={styles.coverPhoto}
+            resizeMode="cover"
+          />
+          <View style={styles.coverOverlay} />
+        </View>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.username}>@{currentUser.username}</Text>
@@ -286,22 +300,60 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Profile Stats Cards */}
+        {/* Enhanced Profile Stats Cards */}
         <View style={styles.statsCardsContainer}>
-          <View style={styles.statsCard}>
-            <TrendingUp size={20} color={Colors.light.success} />
+          <TouchableOpacity style={styles.statsCard} onPress={() => router.push('/profile/analytics')}>
+            <View style={styles.statsCardHeader}>
+              <TrendingUp size={20} color={Colors.light.success} />
+              <Text style={styles.statsCardPeriod}>{selectedStatsPeriod}</Text>
+            </View>
             <Text style={styles.statsCardNumber}>{userReputation?.points || 0}</Text>
             <Text style={styles.statsCardLabel}>Reputation</Text>
-          </View>
-          <View style={styles.statsCard}>
-            <Eye size={20} color={Colors.light.tint} />
+            <Text style={styles.statsCardChange}>+{mockActivityStats.monthlyGrowth}% this month</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.statsCard}>
+            <View style={styles.statsCardHeader}>
+              <Eye size={20} color={Colors.light.tint} />
+              <Flame size={12} color={Colors.light.warning} />
+            </View>
             <Text style={styles.statsCardNumber}>{currentUser.activityStats.totalViews.toLocaleString()}</Text>
             <Text style={styles.statsCardLabel}>Profile Views</Text>
-          </View>
-          <View style={styles.statsCard}>
-            <Trophy size={20} color={Colors.light.warning} />
+            <Text style={styles.statsCardChange}>{mockActivityStats.engagementRate}% engagement</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.statsCard} onPress={() => router.push('/achievements')}>
+            <View style={styles.statsCardHeader}>
+              <Trophy size={20} color={Colors.light.warning} />
+              <Crown size={12} color={Colors.light.success} />
+            </View>
             <Text style={styles.statsCardNumber}>{currentUser.achievements.totalAchievements}</Text>
             <Text style={styles.statsCardLabel}>Achievements</Text>
+            <Text style={styles.statsCardChange}>{userAchievements.streaks.currentLoginStreak} day streak</Text>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Activity Streaks */}
+        <View style={styles.streaksContainer}>
+          <View style={styles.streakItem}>
+            <Flame size={16} color={Colors.light.warning} />
+            <Text style={styles.streakNumber}>{userAchievements.streaks.currentLoginStreak}</Text>
+            <Text style={styles.streakLabel}>Day Streak</Text>
+          </View>
+          <View style={styles.streakItem}>
+            <Star size={16} color={Colors.light.tint} />
+            <Text style={styles.streakNumber}>{userAchievements.streaks.currentReviewStreak}</Text>
+            <Text style={styles.streakLabel}>Review Streak</Text>
+          </View>
+          <View style={styles.streakItem}>
+            <Target size={16} color={Colors.light.success} />
+            <Text style={styles.streakNumber}>{mockActivityStats.reviewsThisMonth}</Text>
+            <Text style={styles.streakLabel}>This Month</Text>
+          </View>
+          <View style={styles.streakItem}>
+            <Camera size={16} color={Colors.light.error} />
+            <Text style={styles.streakNumber}>{mockActivityStats.photosThisMonth}</Text>
+            <Text style={styles.streakLabel}>Photos</Text>
           </View>
         </View>
 
@@ -337,23 +389,53 @@ export default function ProfileScreen() {
               {currentUser.isVerified && (
                 <CheckCircle size={16} color={Colors.light.tint} style={styles.verifiedBadge} />
               )}
+              <View style={styles.levelBadge}>
+                <Medal size={12} color={Colors.light.warning} />
+                <Text style={styles.levelText}>{userReputation?.level || 'Newcomer'}</Text>
+              </View>
             </View>
-            <Text style={styles.reputationLevel}>{userReputation?.level || 'Newcomer'}</Text>
-            <Text style={styles.bio}>{currentUser.bio}</Text>
-            {currentUser.location && (
-              <View style={styles.locationContainer}>
-                <MapPin size={14} color={Colors.light.secondary} />
-                <Text style={styles.locationText}>
-                  {currentUser.location.city}, {currentUser.location.country}
+            
+            {/* Enhanced Bio with Read More */}
+            <TouchableOpacity onPress={() => setShowFullBio(!showFullBio)}>
+              <Text style={styles.bio} numberOfLines={showFullBio ? undefined : 3}>
+                {currentUser.bio}
+              </Text>
+              {currentUser.bio.length > 100 && (
+                <Text style={styles.readMoreText}>
+                  {showFullBio ? 'Show less' : 'Read more'}
+                </Text>
+              )}
+            </TouchableOpacity>
+            
+            {/* Enhanced Location and Info */}
+            <View style={styles.profileInfoGrid}>
+              {currentUser.location && (
+                <View style={styles.infoItem}>
+                  <MapPin size={14} color={Colors.light.secondary} />
+                  <Text style={styles.infoText}>
+                    {currentUser.location.city}, {currentUser.location.country}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.infoItem}>
+                <Clock size={14} color={Colors.light.secondary} />
+                <Text style={styles.infoText}>
+                  Joined {new Date(currentUser.joinedDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
                 </Text>
               </View>
-            )}
-            {user.email && (
-              <Text style={styles.contactInfo}>{user.email}</Text>
-            )}
-            {user.phone && (
-              <Text style={styles.contactInfo}>{user.phone}</Text>
-            )}
+              <View style={styles.infoItem}>
+                <Star size={14} color={Colors.light.warning} />
+                <Text style={styles.infoText}>
+                  {currentUser.activityStats.avgRating.toFixed(1)} avg rating
+                </Text>
+              </View>
+              <View style={styles.infoItem}>
+                <TrendingUp size={14} color={Colors.light.success} />
+                <Text style={styles.infoText}>
+                  {userReputation?.trustScore || 0}% trust score
+                </Text>
+              </View>
+            </View>
           </View>
 
           {/* Badges */}
@@ -368,7 +450,7 @@ export default function ProfileScreen() {
             </View>
           )}
 
-          {/* Action Buttons */}
+          {/* Enhanced Action Buttons */}
           <View style={styles.actionButtons}>
             <TouchableOpacity
               testID="edit-profile-button"
@@ -378,26 +460,56 @@ export default function ProfileScreen() {
             >
               <Text style={styles.editButtonText}>Edit Profile</Text>
             </TouchableOpacity>
+            
             <TouchableOpacity 
               testID="share-profile-button" 
-              style={styles.shareButton}
+              style={styles.actionButton}
               onPress={() => console.log('Share profile')}
             >
               <Share2 size={16} color={Colors.light.text} />
             </TouchableOpacity>
+            
             <TouchableOpacity 
               testID="camera-button" 
-              style={styles.shareButton}
+              style={styles.actionButton}
               onPress={() => router.push('/ai/scanner')}
             >
               <Camera size={16} color={Colors.light.text} />
             </TouchableOpacity>
+            
             <TouchableOpacity 
-              testID="analytics-button" 
-              style={styles.shareButton}
+              testID="messages-button" 
+              style={styles.actionButton}
+              onPress={() => router.push('/messages')}
+            >
+              <MessageCircle size={16} color={Colors.light.text} />
+            </TouchableOpacity>
+          </View>
+          
+          {/* Secondary Action Row */}
+          <View style={styles.secondaryActions}>
+            <TouchableOpacity 
+              style={styles.secondaryActionButton}
               onPress={() => router.push('/profile/analytics')}
             >
-              <TrendingUp size={16} color={Colors.light.text} />
+              <BarChart3 size={16} color={Colors.light.tint} />
+              <Text style={styles.secondaryActionText}>Analytics</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.secondaryActionButton}
+              onPress={() => router.push('/notifications')}
+            >
+              <Bell size={16} color={Colors.light.tint} />
+              <Text style={styles.secondaryActionText}>Notifications</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.secondaryActionButton}
+              onPress={() => router.push('/loyalty/rewards')}
+            >
+              <Gift size={16} color={Colors.light.tint} />
+              <Text style={styles.secondaryActionText}>Rewards</Text>
             </TouchableOpacity>
           </View>
           
@@ -440,21 +552,52 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Recent Activity */}
-          {currentUser.achievements.recentAchievements.length > 0 && (
+          {/* Enhanced Recent Activity */}
+          {userAchievements.recentBadges.length > 0 && (
             <View style={styles.recentActivityContainer}>
-              <Text style={styles.sectionTitle}>Recent Achievements</Text>
-              <View style={styles.achievementsList}>
-                {currentUser.achievements.recentAchievements.slice(0, 3).map((achievement: any, index: number) => (
-                  <View key={`achievement-${index}`} style={styles.achievementItem}>
-                    <Award size={16} color={Colors.light.warning} />
-                    <Text style={styles.achievementText}>{achievement.name}</Text>
-                    <Text style={styles.achievementDate}>{new Date(achievement.earnedAt).toLocaleDateString()}</Text>
-                  </View>
-                ))}
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Recent Achievements</Text>
+                <TouchableOpacity onPress={() => router.push('/achievements')}>
+                  <Text style={styles.sectionAction}>View All</Text>
+                </TouchableOpacity>
               </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.achievementsScroll}>
+                {userAchievements.recentBadges.slice(0, 5).map((achievement: any, index: number) => {
+                  const rarityStyle = achievement.rarity === 'common' ? styles.rarityCommon :
+                                    achievement.rarity === 'rare' ? styles.rarityRare :
+                                    achievement.rarity === 'epic' ? styles.rarityEpic : styles.rarityCommon;
+                  
+                  return (
+                    <View key={`achievement-${index}`} style={[styles.achievementCard, rarityStyle]}>
+                      <Text style={styles.achievementIcon}>{achievement.icon}</Text>
+                      <Text style={styles.achievementName}>{achievement.name}</Text>
+                      <Text style={styles.achievementRarity}>{achievement.rarity}</Text>
+                      <Text style={styles.achievementDate}>{new Date(achievement.earnedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Text>
+                    </View>
+                  );
+                })}
+              </ScrollView>
             </View>
           )}
+          
+          {/* Food Preferences Summary */}
+          <View style={styles.preferencesContainer}>
+            <Text style={styles.sectionTitle}>Food Profile</Text>
+            <View style={styles.preferencesGrid}>
+              <View style={styles.preferenceItem}>
+                <Text style={styles.preferenceLabel}>Top Cuisines</Text>
+                <Text style={styles.preferenceValue}>{mockActivityStats.topCuisines.join(', ')}</Text>
+              </View>
+              <View style={styles.preferenceItem}>
+                <Text style={styles.preferenceLabel}>Favorite Time</Text>
+                <Text style={styles.preferenceValue}>{mockActivityStats.favoriteTimeToEat}</Text>
+              </View>
+              <View style={styles.preferenceItem}>
+                <Text style={styles.preferenceLabel}>Avg Spending</Text>
+                <Text style={styles.preferenceValue}>{mockActivityStats.averageSpending}</Text>
+              </View>
+            </View>
+          </View>
 
           {/* Profile Insights */}
           <View style={styles.insightsContainer}>
@@ -476,26 +619,42 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Tabs */}
+        {/* Enhanced Tabs */}
         <View style={styles.tabsContainer}>
-          <TabButton
-            icon={<Grid size={20} color={activeTab === 'posts' ? Colors.light.tint : Colors.light.secondary} />}
-            label="Posts"
-            isActive={activeTab === 'posts'}
-            onPress={() => handleTabChange('posts')}
-          />
-          <TabButton
-            icon={<Heart size={20} color={activeTab === 'liked' ? Colors.light.tint : Colors.light.secondary} />}
-            label="Liked"
-            isActive={activeTab === 'liked'}
-            onPress={() => handleTabChange('liked')}
-          />
-          <TabButton
-            icon={<Bookmark size={20} color={activeTab === 'saved' ? Colors.light.tint : Colors.light.secondary} />}
-            label="Saved"
-            isActive={activeTab === 'saved'}
-            onPress={() => handleTabChange('saved')}
-          />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.tabsRow}>
+              <TabButton
+                icon={<Grid size={18} color={activeTab === 'posts' ? Colors.light.tint : Colors.light.secondary} />}
+                label="Posts"
+                isActive={activeTab === 'posts'}
+                onPress={() => handleTabChange('posts')}
+              />
+              <TabButton
+                icon={<Star size={18} color={activeTab === 'reviews' ? Colors.light.tint : Colors.light.secondary} />}
+                label="Reviews"
+                isActive={activeTab === 'reviews'}
+                onPress={() => handleTabChange('reviews')}
+              />
+              <TabButton
+                icon={<Camera size={18} color={activeTab === 'photos' ? Colors.light.tint : Colors.light.secondary} />}
+                label="Photos"
+                isActive={activeTab === 'photos'}
+                onPress={() => handleTabChange('photos')}
+              />
+              <TabButton
+                icon={<Heart size={18} color={activeTab === 'liked' ? Colors.light.tint : Colors.light.secondary} />}
+                label="Liked"
+                isActive={activeTab === 'liked'}
+                onPress={() => handleTabChange('liked')}
+              />
+              <TabButton
+                icon={<Bookmark size={18} color={activeTab === 'saved' ? Colors.light.tint : Colors.light.secondary} />}
+                label="Saved"
+                isActive={activeTab === 'saved'}
+                onPress={() => handleTabChange('saved')}
+              />
+            </View>
+          </ScrollView>
         </View>
 
         {/* Posts Grid */}
@@ -511,6 +670,8 @@ export default function ProfileScreen() {
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateText}>
                 {activeTab === 'posts' ? 'No posts yet' : 
+                 activeTab === 'reviews' ? 'No reviews yet' :
+                 activeTab === 'photos' ? 'No photos yet' :
                  activeTab === 'liked' ? 'No liked posts' : 'No saved posts'}
               </Text>
               {activeTab === 'posts' && (
@@ -913,5 +1074,219 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.light.text,
     marginLeft: 8,
+  },
+  // New styles for enhanced profile
+  coverPhotoContainer: {
+    height: 120,
+    position: 'relative',
+    marginBottom: -40,
+  },
+  coverPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  coverOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  statsCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 4,
+  },
+  statsCardPeriod: {
+    fontSize: 10,
+    color: Colors.light.secondary,
+    textTransform: 'uppercase',
+    fontWeight: '600',
+  },
+  statsCardChange: {
+    fontSize: 10,
+    color: Colors.light.success,
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  streaksContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    gap: 8,
+  },
+  streakItem: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: Colors.light.card,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  streakNumber: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.light.text,
+    marginTop: 4,
+  },
+  streakLabel: {
+    fontSize: 10,
+    color: Colors.light.secondary,
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  levelBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.light.accent,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  levelText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.light.warning,
+    marginLeft: 4,
+  },
+  readMoreText: {
+    fontSize: 12,
+    color: Colors.light.tint,
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  profileInfoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 8,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: '45%',
+  },
+  infoText: {
+    fontSize: 12,
+    color: Colors.light.secondary,
+    marginLeft: 6,
+    flex: 1,
+  },
+  actionButton: {
+    width: 36,
+    height: 36,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  secondaryActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: Colors.light.accent,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    gap: 6,
+  },
+  secondaryActionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.light.tint,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionAction: {
+    fontSize: 14,
+    color: Colors.light.tint,
+    fontWeight: '500',
+  },
+  achievementsScroll: {
+    marginHorizontal: -16,
+    paddingHorizontal: 16,
+  },
+  achievementCard: {
+    width: 120,
+    backgroundColor: Colors.light.card,
+    borderRadius: 12,
+    padding: 12,
+    marginRight: 12,
+    alignItems: 'center',
+    borderWidth: 2,
+  },
+  achievementIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  achievementName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.light.text,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  achievementRarity: {
+    fontSize: 10,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  rarityCommon: {
+    borderColor: Colors.light.secondary,
+  },
+  rarityRare: {
+    borderColor: Colors.light.tint,
+  },
+  rarityEpic: {
+    borderColor: Colors.light.warning,
+  },
+  preferencesContainer: {
+    marginBottom: 24,
+  },
+  preferencesGrid: {
+    gap: 12,
+  },
+  preferenceItem: {
+    backgroundColor: Colors.light.card,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  preferenceLabel: {
+    fontSize: 12,
+    color: Colors.light.secondary,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  preferenceValue: {
+    fontSize: 14,
+    color: Colors.light.text,
+    fontWeight: '600',
+  },
+  tabsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
   },
 });
