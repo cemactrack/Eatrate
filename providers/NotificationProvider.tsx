@@ -13,9 +13,7 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  } as any),
 });
 
 interface NotificationContextType {
@@ -211,12 +209,12 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
         pushEnabled: updated.pushEnabled,
         emailEnabled: updated.emailEnabled,
         categories: {
-          social: updated.categories.social ?? false,
-          achievements: updated.categories.achievements ?? false,
-          events: updated.categories.events ?? false,
-          challenges: updated.categories.challenges ?? false,
-          restaurants: updated.categories.restaurants ?? false,
-          system: updated.categories.system ?? false,
+          social: updated.categories?.social ?? false,
+          achievements: updated.categories?.achievements ?? false,
+          events: updated.categories?.events ?? false,
+          challenges: updated.categories?.challenges ?? false,
+          restaurants: updated.categories?.restaurants ?? false,
+          system: updated.categories?.system ?? false,
         },
         quietHours: {
           enabled: updated.quietHours?.enabled ?? false,
