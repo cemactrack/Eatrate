@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import createContextHook from '@nkzw/create-context-hook';
 import { trpc } from '@/lib/trpc';
@@ -96,7 +97,9 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
 
         // Get push token
         if (Platform.OS !== 'web') {
-          const token = await Notifications.getExpoPushTokenAsync();
+          const token = await Notifications.getExpoPushTokenAsync({
+            projectId: Constants.expoConfig?.extra?.eas?.projectId,
+          });
           setExpoPushToken(token.data);
           
           // Register token with backend
@@ -228,7 +231,7 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
           daily: updated.frequency?.daily ?? false,
           weekly: updated.frequency?.weekly ?? false,
         },
-      } as NotificationSettings);
+      });
     } catch (error) {
       console.error('Failed to update notification settings:', error);
     }

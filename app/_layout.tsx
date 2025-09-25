@@ -164,6 +164,12 @@ function ThemedStack() {
           title: "Reservations",
         }} 
       />
+      <Stack.Screen 
+        name="notifications" 
+        options={{ 
+          title: "Notifications",
+        }} 
+      />
     </Stack>
   );
 }
@@ -218,9 +224,10 @@ export default function RootLayout() {
     );
   }
 
-  if (Platform.OS === 'web') {
-    return <MobileBlockedScreen />;
-  }
+  // Allow web for development and testing
+  // if (Platform.OS === 'web') {
+  //   return <MobileBlockedScreen />;
+  // }
 
   return (
     <QueryClientProvider client={queryClient}>
