@@ -154,7 +154,7 @@ export const trpcClient = trpc.createClient({
             try {
               response = await makeRequest(altUrl);
               // If the alternate endpoint works, log it for future reference
-              if (response.ok) {
+              if (response.ok && !(await isHtml(response))) {
                 console.log('[tRPC] Alternate endpoint successful:', altUrl);
               }
             } catch (retryError) {

@@ -17,7 +17,9 @@ app.use("*", cors({
 
 // Add request logging middleware
 app.use('*', async (c, next) => {
-  console.log(`[${new Date().toISOString()}] ${c.req.method} ${c.req.url}`);
+  const url = new URL(c.req.url);
+  console.log(`[${new Date().toISOString()}] ${c.req.method} ${url.pathname}${url.search}`);
+  console.log(`[Headers] Content-Type: ${c.req.header('content-type')}, Accept: ${c.req.header('accept')}`);
   await next();
 });
 
@@ -25,7 +27,6 @@ app.use('*', async (c, next) => {
 app.use(
   "/trpc/*",
   trpcServer({
-    endpoint: "/trpc",
     router: appRouter,
     createContext,
     onError: ({ error, path }) => {
@@ -38,7 +39,6 @@ app.use(
 app.use(
   "/api/trpc/*",
   trpcServer({
-    endpoint: "/api/trpc",  // Changed to match the actual path
     router: appRouter,
     createContext,
     onError: ({ error, path }) => {
@@ -60,9 +60,20 @@ app.get("/api", (c) => {
     endpoints: {
       trpc: "/api/trpc",
       trpcAlt: "/trpc",
-      health: "/api"
+      health: "/api",
+      healthCheck: "/api/trpc/healthCheck"
     },
     timestamp: new Date().toISOString() 
+  });
+});
+
+// Test tRPC endpoint directly
+app.get("/test-trpc", (c) => {
+  return c.json({ 
+    success: true, 
+    message: "tRPC router is accessible",
+    routerKeys: Object.keys(appRouter._def.procedures),
+    timestamp: new Date().toISOString()
   });
 });
 
