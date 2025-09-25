@@ -60,6 +60,11 @@ export default function SearchScreen() {
   const { colors } = useSettings();
   const { getItem, setItem } = useStorage();
 
+  const importedOneTimeQuery = trpc.restaurants.getImportedOneTime.useQuery(undefined, {
+    staleTime: 1000 * 60 * 30,
+    retry: 0,
+  });
+
   // Fetch restaurants from multiple locations based on filter
   const doualaQuery = trpc.restaurants.douala.useQuery(
     { pages: [1, 2] }, 
@@ -112,8 +117,8 @@ export default function SearchScreen() {
     return Array.from(unique.values());
   }, [doualaQuery.data, yaoundeQuery.data, bueaQuery.data, limbeQuery.data, importedRestaurants]);
 
-  const isLoading = doualaQuery.isLoading || yaoundeQuery.isLoading || bueaQuery.isLoading || limbeQuery.isLoading;
-  const hasError = doualaQuery.error || yaoundeQuery.error || bueaQuery.error || limbeQuery.error;
+  const isLoading = doualaQuery.isLoading || yaoundeQuery.isLoading || bueaQuery.isLoading || limbeQuery.isLoading || importedOneTimeQuery.isLoading;
+  const hasError = doualaQuery.error || yaoundeQuery.error || bueaQuery.error || limbeQuery.error || importedOneTimeQuery.error;
 
   const cuisines = useMemo(() => {
     const set = new Set<string>(['All']);
@@ -198,7 +203,8 @@ export default function SearchScreen() {
         doualaQuery.refetch(),
         yaoundeQuery.refetch(),
         bueaQuery.refetch(),
-        limbeQuery.refetch()
+        limbeQuery.refetch(),
+        importedOneTimeQuery.refetch(),
       ]);
       const stored = await getItem('imported_restaurants');
       if (stored) {
@@ -250,6 +256,18 @@ export default function SearchScreen() {
       isMounted = false;
     };
   }, [getItem]);
+
+  useEffect(() => {
+    if (importedOneTimeQuery.data?.restaurants && Array.isArray(importedOneTimeQuery.data.restaurants)) {
+      setImportedRestaurants(prev => {
+        const map = new Map<string, Restaurant>();
+        [...prev, ...importedOneTimeQuery.data!.restaurants].forEach((r) => {
+          map.set(r.name.toLowerCase().trim(), r);
+        });
+        return Array.from(map.values());
+      });
+    }
+  }, [importedOneTimeQuery.data]);
 
   const parseUrls = useCallback((input: string): string[] => {
     const raw = input.split(/\s|,|;|\n|\r/).map(s => s.trim()).filter(Boolean);

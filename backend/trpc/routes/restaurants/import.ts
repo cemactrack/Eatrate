@@ -213,3 +213,8 @@ export function getOneTimeImportedRestaurants(): ParsedRestaurant[] {
   const cached = cache.get('ONE_TIME_IMPORTED_RESTAURANTS');
   return (cached?.data as ParsedRestaurant[]) ?? [];
 }
+
+export const getImportedOneTimeProcedure = publicProcedure.query(() => {
+  const restaurants = getOneTimeImportedRestaurants();
+  return { restaurants };
+});
