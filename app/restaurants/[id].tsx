@@ -7,6 +7,7 @@ import { Star, Phone, MapPin, Clock, Heart, Share, ArrowLeft, UserPlus } from 'l
 import { trpc } from '@/lib/trpc';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { Restaurant } from '@/types/restaurant';
+import RestaurantProfileAudit from '@/components/RestaurantProfileAudit';
 
 
 export default function RestaurantDetailScreen() {
@@ -162,6 +163,8 @@ export default function RestaurantDetailScreen() {
             ))}
           </View>
         </View>
+
+        <RestaurantProfileAudit restaurant={restaurant} />
 
         {/* Tabs */}
         <View style={styles.tabsContainer}>
