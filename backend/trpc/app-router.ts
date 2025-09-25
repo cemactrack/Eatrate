@@ -222,9 +222,43 @@ import {
   getConversationParticipants,
 } from "./routes/messaging/manage";
 
+// Advanced Features routes
+import {
+  recognizeFoodProcedure,
+  getFoodHistoryProcedure,
+} from "./routes/ai/food-recognition";
+import {
+  getDeliveryOptionsProcedure,
+  initiateOrderProcedure,
+  trackOrderProcedure,
+} from "./routes/delivery/integration";
+import {
+  getARPreviewProcedure,
+  recordARViewProcedure,
+  getPopularARDishes,
+} from "./routes/ar/preview";
+import {
+  getUserPointsProcedure,
+  awardPointsProcedure as loyaltyAwardPointsProcedure,
+  getAvailableRewardsProcedure,
+  redeemRewardProcedure as loyaltyRedeemRewardProcedure,
+} from "./routes/loyalty/rewards";
+import {
+  processVoiceCommandProcedure,
+  getVoiceHistoryProcedure,
+  getVoiceSuggestionsProcedure,
+} from "./routes/voice/assistant";
+import {
+  getHealthProfileProcedure,
+  updateHealthProfileProcedure,
+  getFoodTrailsProcedure,
+  getTourismSpotsProcedure,
+  startFoodTrailProcedure,
+} from "./routes/health/profile";
+
 export const appRouter = createTRPCRouter({
   // Health check endpoint
-  health: publicProcedure.query(() => {
+  healthCheck: publicProcedure.query(() => {
     return { status: 'ok', message: 'tRPC server is running', timestamp: new Date().toISOString() };
   }),
   example: createTRPCRouter({
@@ -469,6 +503,39 @@ export const appRouter = createTRPCRouter({
     getMessageStatus: getMessageStatus,
     bulkMarkAsRead: bulkMarkAsRead,
     getConversationParticipants: getConversationParticipants,
+  }),
+  // Advanced Features
+  ai: createTRPCRouter({
+    recognizeFood: recognizeFoodProcedure,
+    getFoodHistory: getFoodHistoryProcedure,
+  }),
+  delivery: createTRPCRouter({
+    getOptions: getDeliveryOptionsProcedure,
+    initiateOrder: initiateOrderProcedure,
+    trackOrder: trackOrderProcedure,
+  }),
+  ar: createTRPCRouter({
+    getPreview: getARPreviewProcedure,
+    recordView: recordARViewProcedure,
+    getPopularDishes: getPopularARDishes,
+  }),
+  loyalty: createTRPCRouter({
+    getUserPoints: getUserPointsProcedure,
+    awardPoints: loyaltyAwardPointsProcedure,
+    getAvailableRewards: getAvailableRewardsProcedure,
+    redeemReward: loyaltyRedeemRewardProcedure,
+  }),
+  voice: createTRPCRouter({
+    processCommand: processVoiceCommandProcedure,
+    getHistory: getVoiceHistoryProcedure,
+    getSuggestions: getVoiceSuggestionsProcedure,
+  }),
+  health: createTRPCRouter({
+    getProfile: getHealthProfileProcedure,
+    updateProfile: updateHealthProfileProcedure,
+    getFoodTrails: getFoodTrailsProcedure,
+    getTourismSpots: getTourismSpotsProcedure,
+    startFoodTrail: startFoodTrailProcedure,
   }),
 });
 

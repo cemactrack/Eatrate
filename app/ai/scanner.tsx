@@ -1,13 +1,14 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useSettings } from '@/providers/SettingsProvider';
 import CalorieEstimator from '@/components/CalorieEstimator';
 import { trpc } from '@/lib/trpc';
-import { ArrowRight, MapPin, Utensils } from 'lucide-react-native';
+import { ArrowRight, MapPin, Utensils, History, Star, Clock, Zap } from 'lucide-react-native';
 import { useDebouncedValue } from '@/hooks/useQueries';
 import type { Restaurant } from '@/types/restaurant';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { FoodRecognition } from '@/types/advanced-features';
 
 export default function AIFoodScannerScreen() {
   const { colors } = useSettings();
