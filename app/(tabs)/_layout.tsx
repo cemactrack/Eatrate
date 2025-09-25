@@ -7,7 +7,9 @@ import { useAuth } from "@/providers/AuthProvider";
 
 export default function TabsLayout() {
   const router = useRouter();
-  const { user, isLoading } = useAuth();
+  const auth = useAuth();
+  const user = auth?.user ?? null;
+  const isLoading = auth?.isLoading ?? true;
   const redirectedRef = useRef<boolean>(false);
 
   useEffect(() => {
