@@ -3,6 +3,7 @@ import { fetchDoualaRestaurantsProcedure } from "./routes/restaurants/douala";
 import { fetchYaoundeRestaurantsProcedure } from "./routes/restaurants/yaounde";
 import { fetchBueaRestaurantsProcedure } from "./routes/restaurants/buea";
 import { fetchLimbeRestaurantsProcedure } from "./routes/restaurants/limbe";
+import { searchRestaurantsProcedure } from "./routes/restaurants/search";
 import hiRoute, {
   getPostsProcedure,
   createPostProcedure,
@@ -134,6 +135,7 @@ export const appRouter = createTRPCRouter({
   }),
   restaurants: createTRPCRouter({
     list: getRestaurantsProcedure,
+    search: searchRestaurantsProcedure,
     douala: fetchDoualaRestaurantsProcedure,
     yaounde: fetchYaoundeRestaurantsProcedure,
     buea: fetchBueaRestaurantsProcedure,

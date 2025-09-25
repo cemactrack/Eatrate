@@ -1,57 +1,86 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { MapPin, Clock } from 'lucide-react-native';
+import { MapPin, Clock, Heart } from 'lucide-react-native';
 import { Restaurant } from '@/types/restaurant';
 import StarRating from './StarRating';
-import Colors from '@/constants/colors';
+import { useSettings } from '@/providers/SettingsProvider';
 
 interface RestaurantCardProps {
   restaurant: Restaurant;
   onPress: () => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
+  compact?: boolean;
 }
 
-const RestaurantCard = React.memo(function RestaurantCard({ restaurant, onPress }: RestaurantCardProps) {
+const RestaurantCard = React.memo(function RestaurantCard({ 
+  restaurant, 
+  onPress, 
+  isFavorite = false, 
+  onToggleFavorite, 
+  compact = false 
+}: RestaurantCardProps) {
+  const { colors } = useSettings();
+  
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
-      <Image source={{ uri: restaurant.image }} style={styles.image} />
+    <TouchableOpacity style={[styles.card, { backgroundColor: colors.card }, compact && styles.compactCard]} onPress={onPress} activeOpacity={0.8}>
+      <View style={styles.imageContainer}>
+        <Image source={{ uri: restaurant.image }} style={[styles.image, compact && styles.compactImage, { backgroundColor: colors.border }]} />
+        {onToggleFavorite && (
+          <TouchableOpacity 
+            style={[styles.favoriteButton, { backgroundColor: colors.background }]} 
+            onPress={onToggleFavorite}
+          >
+            <Heart 
+              size={16} 
+              color={isFavorite ? colors.error : colors.secondary} 
+              fill={isFavorite ? colors.error : 'transparent'}
+            />
+          </TouchableOpacity>
+        )}
+      </View>
       
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.name} numberOfLines={1}>
+          <Text style={[styles.name, { color: colors.text }, compact && styles.compactName]} numberOfLines={1}>
             {restaurant.name}
           </Text>
-          <View style={styles.priceContainer}>
-            <Text style={styles.price}>{restaurant.priceRange}</Text>
+          <View style={[styles.priceContainer, { backgroundColor: colors.accent }]}>
+            <Text style={[styles.price, { color: colors.warning }]}>{restaurant.priceRange}</Text>
           </View>
         </View>
         
-        <Text style={styles.cuisine}>{restaurant.cuisine}</Text>
+        <Text style={[styles.cuisine, { color: colors.secondary }, compact && styles.compactCuisine]}>{restaurant.cuisine}</Text>
         
         <View style={styles.ratingContainer}>
-          <StarRating rating={restaurant.rating} size={14} showEmpty={false} />
-          <Text style={styles.rating}>{restaurant.rating}</Text>
-          <Text style={styles.reviewCount}>({restaurant.reviewCount})</Text>
+          <StarRating rating={restaurant.rating} size={compact ? 12 : 14} showEmpty={false} />
+          <Text style={[styles.rating, { color: colors.text }, compact && styles.compactRating]}>{restaurant.rating}</Text>
+          <Text style={[styles.reviewCount, { color: colors.secondary }, compact && styles.compactReviewCount]}>({restaurant.reviewCount})</Text>
         </View>
         
-        <View style={styles.footer}>
-          <View style={styles.locationContainer}>
-            <MapPin size={12} color={Colors.light.secondary} />
-            <Text style={styles.distance}>{restaurant.distance || 'Near you'}</Text>
-          </View>
-          
-          <View style={[styles.statusContainer, { backgroundColor: restaurant.isOpen ? Colors.light.success : Colors.light.secondary }]}>
-            <Clock size={10} color="white" />
-            <Text style={styles.status}>{restaurant.isOpen ? 'Open' : 'Closed'}</Text>
-          </View>
-        </View>
-        
-        <View style={styles.tagsContainer}>
-          {restaurant.tags.slice(0, 3).map((tag, index) => (
-            <View key={`tag-${restaurant.id}-${tag}-${index}`} style={styles.tag}>
-              <Text style={styles.tagText}>{tag}</Text>
+        {!compact && (
+          <View style={styles.footer}>
+            <View style={styles.locationContainer}>
+              <MapPin size={12} color={colors.secondary} />
+              <Text style={[styles.distance, { color: colors.secondary }]}>{restaurant.distance || 'Near you'}</Text>
             </View>
-          ))}
-        </View>
+            
+            <View style={[styles.statusContainer, { backgroundColor: restaurant.isOpen ? colors.success : colors.secondary }]}>
+              <Clock size={10} color="white" />
+              <Text style={styles.status}>{restaurant.isOpen ? 'Open' : 'Closed'}</Text>
+            </View>
+          </View>
+        )}
+        
+        {!compact && (
+          <View style={styles.tagsContainer}>
+            {restaurant.tags.slice(0, 3).map((tag, index) => (
+              <View key={`tag-${restaurant.id}-${tag}-${index}`} style={[styles.tag, { backgroundColor: colors.border }]}>
+                <Text style={[styles.tagText, { color: colors.secondary }]}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -61,7 +90,6 @@ export default RestaurantCard;
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.light.card,
     borderRadius: 16,
     marginHorizontal: 16,
     marginVertical: 8,
@@ -72,10 +100,34 @@ const styles = StyleSheet.create({
     elevation: 4,
     overflow: 'hidden',
   },
+  compactCard: {
+    marginHorizontal: 4,
+    marginVertical: 4,
+  },
+  imageContainer: {
+    position: 'relative',
+  },
   image: {
     width: '100%',
     height: 200,
-    backgroundColor: Colors.light.border,
+  },
+  compactImage: {
+    height: 120,
+  },
+  favoriteButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
   content: {
     padding: 16,
@@ -89,11 +141,12 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 18,
     fontWeight: '700',
-    color: Colors.light.text,
     flex: 1,
   },
+  compactName: {
+    fontSize: 16,
+  },
   priceContainer: {
-    backgroundColor: Colors.light.accent,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -101,12 +154,14 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.light.warning,
   },
   cuisine: {
     fontSize: 14,
-    color: Colors.light.secondary,
     marginBottom: 8,
+  },
+  compactCuisine: {
+    fontSize: 12,
+    marginBottom: 6,
   },
   ratingContainer: {
     flexDirection: 'row',
@@ -116,13 +171,19 @@ const styles = StyleSheet.create({
   rating: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.light.text,
     marginLeft: 6,
+  },
+  compactRating: {
+    fontSize: 12,
+    marginLeft: 4,
   },
   reviewCount: {
     fontSize: 14,
-    color: Colors.light.secondary,
     marginLeft: 4,
+  },
+  compactReviewCount: {
+    fontSize: 12,
+    marginLeft: 2,
   },
   footer: {
     flexDirection: 'row',
@@ -136,7 +197,6 @@ const styles = StyleSheet.create({
   },
   distance: {
     fontSize: 12,
-    color: Colors.light.secondary,
     marginLeft: 4,
   },
   statusContainer: {
@@ -157,7 +217,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   tag: {
-    backgroundColor: Colors.light.border,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -166,7 +225,6 @@ const styles = StyleSheet.create({
   },
   tagText: {
     fontSize: 12,
-    color: Colors.light.secondary,
     fontWeight: '500',
   },
 });

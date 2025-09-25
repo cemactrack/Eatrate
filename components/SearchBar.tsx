@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { Search, SlidersHorizontal } from 'lucide-react-native';
-import Colors from '@/constants/colors';
+import { useSettings } from '@/providers/SettingsProvider';
 
 interface SearchBarProps {
   value: string;
@@ -18,24 +18,26 @@ const SearchBar = React.memo(function SearchBar({
   placeholder = "Search restaurants, dishes...",
   onSubmitEditing
 }: SearchBarProps) {
+  const { colors } = useSettings();
+  
   return (
     <View style={styles.container}>
-      <View style={styles.searchContainer}>
-        <Search size={20} color={Colors.light.secondary} style={styles.searchIcon} />
+      <View style={[styles.searchContainer, { backgroundColor: colors.border }]}>
+        <Search size={20} color={colors.secondary} style={styles.searchIcon} />
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: colors.text }]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={Colors.light.secondary}
+          placeholderTextColor={colors.secondary}
           onSubmitEditing={onSubmitEditing}
           returnKeyType="search"
         />
       </View>
       
       {onFilterPress && (
-        <TouchableOpacity style={styles.filterButton} onPress={onFilterPress}>
-          <SlidersHorizontal size={20} color={Colors.light.tint} />
+        <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.accent }]} onPress={onFilterPress}>
+          <SlidersHorizontal size={20} color={colors.tint} />
         </TouchableOpacity>
       )}
     </View>
@@ -55,7 +57,6 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.light.border,
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 44,
@@ -66,12 +67,10 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: Colors.light.text,
   },
   filterButton: {
     marginLeft: 12,
     padding: 10,
-    backgroundColor: Colors.light.accent,
     borderRadius: 12,
   },
 });

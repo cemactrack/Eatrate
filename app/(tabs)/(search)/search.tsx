@@ -5,53 +5,228 @@ import {
   StyleSheet, 
   ScrollView, 
   TouchableOpacity,
-  FlatList
+  FlatList,
+  ActivityIndicator,
+  RefreshControl,
+  Modal
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
+import { MapPin, Filter, SortAsc, Grid, List } from 'lucide-react-native';
 import { trpc } from '@/lib/trpc';
 import RestaurantCard from '@/components/RestaurantCard';
 import SearchBar from '@/components/SearchBar';
 import { useSettings } from '@/providers/SettingsProvider';
+import { Restaurant } from '@/types/restaurant';
+
+type SortOption = 'name' | 'rating' | 'reviewCount' | 'distance';
+type ViewMode = 'list' | 'grid';
+type LocationFilter = 'all' | 'douala' | 'yaounde' | 'buea' | 'limbe';
+
+interface SearchFilters {
+  location: LocationFilter;
+  priceRange: string[];
+  rating: number;
+  isOpen: boolean | null;
+  sortBy: SortOption;
+  sortOrder: 'asc' | 'desc';
+}
 
 export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCuisine, setSelectedCuisine] = useState<string>('All');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [showFilters, setShowFilters] = useState<boolean>(false);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [filters, setFilters] = useState<SearchFilters>({
+    location: 'all',
+    priceRange: [],
+    rating: 0,
+    isOpen: null,
+    sortBy: 'rating',
+    sortOrder: 'desc'
+  });
+  
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { colors } = useSettings();
 
-  const restaurantsQuery = trpc.restaurants.douala.useQuery({}, { 
-    staleTime: 1000 * 60 * 20,
-    retry: 0,
-    refetchOnMount: false,
-  });
-  const { data, isLoading, error } = restaurantsQuery;
+  // Fetch restaurants from multiple locations based on filter
+  const doualaQuery = trpc.restaurants.douala.useQuery(
+    { pages: [1, 2] }, 
+    { 
+      enabled: filters.location === 'all' || filters.location === 'douala',
+      staleTime: 1000 * 60 * 30,
+      retry: 1
+    }
+  );
+  
+  const yaoundeQuery = trpc.restaurants.yaounde.useQuery(
+    { pages: [1, 2] }, 
+    { 
+      enabled: filters.location === 'all' || filters.location === 'yaounde',
+      staleTime: 1000 * 60 * 30,
+      retry: 1
+    }
+  );
+  
+  const bueaQuery = trpc.restaurants.buea.useQuery(
+    { pages: [1] }, 
+    { 
+      enabled: filters.location === 'all' || filters.location === 'buea',
+      staleTime: 1000 * 60 * 30,
+      retry: 1
+    }
+  );
+  
+  const limbeQuery = trpc.restaurants.limbe.useQuery(
+    { pages: [1] }, 
+    { 
+      enabled: filters.location === 'all' || filters.location === 'limbe',
+      staleTime: 1000 * 60 * 30,
+      retry: 1
+    }
+  );
+
+  // Combine all restaurant data
+  const allRestaurants = useMemo(() => {
+    const restaurants: Restaurant[] = [];
+    
+    if (doualaQuery.data?.restaurants) {
+      restaurants.push(...doualaQuery.data.restaurants);
+    }
+    if (yaoundeQuery.data?.restaurants) {
+      restaurants.push(...yaoundeQuery.data.restaurants);
+    }
+    if (bueaQuery.data?.restaurants) {
+      restaurants.push(...bueaQuery.data.restaurants);
+    }
+    if (limbeQuery.data?.restaurants) {
+      restaurants.push(...limbeQuery.data.restaurants);
+    }
+    
+    // Remove duplicates based on name
+    const unique = new Map<string, Restaurant>();
+    restaurants.forEach(r => {
+      const key = r.name.toLowerCase().trim();
+      if (!unique.has(key)) {
+        unique.set(key, r);
+      }
+    });
+    
+    return Array.from(unique.values());
+  }, [doualaQuery.data, yaoundeQuery.data, bueaQuery.data, limbeQuery.data]);
+
+  const isLoading = doualaQuery.isLoading || yaoundeQuery.isLoading || bueaQuery.isLoading || limbeQuery.isLoading;
+  const hasError = doualaQuery.error || yaoundeQuery.error || bueaQuery.error || limbeQuery.error;
 
   const cuisines = useMemo(() => {
     const set = new Set<string>(['All']);
-    (data?.restaurants ?? []).forEach((r: import('@/types/restaurant').Restaurant) => set.add(r.cuisine));
-    return Array.from(set);
-  }, [data?.restaurants]);
+    allRestaurants.forEach((r: Restaurant) => set.add(r.cuisine));
+    return Array.from(set).sort();
+  }, [allRestaurants]);
 
-  const filteredRestaurants = useMemo(() => {
-    const list: import('@/types/restaurant').Restaurant[] = data?.restaurants ?? [];
-    return list.filter((restaurant: import('@/types/restaurant').Restaurant) => {
+  const filteredAndSortedRestaurants = useMemo(() => {
+    let filtered = allRestaurants.filter((restaurant: Restaurant) => {
       const query = searchQuery.toLowerCase();
-      const matchesSearch = restaurant.name.toLowerCase().includes(query) ||
-                           restaurant.cuisine.toLowerCase().includes(query) ||
-                           restaurant.tags.some((tag: string) => tag.toLowerCase().includes(query));
+      const matchesSearch = !query || 
+        restaurant.name.toLowerCase().includes(query) ||
+        restaurant.cuisine.toLowerCase().includes(query) ||
+        restaurant.address.toLowerCase().includes(query) ||
+        restaurant.tags.some((tag: string) => tag.toLowerCase().includes(query));
       
       const matchesCuisine = selectedCuisine === 'All' || restaurant.cuisine === selectedCuisine;
       
-      return matchesSearch && matchesCuisine;
+      const matchesPriceRange = filters.priceRange.length === 0 || 
+        filters.priceRange.includes(restaurant.priceRange);
+      
+      const matchesRating = restaurant.rating >= filters.rating;
+      
+      const matchesOpenStatus = filters.isOpen === null || restaurant.isOpen === filters.isOpen;
+      
+      return matchesSearch && matchesCuisine && matchesPriceRange && matchesRating && matchesOpenStatus;
     });
-  }, [data?.restaurants, searchQuery, selectedCuisine]);
+
+    // Sort results
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (filters.sortBy) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'rating':
+          comparison = a.rating - b.rating;
+          break;
+        case 'reviewCount':
+          comparison = a.reviewCount - b.reviewCount;
+          break;
+        case 'distance':
+          // Mock distance sorting - in real app would use actual location
+          comparison = Math.random() - 0.5;
+          break;
+        default:
+          comparison = 0;
+      }
+      
+      return filters.sortOrder === 'desc' ? -comparison : comparison;
+    });
+    
+    return filtered;
+  }, [allRestaurants, searchQuery, selectedCuisine, filters]);
 
   const handleRestaurantPress = useCallback((restaurantId: string) => {
     console.log('Restaurant pressed:', restaurantId);
     router.push(`/restaurants/${restaurantId}` as const);
   }, [router]);
+
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+  }, []);
+
+  const toggleFavorite = useCallback((restaurantId: string) => {
+    setFavorites(prev => {
+      const newFavorites = new Set(prev);
+      if (newFavorites.has(restaurantId)) {
+        newFavorites.delete(restaurantId);
+      } else {
+        newFavorites.add(restaurantId);
+      }
+      return newFavorites;
+    });
+  }, []);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        doualaQuery.refetch(),
+        yaoundeQuery.refetch(),
+        bueaQuery.refetch(),
+        limbeQuery.refetch()
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [doualaQuery, yaoundeQuery, bueaQuery, limbeQuery]);
+
+  const updateFilter = useCallback(<K extends keyof SearchFilters>(key: K, value: SearchFilters[K]) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setFilters({
+      location: 'all',
+      priceRange: [],
+      rating: 0,
+      isOpen: null,
+      sortBy: 'rating',
+      sortOrder: 'desc'
+    });
+    setSelectedCuisine('All');
+    setSearchQuery('');
+  }, []);
 
   const handleCuisineSelect = useCallback((cuisine: string) => {
     if (cuisine && cuisine.trim() && cuisine.length <= 50) {
@@ -66,9 +241,53 @@ export default function SearchScreen() {
       {/* Search Bar */}
       <SearchBar
         value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder="Search restaurants, cuisines..."
+        onChangeText={handleSearch}
+        placeholder="Search restaurants, cuisines, locations..."
+        onFilterPress={() => setShowFilters(true)}
       />
+
+      {/* Quick Actions */}
+      <View style={[styles.quickActions, { backgroundColor: colors.background }]}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickActionsContent}>
+          <TouchableOpacity 
+            style={[styles.quickAction, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => updateFilter('location', filters.location === 'douala' ? 'all' : 'douala')}
+          >
+            <MapPin size={16} color={filters.location === 'douala' ? colors.tint : colors.secondary} />
+            <Text style={[styles.quickActionText, { 
+              color: filters.location === 'douala' ? colors.tint : colors.secondary 
+            }]}>Douala</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.quickAction, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => updateFilter('location', filters.location === 'yaounde' ? 'all' : 'yaounde')}
+          >
+            <MapPin size={16} color={filters.location === 'yaounde' ? colors.tint : colors.secondary} />
+            <Text style={[styles.quickActionText, { 
+              color: filters.location === 'yaounde' ? colors.tint : colors.secondary 
+            }]}>Yaoundé</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.quickAction, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => updateFilter('isOpen', filters.isOpen === true ? null : true)}
+          >
+            <Text style={[styles.quickActionText, { 
+              color: filters.isOpen === true ? colors.tint : colors.secondary 
+            }]}>Open Now</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.quickAction, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => updateFilter('rating', filters.rating >= 4 ? 0 : 4)}
+          >
+            <Text style={[styles.quickActionText, { 
+              color: filters.rating >= 4 ? colors.tint : colors.secondary 
+            }]}>4+ Stars</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
 
       {/* Cuisine Filter */}
       <ScrollView 
@@ -98,41 +317,232 @@ export default function SearchScreen() {
         ))}
       </ScrollView>
 
-      {/* Results */}
+      {/* Results Header */}
       <View style={[styles.resultsHeader, { borderBottomColor: colors.border }]}>
-        <Text style={[styles.resultsCount, { color: colors.secondary }]}>
-          {isLoading ? 'Loading…' : `${filteredRestaurants.length} restaurants found`}
-        </Text>
+        <View style={styles.resultsInfo}>
+          <Text style={[styles.resultsCount, { color: colors.secondary }]}>
+            {isLoading ? 'Loading…' : `${filteredAndSortedRestaurants.length} restaurants found`}
+          </Text>
+          {filters.location !== 'all' && (
+            <Text style={[styles.locationFilter, { color: colors.tint }]}>
+              in {filters.location.charAt(0).toUpperCase() + filters.location.slice(1)}
+            </Text>
+          )}
+        </View>
+        
+        <View style={styles.viewControls}>
+          <TouchableOpacity 
+            style={[styles.sortButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => {
+              const newOrder = filters.sortOrder === 'asc' ? 'desc' : 'asc';
+              updateFilter('sortOrder', newOrder);
+            }}
+          >
+            <SortAsc size={16} color={colors.secondary} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.viewButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
+          >
+            {viewMode === 'list' ? 
+              <Grid size={16} color={colors.secondary} /> : 
+              <List size={16} color={colors.secondary} />
+            }
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {error ? (
+      {hasError ? (
         <View style={styles.listContent} testID="search-error">
-          <Text style={[styles.resultsCount, { color: colors.error }]}>Could not load restaurants</Text>
-          <TouchableOpacity onPress={() => restaurantsQuery.refetch()} style={[styles.retryBtn, { backgroundColor: colors.tint }]} testID="retry-load">
+          <Text style={[styles.errorTitle, { color: colors.error }]}>Could not load restaurants</Text>
+          <Text style={[styles.errorSubtitle, { color: colors.secondary }]}>Check your connection and try again</Text>
+          <TouchableOpacity onPress={handleRefresh} style={[styles.retryBtn, { backgroundColor: colors.tint }]} testID="retry-load">
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <FlatList
-          data={filteredRestaurants}
+          data={filteredAndSortedRestaurants}
           renderItem={({ item }) => (
-            <RestaurantCard
-              restaurant={item}
-              onPress={() => handleRestaurantPress(item.id)}
-            />
+            <View style={viewMode === 'grid' ? styles.gridItem : undefined}>
+              <RestaurantCard
+                restaurant={item}
+                onPress={() => handleRestaurantPress(item.id)}
+              />
+            </View>
           )}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
           testID="search-results-list"
+          numColumns={viewMode === 'grid' ? 2 : 1}
+          key={viewMode} // Force re-render when view mode changes
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.tint}
+              colors={[colors.tint]}
+            />
+          }
           ListEmptyComponent={!isLoading ? (
             <View style={styles.emptyState} testID="empty-results">
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>No restaurants match</Text>
-              <Text style={[styles.emptySubtitle, { color: colors.secondary }]}>Try a different search or filter</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>No restaurants found</Text>
+              <Text style={[styles.emptySubtitle, { color: colors.secondary }]}>Try adjusting your search or filters</Text>
+              {(searchQuery || selectedCuisine !== 'All' || filters.location !== 'all') && (
+                <TouchableOpacity 
+                  style={[styles.clearFiltersBtn, { backgroundColor: colors.tint }]} 
+                  onPress={clearFilters}
+                >
+                  <Text style={styles.clearFiltersText}>Clear All Filters</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : null}
+          ListHeaderComponent={isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.tint} />
+              <Text style={[styles.loadingText, { color: colors.secondary }]}>Finding restaurants...</Text>
             </View>
           ) : null}
         />
       )}
+
+      {/* Advanced Filters Modal */}
+      <Modal
+        visible={showFilters}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowFilters(false)}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Filters & Sort</Text>
+            <TouchableOpacity onPress={() => setShowFilters(false)}>
+              <Text style={[styles.modalClose, { color: colors.tint }]}>Done</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalContent}>
+            {/* Location Filter */}
+            <View style={styles.filterSection}>
+              <Text style={[styles.filterTitle, { color: colors.text }]}>Location</Text>
+              <View style={styles.filterOptions}>
+                {(['all', 'douala', 'yaounde', 'buea', 'limbe'] as LocationFilter[]).map((location) => (
+                  <TouchableOpacity
+                    key={location}
+                    style={[
+                      styles.filterOption,
+                      { backgroundColor: colors.card, borderColor: colors.border },
+                      filters.location === location && { backgroundColor: colors.tint, borderColor: colors.tint }
+                    ]}
+                    onPress={() => updateFilter('location', location)}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      { color: colors.text },
+                      filters.location === location && { color: '#FFFFFF' }
+                    ]}>
+                      {location === 'all' ? 'All Cities' : location.charAt(0).toUpperCase() + location.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            
+            {/* Price Range Filter */}
+            <View style={styles.filterSection}>
+              <Text style={[styles.filterTitle, { color: colors.text }]}>Price Range</Text>
+              <View style={styles.filterOptions}>
+                {['$', '$$', '$$$', '$$$$'].map((price) => (
+                  <TouchableOpacity
+                    key={price}
+                    style={[
+                      styles.filterOption,
+                      { backgroundColor: colors.card, borderColor: colors.border },
+                      filters.priceRange.includes(price) && { backgroundColor: colors.tint, borderColor: colors.tint }
+                    ]}
+                    onPress={() => {
+                      const newPriceRange = filters.priceRange.includes(price)
+                        ? filters.priceRange.filter(p => p !== price)
+                        : [...filters.priceRange, price];
+                      updateFilter('priceRange', newPriceRange);
+                    }}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      { color: colors.text },
+                      filters.priceRange.includes(price) && { color: '#FFFFFF' }
+                    ]}>
+                      {price}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            
+            {/* Rating Filter */}
+            <View style={styles.filterSection}>
+              <Text style={[styles.filterTitle, { color: colors.text }]}>Minimum Rating</Text>
+              <View style={styles.filterOptions}>
+                {[0, 3, 4, 4.5].map((rating) => (
+                  <TouchableOpacity
+                    key={rating}
+                    style={[
+                      styles.filterOption,
+                      { backgroundColor: colors.card, borderColor: colors.border },
+                      filters.rating === rating && { backgroundColor: colors.tint, borderColor: colors.tint }
+                    ]}
+                    onPress={() => updateFilter('rating', rating)}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      { color: colors.text },
+                      filters.rating === rating && { color: '#FFFFFF' }
+                    ]}>
+                      {rating === 0 ? 'Any' : `${rating}+ Stars`}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            
+            {/* Sort Options */}
+            <View style={styles.filterSection}>
+              <Text style={[styles.filterTitle, { color: colors.text }]}>Sort By</Text>
+              <View style={styles.filterOptions}>
+                {([{ key: 'rating', label: 'Rating' }, { key: 'name', label: 'Name' }, { key: 'reviewCount', label: 'Reviews' }] as { key: SortOption, label: string }[]).map(({ key, label }) => (
+                  <TouchableOpacity
+                    key={key}
+                    style={[
+                      styles.filterOption,
+                      { backgroundColor: colors.card, borderColor: colors.border },
+                      filters.sortBy === key && { backgroundColor: colors.tint, borderColor: colors.tint }
+                    ]}
+                    onPress={() => updateFilter('sortBy', key)}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      { color: colors.text },
+                      filters.sortBy === key && { color: '#FFFFFF' }
+                    ]}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            
+            <TouchableOpacity 
+              style={[styles.clearAllBtn, { backgroundColor: colors.error }]} 
+              onPress={clearFilters}
+            >
+              <Text style={styles.clearAllText}>Clear All Filters</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -140,6 +550,26 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  quickActions: {
+    paddingVertical: 8,
+  },
+  quickActionsContent: {
+    paddingHorizontal: 16,
+  },
+  quickAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 4,
   },
   filterContainer: {
     maxHeight: 60,
@@ -159,22 +589,71 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   resultsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
+  },
+  resultsInfo: {
+    flex: 1,
   },
   resultsCount: {
     fontSize: 16,
     fontWeight: '500',
   },
+  locationFilter: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  viewControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sortButton: {
+    padding: 8,
+    borderRadius: 8,
+    marginRight: 8,
+    borderWidth: 1,
+  },
+  viewButton: {
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
   listContent: {
     paddingBottom: 16,
+  },
+  gridItem: {
+    flex: 1,
+    margin: 4,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  loadingText: {
+    marginTop: 8,
+    fontSize: 14,
+  },
+  errorTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  errorSubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 16,
   },
   retryBtn: {
     marginTop: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
     borderRadius: 8,
   },
   retryText: {
@@ -184,13 +663,86 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     paddingVertical: 40,
+    paddingHorizontal: 20,
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
+    textAlign: 'center',
   },
   emptySubtitle: {
-    marginTop: 6,
+    marginTop: 8,
     fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  clearFiltersBtn: {
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  clearFiltersText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  modalClose: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  filterSection: {
+    marginVertical: 16,
+  },
+  filterTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  filterOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  filterOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+  },
+  filterOptionText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  clearAllBtn: {
+    marginVertical: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  clearAllText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
