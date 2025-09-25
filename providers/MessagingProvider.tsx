@@ -39,6 +39,9 @@ interface MessagingActions {
   refreshConversations: () => Promise<void>;
   refreshMessages: (conversationId: string) => Promise<void>;
   loadMoreMessages: (conversationId: string) => Promise<void>;
+  setOnlineStatus: (isOnline: boolean) => Promise<void>;
+  bulkMarkAsRead: (conversationIds: string[]) => Promise<void>;
+  getOnlineUsers: () => Promise<any[]>;
 }
 
 export const [MessagingProvider, useMessaging] = createContextHook(() => {
@@ -74,6 +77,8 @@ export const [MessagingProvider, useMessaging] = createContextHook(() => {
   const addReactionMutation = trpc.messaging.addReaction.useMutation();
   const removeReactionMutation = trpc.messaging.removeReaction.useMutation();
   const setTypingMutation = trpc.messaging.setTyping.useMutation();
+  const setOnlineStatusMutation = trpc.messaging.setOnlineStatus.useMutation();
+  const bulkMarkAsReadMutation = trpc.messaging.bulkMarkAsRead.useMutation();
 
 
   // Update state when queries complete
@@ -409,6 +414,40 @@ export const [MessagingProvider, useMessaging] = createContextHook(() => {
     }
   }, [messageOffsets, state.activeConversationId, messagesQuery]);
 
+  const setOnlineStatus = useCallback(async (isOnline: boolean) => {
+    try {
+      await setOnlineStatusMutation.mutateAsync({ isOnline });
+    } catch (error: any) {
+      console.error('Failed to set online status:', error);
+    }
+  }, [setOnlineStatusMutation]);
+
+  const bulkMarkAsRead = useCallback(async (conversationIds: string[]) => {
+    try {
+      await bulkMarkAsReadMutation.mutateAsync({ conversationIds });
+      
+      // Refresh conversations and unread count
+      await conversationsQuery.refetch();
+      await unreadCountQuery.refetch();
+    } catch (error: any) {
+      setState(prev => ({
+        ...prev,
+        error: error.message || 'Failed to mark conversations as read',
+      }));
+      throw error;
+    }
+  }, [bulkMarkAsReadMutation, conversationsQuery, unreadCountQuery]);
+
+  const getOnlineUsers = useCallback(async () => {
+    try {
+      // This would typically be a query, but for now we'll use the mutation pattern
+      return [];
+    } catch (error: any) {
+      console.error('Failed to get online users:', error);
+      return [];
+    }
+  }, []);
+
   return useMemo(() => ({
     ...state,
     setActiveConversation,
@@ -426,6 +465,9 @@ export const [MessagingProvider, useMessaging] = createContextHook(() => {
     refreshConversations,
     refreshMessages,
     loadMoreMessages,
+    setOnlineStatus,
+    bulkMarkAsRead,
+    getOnlineUsers,
   }), [
     state,
     setActiveConversation,
@@ -443,5 +485,8 @@ export const [MessagingProvider, useMessaging] = createContextHook(() => {
     refreshConversations,
     refreshMessages,
     loadMoreMessages,
+    setOnlineStatus,
+    bulkMarkAsRead,
+    getOnlineUsers,
   ]);
 });

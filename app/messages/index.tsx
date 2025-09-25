@@ -22,7 +22,11 @@ interface ConversationItemProps {
   onLongPress: () => void;
 }
 
-const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, onPress, onLongPress }) => {
+const ConversationItem: React.FC<ConversationItemProps & { 
+  isSelected?: boolean;
+  isSelectionMode?: boolean;
+  onToggleSelection?: () => void;
+}> = ({ conversation, onPress, onLongPress, isSelected, isSelectionMode, onToggleSelection }) => {
   const formatTime = (date: Date) => {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
@@ -62,11 +66,21 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, onPre
 
   return (
     <TouchableOpacity
-      style={styles.conversationItem}
-      onPress={onPress}
+      style={[
+        styles.conversationItem,
+        isSelected && styles.selectedConversationItem,
+      ]}
+      onPress={isSelectionMode ? onToggleSelection : onPress}
       onLongPress={onLongPress}
       testID={`conversation-${conversation.id}`}
     >
+      {isSelectionMode && (
+        <View style={styles.selectionIndicator}>
+          <View style={[styles.checkbox, isSelected && styles.checkedBox]}>
+            {isSelected && <Text style={styles.checkmark}>✓</Text>}
+          </View>
+        </View>
+      )}
       <View style={styles.avatarContainer}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>
@@ -124,6 +138,8 @@ export default function MessagingScreen() {
     refreshConversations,
     archiveConversation,
     searchConversations,
+    bulkMarkAsRead,
+    setOnlineStatus,
   } = useMessaging();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -131,6 +147,8 @@ export default function MessagingScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [selectedConversations, setSelectedConversations] = useState<string[]>([]);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
 
   useEffect(() => {
     if (searchQuery.trim()) {
@@ -141,6 +159,15 @@ export default function MessagingScreen() {
       setFilteredConversations(conversations);
     }
   }, [searchQuery, conversations, searchConversations]);
+
+  // Set online status when component mounts
+  useEffect(() => {
+    setOnlineStatus(true).catch(console.error);
+    
+    return () => {
+      setOnlineStatus(false).catch(console.error);
+    };
+  }, [setOnlineStatus]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -177,11 +204,37 @@ export default function MessagingScreen() {
     router.push('/messages/new' as any);
   };
 
+  const handleBulkMarkAsRead = async () => {
+    if (selectedConversations.length === 0) return;
+    
+    try {
+      await bulkMarkAsRead(selectedConversations);
+      setSelectedConversations([]);
+      setIsSelectionMode(false);
+      setToastMessage(`Marked ${selectedConversations.length} conversations as read`);
+      setShowToast(true);
+    } catch (err) {
+      setToastMessage('Failed to mark conversations as read');
+      setShowToast(true);
+    }
+  };
+
+  const toggleConversationSelection = (conversationId: string) => {
+    setSelectedConversations(prev => 
+      prev.includes(conversationId)
+        ? prev.filter(id => id !== conversationId)
+        : [...prev, conversationId]
+    );
+  };
+
   const renderConversationItem = ({ item }: { item: ConversationWithDetails }) => (
     <ConversationItem
       conversation={item}
       onPress={() => handleConversationPress(item)}
       onLongPress={() => handleConversationLongPress(item)}
+      isSelected={selectedConversations.includes(item.id)}
+      isSelectionMode={isSelectionMode}
+      onToggleSelection={() => toggleConversationSelection(item.id)}
     />
   );
 
@@ -221,12 +274,39 @@ export default function MessagingScreen() {
     <SafeAreaView style={styles.container}>
       <Stack.Screen
         options={{
-          title: `Messages${unreadCount > 0 ? ` (${unreadCount})` : ''}`,
+          title: isSelectionMode 
+            ? `${selectedConversations.length} selected`
+            : `Messages${unreadCount > 0 ? ` (${unreadCount})` : ''}`,
           headerRight: () => (
             <View style={styles.headerActions}>
-              <TouchableOpacity onPress={handleNewMessage} style={styles.headerButton}>
-                <Plus size={24} color="#007AFF" />
-              </TouchableOpacity>
+              {isSelectionMode ? (
+                <>
+                  <TouchableOpacity onPress={handleBulkMarkAsRead} style={styles.headerButton}>
+                    <Text style={styles.headerButtonText}>Mark Read</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      setIsSelectionMode(false);
+                      setSelectedConversations([]);
+                    }} 
+                    style={styles.headerButton}
+                  >
+                    <Text style={styles.headerButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity 
+                    onPress={() => setIsSelectionMode(true)} 
+                    style={styles.headerButton}
+                  >
+                    <Text style={styles.headerButtonText}>Select</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleNewMessage} style={styles.headerButton}>
+                    <Plus size={24} color="#007AFF" />
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           ),
         }}
@@ -283,6 +363,35 @@ const styles = StyleSheet.create({
   },
   headerButton: {
     marginLeft: 16,
+  },
+  headerButtonText: {
+    color: '#007AFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  selectedConversationItem: {
+    backgroundColor: '#e3f2fd',
+  },
+  selectionIndicator: {
+    marginRight: 12,
+    justifyContent: 'center',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkedBox: {
+    backgroundColor: '#007AFF',
+  },
+  checkmark: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   searchContainer: {
     paddingHorizontal: 16,

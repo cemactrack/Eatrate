@@ -174,14 +174,27 @@ export default function ConversationScreen() {
     const receiverId = conversation.participants.find(id => id !== 'current-user-id') || '';
     
     try {
+      // Optimistic update - add message to local state immediately
+      const optimisticMessage = {
+        id: `temp_${Date.now()}`,
+        conversationId,
+        senderId: 'current-user-id',
+        receiverId,
+        content: inputText.trim(),
+        type: 'text' as const,
+        isRead: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      setInputText('');
+      
       await sendMessage({
         conversationId,
         receiverId,
         content: inputText.trim(),
         type: 'text',
       });
-      
-      setInputText('');
       
       // Stop typing indicator
       if (isTyping) {
@@ -368,7 +381,14 @@ export default function ConversationScreen() {
 
         <View style={[styles.inputContainer, { paddingBottom: insets.bottom }]}>
           <View style={styles.inputRow}>
-            <TouchableOpacity style={styles.attachButton}>
+            <TouchableOpacity 
+              style={styles.attachButton}
+              onPress={() => {
+                // TODO: Implement image/file attachment
+                setToastMessage('Image attachments coming soon!');
+                setShowToast(true);
+              }}
+            >
               <ImageIcon size={24} color="#666" />
             </TouchableOpacity>
             

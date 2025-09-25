@@ -20,10 +20,11 @@ interface ContactItemProps {
   type: 'user' | 'restaurant';
   avatar?: string;
   isVerified?: boolean;
+  isOnline?: boolean;
   onPress: () => void;
 }
 
-const ContactItem: React.FC<ContactItemProps> = ({ id, name, type, isVerified, onPress }) => {
+const ContactItem: React.FC<ContactItemProps> = ({ id, name, type, isVerified, isOnline, onPress }) => {
   return (
     <TouchableOpacity
       style={styles.contactItem}
@@ -40,6 +41,9 @@ const ContactItem: React.FC<ContactItemProps> = ({ id, name, type, isVerified, o
             </Text>
           )}
         </View>
+        {type === 'user' && isOnline && (
+          <View style={styles.onlineIndicator} />
+        )}
       </View>
 
       <View style={styles.contactContent}>
@@ -48,7 +52,7 @@ const ContactItem: React.FC<ContactItemProps> = ({ id, name, type, isVerified, o
           {isVerified && <Text style={styles.verifiedBadge}> ✓</Text>}
         </Text>
         <Text style={styles.contactType}>
-          {type === 'restaurant' ? 'Restaurant' : 'User'}
+          {type === 'restaurant' ? 'Restaurant' : isOnline ? 'Online' : 'User'}
         </Text>
       </View>
     </TouchableOpacity>
@@ -63,14 +67,17 @@ export default function NewMessageScreen() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
-  // Mock contacts data
+  // Mock contacts data - In production, this would come from API
   const mockContacts = [
-    { id: 'user1', name: 'John Doe', type: 'user' as const },
-    { id: 'user2', name: 'Jane Smith', type: 'user' as const },
-    { id: 'user3', name: 'Chef Mike', type: 'user' as const },
+    { id: 'user1', name: 'John Doe', type: 'user' as const, isOnline: true },
+    { id: 'user2', name: 'Jane Smith', type: 'user' as const, isOnline: false },
+    { id: 'user3', name: 'Chef Mike', type: 'user' as const, isOnline: true },
     { id: 'rest1', name: 'Le Bistro', type: 'restaurant' as const, isVerified: true },
     { id: 'rest2', name: 'Pizza Palace', type: 'restaurant' as const, isVerified: false },
     { id: 'rest3', name: 'Sushi Master', type: 'restaurant' as const, isVerified: true },
+    { id: 'rest4', name: 'Cameroon Delights', type: 'restaurant' as const, isVerified: true },
+    { id: 'user4', name: 'Marie Dubois', type: 'user' as const, isOnline: false },
+    { id: 'user5', name: 'Paul Ngozi', type: 'user' as const, isOnline: true },
   ];
 
   const filteredContacts = mockContacts.filter(contact =>
@@ -98,6 +105,7 @@ export default function NewMessageScreen() {
       name={item.name}
       type={item.type}
       isVerified={item.isVerified}
+      isOnline={item.isOnline}
       onPress={() => handleContactPress(item)}
     />
   );
@@ -246,6 +254,17 @@ const styles = StyleSheet.create({
   contactType: {
     fontSize: 14,
     color: '#666',
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#4CAF50',
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   emptyContainer: {
     flex: 1,

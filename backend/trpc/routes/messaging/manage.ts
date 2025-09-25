@@ -12,11 +12,11 @@ const messageReports: MessageReport[] = [];
 const onlineUsers = new Set<string>();
 const typingUsers = new Map<string, Set<string>>();
 
-// Mock user data
-const mockUsers = [
-  { id: 'user1', username: 'john_doe', displayName: 'John Doe', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face' },
-  { id: 'user2', username: 'jane_smith', displayName: 'Jane Smith', avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face' },
-  { id: 'user3', username: 'chef_mike', displayName: 'Chef Mike', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face' },
+// Mock user data - In production, this would come from a real database
+const mockUsers: MockUser[] = [
+  { id: 'user1', username: 'john_doe', displayName: 'John Doe', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face', email: 'john@example.com', isOnline: true, lastSeen: new Date() },
+  { id: 'user2', username: 'jane_smith', displayName: 'Jane Smith', avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face', email: 'jane@example.com', isOnline: false, lastSeen: new Date(Date.now() - 300000) },
+  { id: 'user3', username: 'chef_mike', displayName: 'Chef Mike', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face', email: 'chef@example.com', isOnline: true, lastSeen: new Date() },
 ];
 
 interface MockUser {
@@ -24,6 +24,9 @@ interface MockUser {
   username: string;
   displayName: string;
   avatar?: string;
+  email: string;
+  isOnline: boolean;
+  lastSeen: Date;
 }
 
 interface MockRestaurant {
@@ -33,7 +36,7 @@ interface MockRestaurant {
   isVerified: boolean;
 }
 
-const mockRestaurants = [
+const mockRestaurants: MockRestaurant[] = [
   { id: 'rest1', name: 'Le Bistro', avatar: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=150&h=150&fit=crop', isVerified: true },
   { id: 'rest2', name: 'Pizza Palace', avatar: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=150&h=150&fit=crop', isVerified: false },
 ];
@@ -731,4 +734,179 @@ export const getUnreadCount = protectedProcedure
     const totalUnread = userConversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
 
     return { unreadCount: totalUnread };
+  });
+
+// Get online users and contacts
+export const getOnlineUsers = protectedProcedure
+  .query(async ({ ctx }) => {
+    const userId = ctx.user.id;
+    
+    // Get users that current user has conversations with
+    const userConversations = conversations.filter(conv => 
+      conv.participants.includes(userId)
+    );
+    
+    const contactIds = new Set<string>();
+    userConversations.forEach(conv => {
+      conv.participants.forEach(id => {
+        if (id !== userId) contactIds.add(id);
+      });
+    });
+    
+    const onlineContacts = Array.from(contactIds)
+      .map(id => mockUsers.find(u => u.id === id))
+      .filter(user => user && onlineUsers.has(user.id))
+      .map(user => ({
+        id: user!.id,
+        username: user!.username,
+        displayName: user!.displayName,
+        avatar: user!.avatar,
+        isOnline: true,
+      }));
+    
+    return onlineContacts;
+  });
+
+// Set user online status
+export const setOnlineStatus = protectedProcedure
+  .input(z.object({
+    isOnline: z.boolean(),
+  }))
+  .mutation(async ({ ctx, input }) => {
+    const userId = ctx.user.id;
+    
+    if (input.isOnline) {
+      onlineUsers.add(userId);
+    } else {
+      onlineUsers.delete(userId);
+      
+      // Update last seen for user
+      const user = mockUsers.find(u => u.id === userId);
+      if (user) {
+        user.lastSeen = new Date();
+      }
+    }
+    
+    return { success: true };
+  });
+
+// Get message delivery status
+export const getMessageStatus = protectedProcedure
+  .input(z.object({
+    messageId: z.string(),
+  }))
+  .query(async ({ ctx, input }) => {
+    const message = messages.find(m => m.id === input.messageId);
+    
+    if (!message) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Message not found',
+      });
+    }
+    
+    // Check if user has access to this message
+    const conversation = conversations.find(c => 
+      c.id === message.conversationId && c.participants.includes(ctx.user.id)
+    );
+    
+    if (!conversation) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'Access denied',
+      });
+    }
+    
+    return {
+      messageId: message.id,
+      status: message.isRead ? 'read' : 'delivered',
+      timestamp: message.updatedAt,
+    };
+  });
+
+// Bulk operations
+export const bulkMarkAsRead = protectedProcedure
+  .input(z.object({
+    conversationIds: z.array(z.string()),
+  }))
+  .mutation(async ({ ctx, input }) => {
+    const userId = ctx.user.id;
+    let totalMarked = 0;
+    
+    for (const conversationId of input.conversationIds) {
+      const conversation = conversations.find(c => 
+        c.id === conversationId && c.participants.includes(userId)
+      );
+      
+      if (conversation) {
+        const conversationMessages = messages.filter(m => 
+          m.conversationId === conversationId && 
+          m.receiverId === userId && 
+          !m.isRead
+        );
+        
+        conversationMessages.forEach(message => {
+          message.isRead = true;
+          message.updatedAt = new Date();
+          totalMarked++;
+        });
+        
+        conversation.unreadCount = 0;
+      }
+    }
+    
+    return { markedCount: totalMarked };
+  });
+
+// Get conversation participants
+export const getConversationParticipants = protectedProcedure
+  .input(z.object({
+    conversationId: z.string(),
+  }))
+  .query(async ({ ctx, input }) => {
+    const userId = ctx.user.id;
+    
+    const conversation = conversations.find(c => 
+      c.id === input.conversationId && c.participants.includes(userId)
+    );
+    
+    if (!conversation) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Conversation not found',
+      });
+    }
+    
+    const participants = conversation.participants
+      .map(id => {
+        const user = mockUsers.find(u => u.id === id);
+        const restaurant = mockRestaurants.find(r => r.id === id);
+        
+        if (user) {
+          return {
+            id: user.id,
+            type: 'user' as const,
+            username: user.username,
+            displayName: user.displayName,
+            avatar: user.avatar,
+            isOnline: onlineUsers.has(user.id),
+            lastSeen: user.lastSeen,
+          };
+        }
+        
+        if (restaurant) {
+          return {
+            id: restaurant.id,
+            type: 'restaurant' as const,
+            name: restaurant.name,
+            avatar: restaurant.avatar,
+            isVerified: restaurant.isVerified,
+          };
+        }
+        
+        return null;
+      })
+      .filter(Boolean);
+    
+    return participants;
   });

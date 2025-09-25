@@ -215,6 +215,11 @@ import {
   getTypingIndicators,
   searchConversations,
   getUnreadCount,
+  getOnlineUsers,
+  setOnlineStatus,
+  getMessageStatus,
+  bulkMarkAsRead,
+  getConversationParticipants,
 } from "./routes/messaging/manage";
 
 export const appRouter = createTRPCRouter({
@@ -459,6 +464,11 @@ export const appRouter = createTRPCRouter({
     getTypingIndicators: getTypingIndicators,
     searchConversations: searchConversations,
     getUnreadCount: getUnreadCount,
+    getOnlineUsers: getOnlineUsers,
+    setOnlineStatus: setOnlineStatus,
+    getMessageStatus: getMessageStatus,
+    bulkMarkAsRead: bulkMarkAsRead,
+    getConversationParticipants: getConversationParticipants,
   }),
 });
 
