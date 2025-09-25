@@ -4,11 +4,22 @@ import { cors } from "hono/cors";
 import { appRouter } from "./trpc/app-router";
 import { createContext } from "./trpc/create-context";
 
-// app will be mounted at /api
+// Create the main app
 const app = new Hono();
 
-// Enable CORS for all routes
-app.use("*", cors());
+// Enable CORS for all routes with proper configuration
+app.use("*", cors({
+  origin: ['http://localhost:8081', 'https://localhost:8081', 'http://127.0.0.1:8081', 'https://127.0.0.1:8081'],
+  credentials: true,
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization', 'x-trpc-source'],
+}));
+
+// Add request logging middleware
+app.use('*', async (c, next) => {
+  console.log(`[${new Date().toISOString()}] ${c.req.method} ${c.req.url}`);
+  await next();
+});
 
 // Mount tRPC router at /trpc
 app.use(
@@ -17,6 +28,9 @@ app.use(
     endpoint: "/trpc",
     router: appRouter,
     createContext,
+    onError: ({ error, path }) => {
+      console.error(`[tRPC Error] ${path}:`, error);
+    },
   })
 );
 
@@ -27,12 +41,34 @@ app.use(
     endpoint: "/api/trpc",
     router: appRouter,
     createContext,
+    onError: ({ error, path }) => {
+      console.error(`[tRPC Error] ${path}:`, error);
+    },
   })
 );
 
 // Simple health check endpoint
 app.get("/", (c) => {
-  return c.json({ status: "ok", message: "API is running" });
+  return c.json({ status: "ok", message: "EatRate API is running", timestamp: new Date().toISOString() });
+});
+
+// API info endpoint
+app.get("/api", (c) => {
+  return c.json({ 
+    status: "ok", 
+    message: "EatRate API is running", 
+    endpoints: {
+      trpc: "/api/trpc",
+      health: "/api"
+    },
+    timestamp: new Date().toISOString() 
+  });
+});
+
+// Catch-all for debugging
+app.all('*', (c) => {
+  console.log(`[404] Unhandled route: ${c.req.method} ${c.req.url}`);
+  return c.json({ error: 'Route not found', path: c.req.url }, 404);
 });
 
 export default app;

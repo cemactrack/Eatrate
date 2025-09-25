@@ -7,7 +7,14 @@ export const createContext = async (opts: FetchCreateContextFnOptions) => {
   // In a real app, you would extract the user from the request headers/cookies
   // For now, we'll simulate a user based on a simple header
   const authHeader = opts.req.headers.get('authorization');
-  const user = authHeader ? { id: 'user_123', email: 'user@example.com' } : null;
+  const user = authHeader ? { 
+    id: 'user_123', 
+    email: 'user@example.com',
+    username: 'user123',
+    displayName: 'Test User',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=user123',
+    bio: 'Test user bio'
+  } : null;
   
   return {
     req: opts.req,

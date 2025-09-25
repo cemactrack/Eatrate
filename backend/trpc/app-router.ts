@@ -1,4 +1,4 @@
-import { createTRPCRouter } from "./create-context";
+import { createTRPCRouter, publicProcedure } from "./create-context";
 import { fetchDoualaRestaurantsProcedure } from "./routes/restaurants/douala";
 import { fetchYaoundeRestaurantsProcedure } from "./routes/restaurants/yaounde";
 import { fetchBueaRestaurantsProcedure } from "./routes/restaurants/buea";
@@ -197,6 +197,10 @@ import {
 } from "./routes/reputation/manage";
 
 export const appRouter = createTRPCRouter({
+  // Health check endpoint
+  health: publicProcedure.query(() => {
+    return { status: 'ok', message: 'tRPC server is running', timestamp: new Date().toISOString() };
+  }),
   example: createTRPCRouter({
     hi: hiRoute,
   }),

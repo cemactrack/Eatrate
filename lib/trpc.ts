@@ -48,7 +48,15 @@ const getBaseUrl = (): string => {
   if (expoOrigin) return expoOrigin;
   const origin = nativeDevOrigin();
   if (origin) return origin;
-  return "http://10.0.2.2:8081";
+  
+  // Default fallback for different platforms
+  if (Platform.OS === 'android') {
+    return "http://10.0.2.2:8081"; // Android emulator
+  } else if (Platform.OS === 'ios') {
+    return "http://localhost:8081"; // iOS simulator
+  }
+  
+  return "http://localhost:8081";
 };
 
 const base = getBaseUrl();
@@ -67,9 +75,9 @@ export const trpcClient = trpc.createClient({
       headers() {
         return { authorization: 'dev' };
       },
-      fetch(url, options) {
+      async fetch(url, options) {
         const controller = new AbortController();
-        const timeoutMs = 45000;
+        const timeoutMs = 30000; // Reduced timeout
         const timeoutId = setTimeout(() => {
           console.warn(`[tRPC] Request timeout after ${timeoutMs / 1000} seconds:`, url);
           controller.abort();
@@ -82,39 +90,61 @@ export const trpcClient = trpc.createClient({
           });
         }
 
-        return fetch(url, {
-          ...options,
-          signal: controller.signal,
-          // Keep connections same-origin on web to avoid CORS/proxy issues
-          credentials: Platform.OS === 'web' ? 'same-origin' : 'omit',
-        } as RequestInit)
-          .then(response => {
-            clearTimeout(timeoutId);
-            if (!response.ok) {
-              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        try {
+          const response = await fetch(url, {
+            ...options,
+            signal: controller.signal,
+            // Keep connections same-origin on web to avoid CORS/proxy issues
+            credentials: Platform.OS === 'web' ? 'same-origin' : 'omit',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-trpc-source': 'react-native',
+              ...options?.headers,
+            },
+          } as RequestInit);
+          
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) {
+            const text = await response.text();
+            console.error(`[tRPC] HTTP ${response.status}:`, text);
+            
+            // Check if response is HTML (likely a 404 or server error page)
+            if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+              throw new Error(`Server returned HTML instead of JSON. Check if the API server is running and tRPC routes are properly configured.`);
             }
-            return response as Response;
-          })
-          .catch((error: unknown) => {
-            clearTimeout(timeoutId);
+            
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+          return response as Response;
+        } catch (error: unknown) {
+          clearTimeout(timeoutId);
 
-            const anyErr = error as { name?: string; message?: string } | undefined;
-            if (anyErr?.name === 'AbortError') {
-              const timeoutError = new Error('Request timeout - please check your internet connection');
-              (timeoutError as any).name = 'TimeoutError';
-              throw timeoutError;
-            }
+          const anyErr = error as { name?: string; message?: string } | undefined;
+          
+          if (anyErr?.name === 'AbortError') {
+            const timeoutError = new Error('Request timeout - please check your internet connection');
+            (timeoutError as any).name = 'TimeoutError';
+            throw timeoutError;
+          }
 
-            const msg: string = String(anyErr?.message ?? '');
-            if (msg.includes('Failed to fetch') || msg.includes('Network request failed') || msg.includes('TypeError: Network request failed')) {
-              const networkError = new Error('Network error - please check your internet connection');
-              (networkError as any).name = 'NetworkError';
-              console.error('[tRPC] Network error while fetching', url, error);
-              throw networkError;
-            }
+          const msg: string = String(anyErr?.message ?? '');
+          
+          if (msg.includes('Failed to fetch') || msg.includes('Network request failed') || msg.includes('TypeError: Network request failed')) {
+            const networkError = new Error('Network error - please check your internet connection and ensure the API server is running');
+            (networkError as any).name = 'NetworkError';
+            console.error('[tRPC] Network error while fetching', url, error);
+            throw networkError;
+          }
 
-            throw error as Error;
-          });
+          if (msg.includes('Server returned HTML')) {
+            console.error('[tRPC] Server configuration error:', msg);
+            throw new Error('API server configuration error - please check server setup');
+          }
+
+          throw error as Error;
+        }
       },
     }),
   ],

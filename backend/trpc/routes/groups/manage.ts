@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { publicProcedure, protectedProcedure } from '@/backend/trpc/create-context';
-import { FoodieGroup, GroupPost, User } from '@/types/restaurant';
+import { FoodieGroup, GroupPost } from '@/types/restaurant';
 
 // Mock data for foodie groups
 const mockGroups: FoodieGroup[] = [
@@ -285,10 +285,10 @@ export const createGroupProcedure = protectedProcedure
       adminId: ctx.user?.id || '',
       admin: {
         id: ctx.user?.id || '',
-        username: ctx.user?.email?.split('@')[0] || 'user',
-        displayName: ctx.user?.email?.split('@')[0] || 'User',
-        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e',
-        bio: 'Group admin',
+        username: ctx.user?.username || ctx.user?.email?.split('@')[0] || 'user',
+        displayName: ctx.user?.displayName || ctx.user?.email?.split('@')[0] || 'User',
+        avatar: ctx.user?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e',
+        bio: ctx.user?.bio || 'Group admin',
         followersCount: 0,
         followingCount: 0,
         postsCount: 0,
@@ -367,10 +367,10 @@ export const createGroupPostProcedure = protectedProcedure
       userId: ctx.user?.id || '',
       user: {
         id: ctx.user?.id || '',
-        username: ctx.user?.email?.split('@')[0] || 'user',
-        displayName: ctx.user?.email?.split('@')[0] || 'User',
-        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e',
-        bio: 'App user',
+        username: ctx.user?.username || ctx.user?.email?.split('@')[0] || 'user',
+        displayName: ctx.user?.displayName || ctx.user?.email?.split('@')[0] || 'User',
+        avatar: ctx.user?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e',
+        bio: ctx.user?.bio || 'App user',
         followersCount: 0,
         followingCount: 0,
         postsCount: 0,
@@ -389,10 +389,10 @@ export const createGroupPostProcedure = protectedProcedure
           userId: ctx.user?.id || '',
           user: {
             id: ctx.user?.id || '',
-            username: ctx.user?.email?.split('@')[0] || 'user',
-            displayName: ctx.user?.email?.split('@')[0] || 'User',
-            avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e',
-            bio: 'Poll creator',
+            username: ctx.user?.username || ctx.user?.email?.split('@')[0] || 'user',
+            displayName: ctx.user?.displayName || ctx.user?.email?.split('@')[0] || 'User',
+            avatar: ctx.user?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e',
+            bio: ctx.user?.bio || 'Poll creator',
             followersCount: 0,
             followingCount: 0,
             postsCount: 0,
