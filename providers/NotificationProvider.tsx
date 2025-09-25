@@ -13,7 +13,9 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
-  } as any),
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
 });
 
 interface NotificationContextType {
@@ -92,13 +94,13 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
 
         // Get push token
         if (Platform.OS !== 'web') {
-          const token = await Notifications.getExpoPushTokenAsync({
-            projectId: process.env.EXPO_PUBLIC_PROJECT_ID || undefined,
-          });
+          const token = await Notifications.getExpoPushTokenAsync();
           setExpoPushToken(token.data);
           
           // Register token with backend
-          await registerTokenMutation.mutateAsync({ token: token.data });
+          if (registerTokenMutation.mutate) {
+            registerTokenMutation.mutate({ token: token.data });
+          }
         }
       } catch (error) {
         console.error('Failed to initialize push notifications:', error);
@@ -209,12 +211,12 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
         pushEnabled: updated.pushEnabled,
         emailEnabled: updated.emailEnabled,
         categories: {
-          social: updated.categories?.social ?? false,
-          achievements: updated.categories?.achievements ?? false,
-          events: updated.categories?.events ?? false,
-          challenges: updated.categories?.challenges ?? false,
-          restaurants: updated.categories?.restaurants ?? false,
-          system: updated.categories?.system ?? false,
+          social: updated.categories?.social || false,
+          achievements: updated.categories?.achievements || false,
+          events: updated.categories?.events || false,
+          challenges: updated.categories?.challenges || false,
+          restaurants: updated.categories?.restaurants || false,
+          system: updated.categories?.system || false,
         },
         quietHours: {
           enabled: updated.quietHours?.enabled ?? false,
