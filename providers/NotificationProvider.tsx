@@ -15,6 +15,8 @@ if (Platform.OS !== 'web') {
       shouldShowAlert: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
     }),
   });
 }
@@ -229,7 +231,7 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
           daily: updated.frequency?.daily ?? false,
           weekly: updated.frequency?.weekly ?? false,
         },
-      } as NotificationSettings);
+      });
     } catch (error) {
       console.error('Failed to update notification settings:', error);
     }
@@ -237,6 +239,9 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
 
   const requestPermissions = async (): Promise<boolean> => {
     try {
+      if (Platform.OS === 'web') {
+        return false;
+      }
       const { status } = await Notifications.requestPermissionsAsync();
       return status === 'granted';
     } catch (error) {
