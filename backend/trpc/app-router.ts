@@ -113,6 +113,31 @@ import { getAllProcedure, getSettingsProcedure, markAsReadProcedure, markAllAsRe
 import { getEventsProcedure, attendEventProcedure, getPollsProcedure, votePollProcedure, getChallengesProcedure, joinChallengeProcedure as joinEventChallengeProcedure } from "./routes/events/manage";
 import { estimateCaloriesProcedure } from "./routes/nutrition/analyze";
 
+// Reservation routes
+import {
+  getReservationsProcedure,
+  getAvailabilityProcedure,
+  createReservationProcedure,
+  updateReservationProcedure,
+  getReservationDetailsProcedure,
+} from "./routes/reservations/manage";
+
+// QR code routes
+import {
+  getQRMenuProcedure,
+  generateQRMenuProcedure,
+  trackQRScanProcedure,
+  getQRAnalyticsProcedure,
+  updateQRMenuStatusProcedure,
+} from "./routes/qr/manage";
+
+// Menu management routes
+import {
+  getRestaurantMenuProcedure,
+  createMenuCategoryProcedure,
+  addDishToMenuProcedure,
+} from "./routes/menu/manage";
+
 export const appRouter = createTRPCRouter({
   example: createTRPCRouter({
     hi: hiRoute,
@@ -264,6 +289,25 @@ export const appRouter = createTRPCRouter({
   }),
   nutrition: createTRPCRouter({
     estimateCalories: estimateCaloriesProcedure,
+  }),
+  reservations: createTRPCRouter({
+    list: getReservationsProcedure,
+    availability: getAvailabilityProcedure,
+    create: createReservationProcedure,
+    update: updateReservationProcedure,
+    details: getReservationDetailsProcedure,
+  }),
+  qr: createTRPCRouter({
+    getMenu: getQRMenuProcedure,
+    generate: generateQRMenuProcedure,
+    trackScan: trackQRScanProcedure,
+    analytics: getQRAnalyticsProcedure,
+    updateStatus: updateQRMenuStatusProcedure,
+  }),
+  menu: createTRPCRouter({
+    get: getRestaurantMenuProcedure,
+    createCategory: createMenuCategoryProcedure,
+    addDish: addDishToMenuProcedure,
   }),
 });
 

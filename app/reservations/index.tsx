@@ -17,6 +17,7 @@ import { useSettings } from '@/providers/SettingsProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { Reservation } from '@/types/restaurant';
+import { trpc } from '@/lib/trpc';
 
 const MOCK_RESERVATIONS: Reservation[] = [
   {
@@ -217,9 +218,25 @@ export default function ReservationsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   
-  const [reservations, setReservations] = useState<Reservation[]>(MOCK_RESERVATIONS);
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'upcoming' | 'past'>('all');
-  const [isLoading] = useState<boolean>(false);
+  
+  // Fetch reservations using tRPC
+  const reservationsQuery = trpc.reservations.list.useQuery({
+    status: selectedFilter === 'all' ? 'all' : selectedFilter === 'upcoming' ? 'confirmed' : 'completed'
+  });
+  
+  const updateReservationMutation = trpc.reservations.update.useMutation({
+    onSuccess: () => {
+      reservationsQuery.refetch();
+    },
+    onError: (error) => {
+      console.error('[Reservations] Failed to update reservation:', error);
+      Alert.alert('Error', 'Failed to update reservation. Please try again.');
+    }
+  });
+  
+  const reservations = reservationsQuery.data?.reservations || MOCK_RESERVATIONS;
+  const isLoading = reservationsQuery.isLoading;
   
   const filteredReservations = reservations.filter(reservation => {
     const reservationDate = new Date(`${reservation.date}T${reservation.time}`);
@@ -254,11 +271,10 @@ export default function ReservationsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              setReservations(prev => prev.map(r => 
-                r.id === reservationId 
-                  ? { ...r, status: 'cancelled' as const }
-                  : r
-              ));
+              await updateReservationMutation.mutateAsync({
+                reservationId,
+                action: 'cancel'
+              });
               console.log('[Reservations] Cancelled reservation:', reservationId);
             } catch (error) {
               console.error('[Reservations] Failed to cancel reservation:', error);
@@ -267,7 +283,7 @@ export default function ReservationsScreen() {
         },
       ]
     );
-  }, [reservations]);
+  }, [updateReservationMutation]);
   
   const handleCallRestaurant = useCallback((phone: string) => {
     console.log('[Reservations] Calling restaurant:', phone);
