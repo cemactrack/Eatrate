@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { MapPin, Filter, SortAsc, Grid, List } from 'lucide-react-native';
 import { trpc } from '@/lib/trpc';
+import { DEFAULT_TRIPADVISOR_URLS } from '@/constants/tripadvisor-urls';
 import RestaurantCard from '@/components/RestaurantCard';
 import SearchBar from '@/components/SearchBar';
 import { useSettings } from '@/providers/SettingsProvider';
@@ -54,6 +55,7 @@ export default function SearchScreen() {
   const [importInput, setImportInput] = useState<string>('');
   const [importedRestaurants, setImportedRestaurants] = useState<Restaurant[]>([]);
   const [isImporting, setIsImporting] = useState<boolean>(false);
+  const [bootstrapped, setBootstrapped] = useState<boolean>(false);
   
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -269,6 +271,22 @@ export default function SearchScreen() {
     }
   }, [importedOneTimeQuery.data]);
 
+  useEffect(() => {
+    const shouldBootstrap = !bootstrapped && !isImporting && importedRestaurants.length === 0 && (importedOneTimeQuery.data?.restaurants?.length ?? 0) === 0;
+    if (!shouldBootstrap) return;
+    setBootstrapped(true);
+    (async () => {
+      try {
+        const res = await importMutation.mutateAsync({ urls: DEFAULT_TRIPADVISOR_URLS, cityFallback: 'Cameroon' });
+        const list = res.restaurants as Restaurant[];
+        setImportedRestaurants(list);
+        await setItem('imported_restaurants', JSON.stringify(list));
+      } catch (e) {
+        console.log('[Search] bootstrap import failed');
+      }
+    })();
+  }, [bootstrapped, isImporting, importedRestaurants.length, importedOneTimeQuery.data, importMutation, setItem]);
+
   const parseUrls = useCallback((input: string): string[] => {
     const raw = input.split(/\s|,|;|\n|\r/).map(s => s.trim()).filter(Boolean);
     const urls = Array.from(new Set(raw.filter((s) => /^https?:\/\//i.test(s))));
@@ -309,10 +327,23 @@ export default function SearchScreen() {
       <View style={styles.importRow}>
         <TouchableOpacity
           testID="open-import-modal"
-          onPress={() => setImportModalVisible(true)}
+          onPress={async () => {
+            if (isImporting) return;
+            setIsImporting(true);
+            try {
+              const res = await importMutation.mutateAsync({ urls: DEFAULT_TRIPADVISOR_URLS, cityFallback: 'Cameroon' });
+              const list = res.restaurants as Restaurant[];
+              setImportedRestaurants(list);
+              await setItem('imported_restaurants', JSON.stringify(list));
+            } catch (e) {
+              console.log('[Search] one-click import failed');
+            } finally {
+              setIsImporting(false);
+            }
+          }}
           style={[styles.importBtn, { backgroundColor: colors.tint }]}
         >
-          <Text style={styles.importBtnText}>Import TripAdvisor</Text>
+          <Text style={styles.importBtnText}>{isImporting ? 'Importing…' : 'One-click Import'}</Text>
         </TouchableOpacity>
         {importedRestaurants.length > 0 && (
           <View style={styles.importInfo}>
