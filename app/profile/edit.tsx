@@ -5,7 +5,7 @@ import Colors from '@/constants/colors';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, Image as ImageIcon, MapPin, Tag } from 'lucide-react-native';
+import { Camera, Image as ImageIcon, MapPin, Tag, Globe, Lock } from 'lucide-react-native';
 import { trpc } from '@/lib/trpc';
 
 export default function EditProfileScreen() {
@@ -24,6 +24,11 @@ export default function EditProfileScreen() {
   const [cuisines, setCuisines] = useState<string>('');
   const [dietaryRestrictions, setDietaryRestrictions] = useState<string>('');
   const [priceRange, setPriceRange] = useState<string>('');
+  const [website, setWebsite] = useState<string>('');
+  const [socialMedia, setSocialMedia] = useState<string>('');
+  const [profileVisibility, setProfileVisibility] = useState<'public' | 'private'>('public');
+  const [allowMessages, setAllowMessages] = useState<boolean>(true);
+  const [showEmail, setShowEmail] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [picking, setPicking] = useState<boolean>(false);
@@ -44,6 +49,11 @@ export default function EditProfileScreen() {
       setCuisines(userProfile.preferences.cuisines.join(', '));
       setDietaryRestrictions(userProfile.preferences.dietaryRestrictions.join(', '));
       setPriceRange(userProfile.preferences.priceRange.join(', '));
+      setWebsite((userProfile as any).website || '');
+      setSocialMedia((userProfile as any).socialMedia || '');
+      setProfileVisibility((userProfile as any).privacy?.profileVisibility || 'public');
+      setAllowMessages((userProfile as any).privacy?.allowMessages ?? true);
+      setShowEmail((userProfile as any).privacy?.showEmail ?? false);
     }
   }, [userProfile]);
 
@@ -146,6 +156,15 @@ export default function EditProfileScreen() {
         };
       }
       
+      if (website.trim()) profileData.website = website.trim();
+      if (socialMedia.trim()) profileData.socialMedia = socialMedia.trim();
+      
+      profileData.privacy = {
+        profileVisibility,
+        allowMessages,
+        showEmail
+      };
+      
       if (Object.keys(profileData).length > 0) {
         await updateProfileMutation.mutateAsync(profileData);
       }
@@ -158,7 +177,7 @@ export default function EditProfileScreen() {
     } finally {
       setIsSaving(false);
     }
-  }, [avatar, displayName, bio, city, country, cuisines, dietaryRestrictions, priceRange, router, updateProfile, updateProfileMutation, validate]);
+  }, [avatar, displayName, bio, city, country, cuisines, dietaryRestrictions, priceRange, website, socialMedia, profileVisibility, allowMessages, showEmail, router, updateProfile, updateProfileMutation, validate]);
 
   if (profileLoading) {
     return (
@@ -308,11 +327,82 @@ export default function EditProfileScreen() {
         <TextInput
           testID="price-range-input"
           style={styles.input}
-          placeholder="$, $, $$, $$ (comma separated)"
+          placeholder="$, $, $, $ (comma separated)"
           placeholderTextColor={Colors.light.secondary}
           value={priceRange}
           onChangeText={setPriceRange}
         />
+
+        <View style={styles.sectionHeader}>
+          <Globe size={16} color={Colors.light.tint} />
+          <Text style={styles.sectionTitle}>Social & Contact</Text>
+        </View>
+        
+        <Text style={styles.label}>Website</Text>
+        <TextInput
+          testID="website-input"
+          style={styles.input}
+          placeholder="https://yourwebsite.com"
+          placeholderTextColor={Colors.light.secondary}
+          value={website}
+          onChangeText={setWebsite}
+          autoCapitalize="none"
+          keyboardType="url"
+        />
+        
+        <Text style={styles.label}>Social Media</Text>
+        <TextInput
+          testID="social-media-input"
+          style={styles.input}
+          placeholder="@username or social media links"
+          placeholderTextColor={Colors.light.secondary}
+          value={socialMedia}
+          onChangeText={setSocialMedia}
+          autoCapitalize="none"
+        />
+
+        <View style={styles.sectionHeader}>
+          <Lock size={16} color={Colors.light.tint} />
+          <Text style={styles.sectionTitle}>Privacy Settings</Text>
+        </View>
+        
+        <View style={styles.privacyOption}>
+          <Text style={styles.privacyLabel}>Profile Visibility</Text>
+          <View style={styles.privacyButtons}>
+            <TouchableOpacity
+              style={[styles.privacyButton, profileVisibility === 'public' && styles.privacyButtonActive]}
+              onPress={() => setProfileVisibility('public')}
+            >
+              <Text style={[styles.privacyButtonText, profileVisibility === 'public' && styles.privacyButtonTextActive]}>Public</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.privacyButton, profileVisibility === 'private' && styles.privacyButtonActive]}
+              onPress={() => setProfileVisibility('private')}
+            >
+              <Text style={[styles.privacyButtonText, profileVisibility === 'private' && styles.privacyButtonTextActive]}>Private</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        <View style={styles.privacyOption}>
+          <Text style={styles.privacyLabel}>Allow Messages</Text>
+          <TouchableOpacity
+            style={[styles.toggleButton, allowMessages && styles.toggleButtonActive]}
+            onPress={() => setAllowMessages(!allowMessages)}
+          >
+            <View style={[styles.toggleIndicator, allowMessages && styles.toggleIndicatorActive]} />
+          </TouchableOpacity>
+        </View>
+        
+        <View style={styles.privacyOption}>
+          <Text style={styles.privacyLabel}>Show Email Publicly</Text>
+          <TouchableOpacity
+            style={[styles.toggleButton, showEmail && styles.toggleButtonActive]}
+            onPress={() => setShowEmail(!showEmail)}
+          >
+            <View style={[styles.toggleIndicator, showEmail && styles.toggleIndicatorActive]} />
+          </TouchableOpacity>
+        </View>
 
         {error ? (
           <Text testID="form-error" style={styles.error}>{error}</Text>
@@ -479,5 +569,63 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  privacyOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.border,
+  },
+  privacyLabel: {
+    fontSize: 16,
+    color: Colors.light.text,
+    fontWeight: '500',
+  },
+  privacyButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  privacyButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    backgroundColor: Colors.light.background,
+  },
+  privacyButtonActive: {
+    backgroundColor: Colors.light.tint,
+    borderColor: Colors.light.tint,
+  },
+  privacyButtonText: {
+    fontSize: 14,
+    color: Colors.light.text,
+    fontWeight: '500',
+  },
+  privacyButtonTextActive: {
+    color: 'white',
+  },
+  toggleButton: {
+    width: 50,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: Colors.light.border,
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  toggleButtonActive: {
+    backgroundColor: Colors.light.tint,
+  },
+  toggleIndicator: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'white',
+    alignSelf: 'flex-start',
+  },
+  toggleIndicatorActive: {
+    alignSelf: 'flex-end',
   },
 });

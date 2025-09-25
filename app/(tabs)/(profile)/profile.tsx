@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Settings, Grid, Heart, Bookmark, Award, Users, MapPin, LogOut, Shield, Calendar, Trophy, Star } from 'lucide-react-native';
+import { Settings, Grid, Heart, Bookmark, Award, MapPin, LogOut, Shield, Calendar, Trophy, Star, TrendingUp, Eye, Clock, CheckCircle, Camera, Share2 } from 'lucide-react-native';
 import { Stack, useRouter } from 'expo-router';
 import Colors from '@/constants/colors';
 import { Post } from '@/types/restaurant';
@@ -102,10 +102,33 @@ export default function ProfileScreen() {
   );
 
   // Fetch follow stats
+  // Fetch follow stats
   const { data: followStats } = trpc.users.followStats.useQuery(
     { userId: user?.id ?? '' },
     { enabled: !!user?.id }
   );
+
+  // Fetch user reputation and achievements
+  const { data: userReputation } = trpc.reputation.getUserReputation.useQuery(
+    { userId: user?.id ?? '' },
+    { enabled: !!user?.id }
+  );
+
+  // Mock user achievements - memoized to prevent re-renders
+  const userAchievements = useMemo(() => ({
+    totalBadges: 3,
+    recentBadges: [
+      { name: 'Food Explorer', earnedAt: new Date().toISOString() },
+      { name: 'Review Master', earnedAt: new Date(Date.now() - 86400000).toISOString() }
+    ]
+  }), []);
+
+  // Mock activity stats - memoized to prevent re-renders
+  const mockActivityStats = useMemo(() => ({
+    totalViews: Math.floor(Math.random() * 10000),
+    totalLikes: Math.floor(Math.random() * 1000),
+    avgRating: 4.2 + Math.random() * 0.8
+  }), []);
   
   // Fetch bookmarked posts
   const bookmarkedPostsQuery = trpc.posts.getBookmarked.useQuery(
@@ -139,8 +162,16 @@ export default function ProfileScreen() {
       bio: userProfile?.bio || 'Food enthusiast exploring great flavors',
       location: userProfile?.location,
       preferences: userProfile?.preferences,
+      reputation: userReputation || { score: 0, level: 'Newcomer', trustScore: 0 },
+      achievements: {
+        totalAchievements: userAchievements?.totalBadges || 0,
+        recentAchievements: userAchievements?.recentBadges || []
+      },
+      activityStats: mockActivityStats,
+      isVerified: false, // Mock verification status
+      joinedDate: userProfile?.joinedAt || new Date().toISOString(),
     };
-  }, [user, userPostsQuery.data?.total, followStats, userProfile]);
+  }, [user, userPostsQuery.data?.total, followStats, userProfile, userReputation, userAchievements, mockActivityStats]);
   
   const userPosts = userPostsQuery.data?.posts || [];
   const likedPosts = useMemo(() => {
@@ -255,6 +286,25 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* Profile Stats Cards */}
+        <View style={styles.statsCardsContainer}>
+          <View style={styles.statsCard}>
+            <TrendingUp size={20} color={Colors.light.success} />
+            <Text style={styles.statsCardNumber}>{userReputation?.points || 0}</Text>
+            <Text style={styles.statsCardLabel}>Reputation</Text>
+          </View>
+          <View style={styles.statsCard}>
+            <Eye size={20} color={Colors.light.tint} />
+            <Text style={styles.statsCardNumber}>{currentUser.activityStats.totalViews.toLocaleString()}</Text>
+            <Text style={styles.statsCardLabel}>Profile Views</Text>
+          </View>
+          <View style={styles.statsCard}>
+            <Trophy size={20} color={Colors.light.warning} />
+            <Text style={styles.statsCardNumber}>{currentUser.achievements.totalAchievements}</Text>
+            <Text style={styles.statsCardLabel}>Achievements</Text>
+          </View>
+        </View>
+
         {/* Profile Info */}
         <View style={styles.profileSection}>
           <View style={styles.profileHeader}>
@@ -282,7 +332,13 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.profileDetails}>
-            <Text style={styles.displayName}>{currentUser.displayName}</Text>
+            <View style={styles.nameContainer}>
+              <Text style={styles.displayName}>{currentUser.displayName}</Text>
+              {currentUser.isVerified && (
+                <CheckCircle size={16} color={Colors.light.tint} style={styles.verifiedBadge} />
+              )}
+            </View>
+            <Text style={styles.reputationLevel}>{userReputation?.level || 'Newcomer'}</Text>
             <Text style={styles.bio}>{currentUser.bio}</Text>
             {currentUser.location && (
               <View style={styles.locationContainer}>
@@ -322,11 +378,26 @@ export default function ProfileScreen() {
             >
               <Text style={styles.editButtonText}>Edit Profile</Text>
             </TouchableOpacity>
-            <TouchableOpacity testID="share-profile-button" style={styles.shareButton}>
-              <Users size={16} color={Colors.light.text} />
+            <TouchableOpacity 
+              testID="share-profile-button" 
+              style={styles.shareButton}
+              onPress={() => console.log('Share profile')}
+            >
+              <Share2 size={16} color={Colors.light.text} />
             </TouchableOpacity>
-            <TouchableOpacity testID="share-profile-button" style={styles.shareButton}>
-              <MapPin size={16} color={Colors.light.text} />
+            <TouchableOpacity 
+              testID="camera-button" 
+              style={styles.shareButton}
+              onPress={() => router.push('/ai/scanner')}
+            >
+              <Camera size={16} color={Colors.light.text} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              testID="analytics-button" 
+              style={styles.shareButton}
+              onPress={() => router.push('/profile/analytics')}
+            >
+              <TrendingUp size={16} color={Colors.light.text} />
             </TouchableOpacity>
           </View>
           
@@ -367,6 +438,41 @@ export default function ProfileScreen() {
               <Star size={20} color={Colors.light.error} />
               <Text style={styles.quickAccessText}>Reservations</Text>
             </TouchableOpacity>
+          </View>
+
+          {/* Recent Activity */}
+          {currentUser.achievements.recentAchievements.length > 0 && (
+            <View style={styles.recentActivityContainer}>
+              <Text style={styles.sectionTitle}>Recent Achievements</Text>
+              <View style={styles.achievementsList}>
+                {currentUser.achievements.recentAchievements.slice(0, 3).map((achievement: any, index: number) => (
+                  <View key={`achievement-${index}`} style={styles.achievementItem}>
+                    <Award size={16} color={Colors.light.warning} />
+                    <Text style={styles.achievementText}>{achievement.name}</Text>
+                    <Text style={styles.achievementDate}>{new Date(achievement.earnedAt).toLocaleDateString()}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Profile Insights */}
+          <View style={styles.insightsContainer}>
+            <Text style={styles.sectionTitle}>Profile Insights</Text>
+            <View style={styles.insightsList}>
+              <View style={styles.insightItem}>
+                <Clock size={16} color={Colors.light.secondary} />
+                <Text style={styles.insightText}>Joined {new Date(currentUser.joinedDate).toLocaleDateString()}</Text>
+              </View>
+              <View style={styles.insightItem}>
+                <TrendingUp size={16} color={Colors.light.success} />
+                <Text style={styles.insightText}>Trust Score: {userReputation?.trustScore || 0}%</Text>
+              </View>
+              <View style={styles.insightItem}>
+                <Heart size={16} color={Colors.light.error} />
+                <Text style={styles.insightText}>Avg Rating: {currentUser.activityStats.avgRating.toFixed(1)}/5</Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -718,5 +824,94 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     marginTop: 6,
     textAlign: 'center',
+  },
+  statsCardsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    gap: 12,
+  },
+  statsCard: {
+    flex: 1,
+    backgroundColor: Colors.light.card,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  statsCardNumber: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.light.text,
+    marginTop: 8,
+  },
+  statsCardLabel: {
+    fontSize: 12,
+    color: Colors.light.secondary,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  nameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  verifiedBadge: {
+    marginLeft: 4,
+  },
+  reputationLevel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.light.tint,
+    marginBottom: 4,
+  },
+  recentActivityContainer: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.light.text,
+    marginBottom: 12,
+  },
+  achievementsList: {
+    gap: 8,
+  },
+  achievementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.light.card,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  achievementText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.light.text,
+    marginLeft: 8,
+  },
+  achievementDate: {
+    fontSize: 12,
+    color: Colors.light.secondary,
+  },
+  insightsContainer: {
+    marginBottom: 24,
+  },
+  insightsList: {
+    gap: 8,
+  },
+  insightItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  insightText: {
+    fontSize: 14,
+    color: Colors.light.text,
+    marginLeft: 8,
   },
 });
