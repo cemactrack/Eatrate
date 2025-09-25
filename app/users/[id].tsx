@@ -1,8 +1,8 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { UserPlus, UserCheck } from 'lucide-react-native';
+import { UserPlus, UserCheck, MapPin, Award } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { trpc, trpcClient } from '@/lib/trpc';
 import { useQuery } from '@tanstack/react-query';
@@ -24,15 +24,24 @@ export default function OtherUserProfileScreen() {
     return (usersQuery.data?.users ?? []).find((u) => u.id === userId);
   }, [usersQuery.data?.users, userId]);
 
+  const { data: followStats } = trpc.users.followStats.useQuery(
+    { userId },
+    { enabled: userId.length > 0 }
+  );
+  const { data: profile } = trpc.users.getProfile.useQuery(
+    { userId },
+    { enabled: userId.length > 0 }
+  );
+
   const [following, setFollowing] = useState<boolean>(false);
   const [followersCount, setFollowersCount] = useState<number>(0);
 
-  // Initialize followers count when user data loads
-  React.useEffect(() => {
-    if (user?.followersCount !== undefined) {
-      setFollowersCount(user.followersCount);
+  useEffect(() => {
+    if (followStats) {
+      setFollowing(followStats.isFollowing ?? false);
+      setFollowersCount(followStats.followersCount ?? 0);
     }
-  }, [user?.followersCount]);
+  }, [followStats]);
 
   const followMutation = trpc.users.follow.useMutation({
     onSuccess: (res) => {
@@ -119,9 +128,31 @@ export default function OtherUserProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {user.bio && (
-          <View style={styles.bioBlock}>
-            <Text style={styles.bioText}>{user.bio}</Text>
+        {(profile?.bio || profile?.location || (profile?.badges?.length ?? 0) > 0) && (
+          <View style={styles.infoSection}>
+            {profile?.bio ? (
+              <View style={styles.bioBlock}>
+                <Text style={styles.bioText}>{profile.bio}</Text>
+              </View>
+            ) : null}
+
+            {profile?.location ? (
+              <View style={styles.locationRow}>
+                <MapPin size={14} color={Colors.light.secondary} />
+                <Text style={styles.locationText}>{profile.location.city}, {profile.location.country}</Text>
+              </View>
+            ) : null}
+
+            {(profile?.badges?.length ?? 0) > 0 ? (
+              <View style={styles.badgesRow}>
+                {profile!.badges.map((b) => (
+                  <View key={`${user.id}-${b}`} style={styles.badge}>
+                    <Award size={12} color={Colors.light.warning} />
+                    <Text style={styles.badgeText}>{b}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
           </View>
         )}
       </ScrollView>
@@ -149,6 +180,12 @@ const styles = StyleSheet.create({
   following: { backgroundColor: Colors.light.success },
   notFollowing: { backgroundColor: Colors.light.tint },
   followBtnText: { color: 'white', fontWeight: '700', fontSize: 14 },
-  bioBlock: { paddingHorizontal: 16, marginTop: 16 },
+  infoSection: { paddingHorizontal: 16, marginTop: 16 },
+  bioBlock: { marginBottom: 8 },
   bioText: { color: Colors.light.text, fontSize: 14, lineHeight: 20 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  locationText: { color: Colors.light.secondary, fontSize: 12 },
+  badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  badge: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.light.accent, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
+  badgeText: { fontSize: 12, color: Colors.light.warning, marginLeft: 4, fontWeight: '500' },
 });
