@@ -170,6 +170,31 @@ function ThemedStack() {
           title: "Notifications",
         }} 
       />
+      <Stack.Screen 
+        name="premium" 
+        options={{ 
+          title: "Premium Subscription",
+          presentation: "modal",
+        }} 
+      />
+      <Stack.Screen 
+        name="groups" 
+        options={{ 
+          title: "Foodie Groups",
+        }} 
+      />
+      <Stack.Screen 
+        name="trending" 
+        options={{ 
+          title: "Trending Dishes",
+        }} 
+      />
+      <Stack.Screen 
+        name="reputation" 
+        options={{ 
+          title: "Reputation & Badges",
+        }} 
+      />
     </Stack>
   );
 }

@@ -11,6 +11,24 @@ export interface Restaurant {
   isOpen: boolean;
   tags: string[];
   followersCount?: number;
+  // Enhanced fields for missing features
+  sponsored?: boolean;
+  premiumListing?: boolean;
+  deliveryPartners?: DeliveryPartner[];
+  emergencyContact?: string;
+  complianceInfo?: {
+    licenseNumber?: string;
+    healthRating?: string;
+    lastInspection?: Date;
+  };
+  insights?: RestaurantInsights;
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+  };
+  verified: boolean;
+  claimed: boolean;
+  ownerId?: string;
 }
 
 export interface Dish {
@@ -24,6 +42,16 @@ export interface Dish {
   description: string;
   category: string;
   tags: string[];
+  // Enhanced fields for missing features
+  allergens?: string[];
+  dietaryTags?: string[];
+  nutritionInfo?: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
+  trendingScore?: number;
 }
 
 export interface Review {
@@ -35,6 +63,9 @@ export interface Review {
   comment: string;
   date: string;
   images?: string[];
+  verified?: boolean;
+  helpfulVotes?: number;
+  isHelpful?: boolean;
 }
 
 export interface User {
@@ -53,6 +84,10 @@ export interface User {
     dietaryRestrictions: string[];
     priceRange: string[];
   };
+  // Enhanced fields for missing features
+  reputation?: UserReputation;
+  subscription?: PremiumSubscription;
+  rewards?: Reward[];
 }
 
 export interface NutritionItem {
@@ -383,4 +418,207 @@ export interface AppSettings {
     priceRange: string[];
     distance: number;
   };
+}
+
+// Premium & Monetization Types
+export interface PremiumSubscription {
+  id: string;
+  userId: string;
+  plan: 'basic' | 'premium' | 'pro';
+  status: 'active' | 'cancelled' | 'expired' | 'trial';
+  startDate: string;
+  endDate: string;
+  autoRenew: boolean;
+  features: string[];
+  price: {
+    amount: number;
+    currency: string;
+    interval: 'monthly' | 'yearly';
+  };
+}
+
+export interface SponsoredListing {
+  id: string;
+  restaurantId: string;
+  restaurant: Restaurant;
+  type: 'featured' | 'promoted' | 'banner';
+  position: number;
+  budget: number;
+  impressions: number;
+  clicks: number;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+  targetAudience: {
+    cities: string[];
+    cuisines: string[];
+    ageGroups: string[];
+  };
+}
+
+export interface DeliveryPartner {
+  id: string;
+  name: string;
+  logo: string;
+  deepLink: string;
+  commission: number;
+  isActive: boolean;
+  supportedCities: string[];
+}
+
+export interface Reward {
+  id: string;
+  title: string;
+  description: string;
+  type: 'discount' | 'freebie' | 'cashback' | 'points';
+  value: number;
+  code?: string;
+  restaurantId?: string;
+  restaurant?: Restaurant;
+  expiresAt: string;
+  isRedeemed: boolean;
+  redeemedAt?: string;
+  conditions: string[];
+}
+
+// Community & Groups
+export interface FoodieGroup {
+  id: string;
+  name: string;
+  description: string;
+  image: string;
+  category: 'cuisine' | 'dietary' | 'location' | 'interest';
+  memberCount: number;
+  isPrivate: boolean;
+  adminId: string;
+  admin: User;
+  isMember: boolean;
+  createdAt: string;
+  rules: string[];
+  tags: string[];
+}
+
+export interface GroupPost {
+  id: string;
+  groupId: string;
+  group: FoodieGroup;
+  userId: string;
+  user: User;
+  content: {
+    text?: string;
+    images?: string[];
+    poll?: Poll;
+  };
+  likesCount: number;
+  commentsCount: number;
+  isLiked: boolean;
+  isPinned: boolean;
+  createdAt: string;
+}
+
+// Search History & Recommendations
+export interface SearchHistory {
+  id: string;
+  userId: string;
+  query: string;
+  type: 'restaurant' | 'dish' | 'cuisine' | 'location';
+  filters: any;
+  resultCount: number;
+  createdAt: string;
+}
+
+export interface PersonalizedRecommendation {
+  id: string;
+  userId: string;
+  type: 'restaurant' | 'dish' | 'event' | 'group';
+  itemId: string;
+  item: Restaurant | Dish | Event | FoodieGroup;
+  score: number;
+  reasons: string[];
+  isViewed: boolean;
+  isDismissed: boolean;
+  createdAt: string;
+}
+
+// Support & Help
+export interface SupportTicket {
+  id: string;
+  userId: string;
+  user: User;
+  category: 'technical' | 'account' | 'payment' | 'restaurant' | 'other';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  subject: string;
+  description: string;
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  assignedTo?: string;
+  responses: SupportResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SupportResponse {
+  id: string;
+  ticketId: string;
+  userId?: string;
+  adminId?: string;
+  message: string;
+  attachments?: string[];
+  isFromAdmin: boolean;
+  createdAt: string;
+}
+
+export interface FAQ {
+  id: string;
+  category: string;
+  question: string;
+  answer: string;
+  isHelpful: boolean;
+  helpfulCount: number;
+  order: number;
+}
+
+// Trending & Discovery
+export interface TrendingDish {
+  dish: Dish;
+  restaurant: Restaurant;
+  trendScore: number;
+  weeklyOrders: number;
+  weeklyReviews: number;
+  averageRating: number;
+  city: string;
+}
+
+export interface NearbyRecommendation {
+  restaurant: Restaurant;
+  distance: number;
+  matchScore: number;
+  reasons: string[];
+  estimatedWalkTime: number;
+  isOpen: boolean;
+}
+
+// User Reputation System
+export interface UserReputation {
+  userId: string;
+  level: number;
+  points: number;
+  trustScore: number;
+  badges: ReputationBadge[];
+  stats: {
+    totalReviews: number;
+    helpfulVotes: number;
+    photosUploaded: number;
+    placesDiscovered: number;
+    followersCount: number;
+  };
+}
+
+export interface ReputationBadge {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  earnedAt: string;
+  category: 'reviewer' | 'explorer' | 'photographer' | 'social' | 'special';
 }

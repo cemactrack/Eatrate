@@ -149,6 +149,53 @@ import {
   getSupportCategoriesProcedure,
 } from "./routes/support/manage";
 
+// Subscription & Monetization routes
+import {
+  getUserSubscriptionProcedure,
+  getSubscriptionPlansProcedure,
+  subscribeToPlanProcedure,
+  cancelSubscriptionProcedure,
+  getSponsoredListingsProcedure,
+  getUserRewardsProcedure,
+  redeemRewardProcedure,
+  getDeliveryPartnersProcedure,
+} from "./routes/subscriptions/manage";
+
+// Groups & Community routes
+import {
+  getGroupsProcedure,
+  getGroupDetailsProcedure,
+  joinGroupProcedure,
+  leaveGroupProcedure,
+  createGroupProcedure,
+  getGroupPostsProcedure,
+  createGroupPostProcedure,
+  getUserGroupsProcedure,
+} from "./routes/groups/manage";
+
+// Discovery & Trending routes
+import {
+  getTrendingDishesProcedure,
+  getNearbyRecommendationsProcedure,
+  getPersonalizedRecommendationsProcedure,
+  dismissRecommendationProcedure,
+  getSearchHistoryProcedure,
+  saveSearchQueryProcedure,
+  clearSearchHistoryProcedure,
+  getSmartSuggestionsProcedure,
+  getDishOfTheDayProcedure,
+} from "./routes/discovery/trending";
+
+// Reputation routes
+import {
+  getUserReputationProcedure,
+  getReputationLeaderboardProcedure,
+  awardPointsProcedure,
+  getAvailableBadgesProcedure,
+  updateTrustScoreProcedure,
+  getUserAchievementsSummaryProcedure,
+} from "./routes/reputation/manage";
+
 export const appRouter = createTRPCRouter({
   example: createTRPCRouter({
     hi: hiRoute,
@@ -328,6 +375,46 @@ export const appRouter = createTRPCRouter({
     addTicketResponse: addTicketResponseProcedure,
     chat: chatWithSupportProcedure,
     getCategories: getSupportCategoriesProcedure,
+  }),
+  // New feature routes
+  subscriptions: createTRPCRouter({
+    getUserSubscription: getUserSubscriptionProcedure,
+    getPlans: getSubscriptionPlansProcedure,
+    subscribe: subscribeToPlanProcedure,
+    cancel: cancelSubscriptionProcedure,
+    getSponsoredListings: getSponsoredListingsProcedure,
+    getUserRewards: getUserRewardsProcedure,
+    redeemReward: redeemRewardProcedure,
+    getDeliveryPartners: getDeliveryPartnersProcedure,
+  }),
+  groups: createTRPCRouter({
+    getAll: getGroupsProcedure,
+    getDetails: getGroupDetailsProcedure,
+    join: joinGroupProcedure,
+    leave: leaveGroupProcedure,
+    create: createGroupProcedure,
+    getPosts: getGroupPostsProcedure,
+    createPost: createGroupPostProcedure,
+    getUserGroups: getUserGroupsProcedure,
+  }),
+  discovery: createTRPCRouter({
+    getTrendingDishes: getTrendingDishesProcedure,
+    getNearbyRecommendations: getNearbyRecommendationsProcedure,
+    getPersonalizedRecommendations: getPersonalizedRecommendationsProcedure,
+    dismissRecommendation: dismissRecommendationProcedure,
+    getSearchHistory: getSearchHistoryProcedure,
+    saveSearchQuery: saveSearchQueryProcedure,
+    clearSearchHistory: clearSearchHistoryProcedure,
+    getSmartSuggestions: getSmartSuggestionsProcedure,
+    getDishOfTheDay: getDishOfTheDayProcedure,
+  }),
+  reputation: createTRPCRouter({
+    getUserReputation: getUserReputationProcedure,
+    getLeaderboard: getReputationLeaderboardProcedure,
+    awardPoints: awardPointsProcedure,
+    getAvailableBadges: getAvailableBadgesProcedure,
+    updateTrustScore: updateTrustScoreProcedure,
+    getAchievementsSummary: getUserAchievementsSummaryProcedure,
   }),
 });
 
