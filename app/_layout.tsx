@@ -3,7 +3,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { Platform } from "react-native";
 import React, { useEffect, useState } from "react";
-import { StyleSheet, View, ActivityIndicator } from "react-native";
+import { StyleSheet, View, ActivityIndicator, Text } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { trpc, trpcClient } from "@/lib/trpc";
@@ -21,9 +21,9 @@ if (Platform.OS !== 'web') {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 0, // Reduced from 1 to 0 for faster failure detection
-      staleTime: 1000 * 60 * 30, // Increased from 15 to 30 minutes for better caching
-      gcTime: 1000 * 60 * 45, // Increased from 30 to 45 minutes
+      retry: 0,
+      staleTime: 1000 * 60 * 30,
+      gcTime: 1000 * 60 * 45,
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
       networkMode: 'online',
@@ -115,6 +115,20 @@ function RootLayoutNav() {
   return <ThemedStack />;
 }
 
+function MobileBlockedScreen() {
+  return (
+    <View style={[styles.container, styles.blocked]} testID="web-blocked">
+      <View style={styles.blockedCard}>
+        <ActivityIndicator size="large" color={Colors.light.tint} />
+        <Text style={styles.blockedTitle}>Open on mobile</Text>
+        <Text style={styles.blockedSubtitle}>
+          This experience is mobile-native. Use the QR code in the preview to run on your device with Expo Go.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 export default function RootLayout() {
   const [isReady, setIsReady] = useState<boolean>(false);
 
@@ -142,6 +156,10 @@ export default function RootLayout() {
         <ActivityIndicator size="large" color={Colors.light.tint} />
       </View>
     );
+  }
+
+  if (Platform.OS === 'web') {
+    return <MobileBlockedScreen />;
   }
 
   return (
@@ -175,5 +193,35 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: Colors.light.background,
+  },
+  blocked: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.light.background,
+    paddingHorizontal: 24,
+  },
+  blockedCard: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 16,
+    padding: 20,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
+    gap: 12,
+  },
+  blockedTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.light.text,
+  },
+  blockedSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6b7280',
+    lineHeight: 20,
   },
 });
