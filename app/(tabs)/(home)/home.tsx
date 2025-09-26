@@ -17,7 +17,7 @@ import { useRouter } from 'expo-router';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { Restaurant, Post } from '@/types/restaurant';
-import RestaurantCard from '@/components/RestaurantCard';
+import OptimizedRestaurantCard from '@/components/OptimizedRestaurantCard';
 import DishCard from '@/components/DishCard';
 import SearchBar from '@/components/SearchBar';
 import { gradients } from '@/constants/colors';
@@ -342,9 +342,10 @@ function HomeScreenContent() {
             </View>
           ) : (
             featuredRestaurants.map((restaurant: Restaurant) => (
-              <RestaurantCard
+              <OptimizedRestaurantCard
                 key={restaurant.id}
                 restaurant={restaurant}
+                compact={false}
                 onPress={() => handleRestaurantPress(restaurant.id)}
               />
             ))
