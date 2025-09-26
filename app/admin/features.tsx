@@ -129,15 +129,7 @@ const FEATURES: Feature[] = [
     category: 'Food & Dish Features',
     completionPercentage: 100,
   },
-  {
-    id: 'ai-calorie-estimation',
-    name: 'AI Calorie Estimation',
-    description: 'AI-powered calorie estimation from food photos',
-    status: 'partial',
-    category: 'Food & Dish Features',
-    completionPercentage: 70,
-    notes: 'Backend implemented, frontend integration needed',
-  },
+
   {
     id: 'dietary-tags',
     name: 'Allergen & Dietary Tags',
@@ -234,33 +226,7 @@ const FEATURES: Feature[] = [
     notes: 'Basic implementation, needs real GPS integration',
   },
   
-  // Advanced AI Features
-  {
-    id: 'ai-food-scanner',
-    name: 'AI Food Scanner',
-    description: 'Photo-based food recognition with calorie estimation',
-    status: 'production',
-    category: 'AI Features',
-    completionPercentage: 100,
-  },
-  {
-    id: 'voice-assistant',
-    name: 'Voice Assistant',
-    description: 'Voice-driven search and recommendations',
-    status: 'partial',
-    category: 'AI Features',
-    completionPercentage: 70,
-    notes: 'Backend implemented, frontend has encoding issues',
-  },
-  {
-    id: 'ar-preview',
-    name: 'AR Food Preview',
-    description: 'Augmented reality dish preview on menu scan',
-    status: 'partial',
-    category: 'AI Features',
-    completionPercentage: 60,
-    notes: 'Backend routes exist, AR implementation needed',
-  },
+
   
   // Delivery & Ordering
   {

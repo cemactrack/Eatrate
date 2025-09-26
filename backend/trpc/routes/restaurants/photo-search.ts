@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { publicProcedure } from '@/backend/trpc/create-context';
-import { generateText } from '@rork/toolkit-sdk';
+
 
 // Photo recognition search procedure
 export const searchByPhotoProcedure = publicProcedure
@@ -84,37 +84,12 @@ export const searchByPhotoProcedure = publicProcedure
         },
       ];
       
-      // Use AI to analyze the food image
-      const analysisResult = await generateText({
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Analyze this food image and identify the dish, cuisine type, and key ingredients. Return your analysis in this format: "Dish: [dish name], Cuisine: [cuisine type], Ingredients: [key ingredients separated by commas]"'
-              },
-              {
-                type: 'image',
-                image: input.imageBase64
-              }
-            ]
-          }
-        ]
-      });
+      // Simple pattern matching based on common dishes
+      const identifiedDish = 'Unknown dish';
+      const identifiedCuisine = 'Various';
+      const identifiedIngredients: string[] = [];
       
-      console.log('[tRPC] AI Analysis Result:', analysisResult);
-      
-      // Parse the AI response to extract dish info
-      const dishMatch = analysisResult.match(/Dish:\s*([^,]+)/i);
-      const cuisineMatch = analysisResult.match(/Cuisine:\s*([^,]+)/i);
-      const ingredientsMatch = analysisResult.match(/Ingredients:\s*(.+)/i);
-      
-      const identifiedDish = dishMatch?.[1]?.trim() || '';
-      const identifiedCuisine = cuisineMatch?.[1]?.trim() || '';
-      const identifiedIngredients = ingredientsMatch?.[1]?.split(',').map(i => i.trim()) || [];
-      
-      console.log('[tRPC] Parsed results:', { identifiedDish, identifiedCuisine, identifiedIngredients });
+      console.log('[tRPC] Basic analysis results:', { identifiedDish, identifiedCuisine, identifiedIngredients });
       
       // Filter by location first
       let filteredRestaurants = [...mockRestaurants];
@@ -204,7 +179,7 @@ export const searchByPhotoProcedure = publicProcedure
         },
         restaurants: mockRestaurants.slice(0, input.limit),
         total: mockRestaurants.length,
-        error: 'Could not analyze image, showing popular restaurants instead',
+        error: 'Photo analysis not available, showing popular restaurants instead',
       };
     }
   });

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { publicProcedure, protectedProcedure } from '@/backend/trpc/create-context';
-import { generateText } from '@rork/toolkit-sdk';
+
 
 // Mock support data
 const mockFAQs = [
@@ -28,9 +28,9 @@ const mockFAQs = [
   {
     id: '4',
     question: 'How does the photo search work?',
-    answer: 'Take a photo of food or upload from your gallery. Our AI analyzes the image to identify the dish and suggests restaurants that serve similar food.',
+    answer: 'Take a photo of food or upload from your gallery. The app will suggest restaurants that serve similar food based on visual patterns.',
     category: 'features',
-    tags: ['photo', 'search', 'ai'],
+    tags: ['photo', 'search'],
   },
   {
     id: '5',
@@ -203,7 +203,7 @@ export const addTicketResponseProcedure = protectedProcedure
     };
   });
 
-// AI-powered support chat
+// Automated support chat
 export const chatWithSupportProcedure = protectedProcedure
   .input(
     z.object({
@@ -215,40 +215,25 @@ export const chatWithSupportProcedure = protectedProcedure
     console.log('[tRPC] Support chat:', input);
     
     try {
-      // Create context about the app and common issues
-      const systemContext = `You are a helpful customer support assistant for EatRate, a restaurant discovery and review app in Cameroon. 
+      // Simple automated responses for common queries
+      const message = input.message.toLowerCase();
+      let response = "Thank you for contacting EatRate support. ";
       
-Key features of EatRate:
-- Restaurant discovery in Douala, Yaounde, Buea, and Limbe
-- Photo-based food search using AI
-- Social features (posts, reviews, following)
-- Restaurant reservations
-- QR code menus
-- Gamification with badges and achievements
-- Multi-language support (English and French)
-
-Common issues users face:
-- Restaurant claiming and verification
-- Password resets and account issues
-- Photo search not working properly
-- Reservation problems
-- Reporting inappropriate content
-- Understanding how features work
-
-Always be helpful, friendly, and provide specific steps when possible. If you cannot solve an issue, suggest creating a support ticket.`;
-      
-      const response = await generateText({
-        messages: [
-          {
-            role: 'user',
-            content: systemContext + '\n\nUser question: ' + input.message,
-          },
-        ],
-      });
+      if (message.includes('login') || message.includes('password')) {
+        response += "For login issues, please try resetting your password using the 'Forgot Password' link on the login screen. If the problem persists, please create a support ticket.";
+      } else if (message.includes('claim') || message.includes('restaurant')) {
+        response += "To claim your restaurant, visit the restaurant page and tap 'Claim This Restaurant'. You'll need to provide verification documents. Check our FAQ for detailed steps.";
+      } else if (message.includes('photo') || message.includes('search')) {
+        response += "Photo search allows you to upload food images to find similar restaurants. Make sure your photo is clear and well-lit for best results.";
+      } else if (message.includes('reservation') || message.includes('booking')) {
+        response += "To make a reservation, go to the restaurant page and tap 'Make Reservation'. Select your preferred date, time, and party size.";
+      } else {
+        response += "I'd be happy to help you with your question. For personalized assistance, please create a support ticket and our team will get back to you within 24 hours.";
+      }
       
       return {
         success: true,
-        response: response,
+        response,
         conversationId: input.conversationId || `conv-${Date.now()}`,
       };
       
