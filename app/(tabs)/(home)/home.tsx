@@ -46,25 +46,43 @@ interface TrendingPostProps {
 
 const TrendingPost = React.memo(function TrendingPost({ post, onPress, onLike, onComments }: TrendingPostProps) {
   const { colors } = useSettings();
+  
+  // Add safety checks for post data
+  if (!post || !post.user) {
+    console.warn('[TrendingPost] Invalid post data:', post);
+    return null;
+  }
+  
+  const defaultAvatar = 'https://images.unsplash.com/photo-1494790108755-2616b612b47c?w=200&h=200&fit=crop';
+  const userAvatar = post.user?.avatar || defaultAvatar;
+  const userName = post.user?.displayName || 'Unknown User';
+  const postText = post.content?.text || 'No content available';
+  const likesCount = post.likesCount || 0;
+  const commentsCount = post.commentsCount || 0;
+  
   return (
     <TouchableOpacity style={[styles.trendingPost, { backgroundColor: colors.card }]} onPress={onPress}>
       <Image
-        source={{ uri: post.content.images?.[0] || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&h=200&fit=crop' }}
+        source={{ uri: post.content?.images?.[0] || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=200&h=200&fit=crop' }}
         style={styles.trendingImage}
         resizeMode="cover"
       />
       <View style={styles.trendingContent}>
         <View style={styles.trendingHeader}>
-          <Image source={{ uri: post.user.avatar }} style={styles.trendingAvatar} />
+          <Image 
+            source={{ uri: userAvatar }} 
+            style={styles.trendingAvatar}
+            defaultSource={{ uri: defaultAvatar }}
+          />
           <View style={styles.trendingUserInfo}>
-            <Text style={[styles.trendingUsername, { color: colors.text }]}>{post.user.displayName}</Text>
-            {post.restaurant && (
+            <Text style={[styles.trendingUsername, { color: colors.text }]}>{userName}</Text>
+            {post.restaurant?.name && (
               <Text style={[styles.trendingRestaurant, { color: colors.tint }]}>{post.restaurant.name}</Text>
             )}
           </View>
         </View>
         <Text style={[styles.trendingText, { color: colors.text }]} numberOfLines={2}>
-          {post.content.text}
+          {postText}
         </Text>
         <View style={styles.trendingStats}>
           <TouchableOpacity
@@ -74,7 +92,7 @@ const TrendingPost = React.memo(function TrendingPost({ post, onPress, onLike, o
             activeOpacity={0.8}
           >
             <Heart size={14} color={colors.tint} />
-            <Text style={[styles.trendingLikes, { color: colors.secondary }]}>{post.likesCount} likes</Text>
+            <Text style={[styles.trendingLikes, { color: colors.secondary }]}>{likesCount} likes</Text>
           </TouchableOpacity>
           <TouchableOpacity
             testID={`post-comments-${post.id}`}
@@ -83,7 +101,7 @@ const TrendingPost = React.memo(function TrendingPost({ post, onPress, onLike, o
             activeOpacity={0.8}
           >
             <MessageSquare size={14} color={colors.secondary} />
-            <Text style={[styles.trendingComments, { color: colors.secondary }]}>{post.commentsCount} comments</Text>
+            <Text style={[styles.trendingComments, { color: colors.secondary }]}>{commentsCount} comments</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -427,32 +445,46 @@ function HomeScreenContent() {
           ) : (
             <FlatList
               data={topFoodies}
-              renderItem={({ item }) => (
-                <View style={[styles.foodieCard, { backgroundColor: colors.card }]}>
-                  <TouchableOpacity onPress={() => handleUserPress(item.id)} activeOpacity={0.9}>
-                    <Image source={{ uri: item.avatar }} style={styles.foodieAvatar} />
-                  </TouchableOpacity>
-                  <Text style={[styles.foodieName, { color: colors.text }]}>{item.displayName}</Text>
-                  <Text style={[styles.foodieStats, { color: colors.secondary }]}>{item.followersCount.toLocaleString()} followers</Text>
-                  <View style={styles.foodieBadges}>
-                    {item.badges.slice(0, 1).map((badge: string) => (
-                      <View key={`${item.id}-${badge}`} style={[styles.foodieBadge, { backgroundColor: colors.accent }]}>
-                        <Award size={10} color={colors.warning} />
-                        <Text style={[styles.foodieBadgeText, { color: colors.warning }]}>{badge}</Text>
-                      </View>
-                    ))}
+              renderItem={({ item }) => {
+                if (!item) return null;
+                
+                const defaultAvatar = 'https://images.unsplash.com/photo-1494790108755-2616b612b47c?w=200&h=200&fit=crop';
+                const userAvatar = item.avatar || defaultAvatar;
+                const displayName = item.displayName || 'Unknown User';
+                const followersCount = item.followersCount || 0;
+                const badges = item.badges || [];
+                
+                return (
+                  <View style={[styles.foodieCard, { backgroundColor: colors.card }]}>
+                    <TouchableOpacity onPress={() => handleUserPress(item.id)} activeOpacity={0.9}>
+                      <Image 
+                        source={{ uri: userAvatar }} 
+                        style={styles.foodieAvatar}
+                        defaultSource={{ uri: defaultAvatar }}
+                      />
+                    </TouchableOpacity>
+                    <Text style={[styles.foodieName, { color: colors.text }]}>{displayName}</Text>
+                    <Text style={[styles.foodieStats, { color: colors.secondary }]}>{followersCount.toLocaleString()} followers</Text>
+                    <View style={styles.foodieBadges}>
+                      {badges.slice(0, 1).map((badge: string) => (
+                        <View key={`${item.id}-${badge}`} style={[styles.foodieBadge, { backgroundColor: colors.accent }]}>
+                          <Award size={10} color={colors.warning} />
+                          <Text style={[styles.foodieBadgeText, { color: colors.warning }]}>{badge}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <TouchableOpacity
+                      testID={`follow-user-${item.id}`}
+                      onPress={() => onToggleFollow(item.id)}
+                      style={[styles.followChip, { backgroundColor: colors.accent, borderColor: colors.border, borderWidth: 1 }]}
+                      activeOpacity={0.9}
+                    >
+                      <UserPlus size={14} color={colors.tint} />
+                      <Text style={[styles.followChipText, { color: colors.tint }]}>Follow</Text>
+                    </TouchableOpacity>
                   </View>
-                  <TouchableOpacity
-                    testID={`follow-user-${item.id}`}
-                    onPress={() => onToggleFollow(item.id)}
-                    style={[styles.followChip, { backgroundColor: colors.accent, borderColor: colors.border, borderWidth: 1 }]}
-                    activeOpacity={0.9}
-                  >
-                    <UserPlus size={14} color={colors.tint} />
-                    <Text style={[styles.followChipText, { color: colors.tint }]}>Follow</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+                );
+              }}
               keyExtractor={(item) => item.id}
               horizontal
               showsHorizontalScrollIndicator={false}
