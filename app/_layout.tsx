@@ -1,21 +1,11 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { Platform } from "react-native";
 import React, { useEffect, useState, useMemo } from "react";
 import { StyleSheet, View, ActivityIndicator, Text } from "react-native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { SafeAreaProvider } from "react-native-safe-area-context";
-import { trpc, trpcClient } from "@/lib/trpc";
-import ErrorBoundary from "@/components/ErrorBoundary";
-import { StorageProvider } from "@/providers/StorageProvider";
-import { AuthProvider } from "@/providers/AuthProvider";
-import { SettingsProvider, useSettings } from "@/providers/SettingsProvider";
-import { AdminProvider } from "@/providers/AdminProvider";
-import { GamificationProvider } from "@/providers/GamificationProvider";
-import { NotificationProvider } from "@/providers/NotificationProvider";
-import { LocalizationProvider } from "@/providers/LocalizationProvider";
-import { MessagingProvider } from "@/providers/MessagingProvider";
+import { useSettings } from "@/providers/SettingsProvider";
+import { AppProviders } from "@/providers/AppProviders";
 import Colors from "@/constants/colors";
 import { APP_CONFIG } from "@/constants/app-config";
 
@@ -268,33 +258,9 @@ export default function RootLayout() {
   // }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <trpc.Provider client={trpcClient} queryClient={queryClient}>
-        <GestureHandlerRootView style={styles.container}>
-          <SafeAreaProvider>
-            <ErrorBoundary>
-              <StorageProvider>
-                <LocalizationProvider>
-                  <SettingsProvider>
-                    <AuthProvider>
-                      <NotificationProvider>
-                        <GamificationProvider>
-                          <MessagingProvider>
-                            <AdminProvider>
-                              <RootLayoutNav />
-                            </AdminProvider>
-                          </MessagingProvider>
-                        </GamificationProvider>
-                      </NotificationProvider>
-                    </AuthProvider>
-                  </SettingsProvider>
-                </LocalizationProvider>
-              </StorageProvider>
-            </ErrorBoundary>
-          </SafeAreaProvider>
-        </GestureHandlerRootView>
-      </trpc.Provider>
-    </QueryClientProvider>
+    <AppProviders queryClient={queryClient} enableFeatures={true}>
+      <RootLayoutNav />
+    </AppProviders>
   );
 }
 

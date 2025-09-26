@@ -1,2 +1,120 @@
-import React from "react";
-import React, { useMemo } from 'react';\nimport { QueryClient, QueryClientProvider } from '@tanstack/react-query';\nimport { GestureHandlerRootView } from 'react-native-gesture-handler';\nimport { SafeAreaProvider } from 'react-native-safe-area-context';\nimport { StyleSheet } from 'react-native';\n\nimport { trpc, trpcClient } from '@/lib/trpc';\nimport ErrorBoundary from '@/components/ErrorBoundary';\nimport { StorageProvider } from '@/providers/StorageProvider';\nimport { AuthProvider } from '@/providers/AuthProvider';\nimport { SettingsProvider } from '@/providers/SettingsProvider';\nimport { LocalizationProvider } from '@/providers/LocalizationProvider';\nimport { AdminProvider } from '@/providers/AdminProvider';\nimport { GamificationProvider } from '@/providers/GamificationProvider';\nimport { NotificationProvider } from '@/providers/NotificationProvider';\nimport { MessagingProvider } from '@/providers/MessagingProvider';\nimport { APP_CONFIG } from '@/constants/app-config';\n\n// Core providers that are always needed\ninterface CoreProvidersProps {\n  children: React.ReactNode;\n  queryClient: QueryClient;\n}\n\nconst CoreProviders: React.FC<CoreProvidersProps> = ({ children, queryClient }) => (\n  <QueryClientProvider client={queryClient}>\n    <trpc.Provider client={trpcClient} queryClient={queryClient}>\n      <GestureHandlerRootView style={styles.container}>\n        <SafeAreaProvider>\n          <ErrorBoundary>\n            <StorageProvider>\n              <LocalizationProvider>\n                <SettingsProvider>\n                  <AuthProvider>\n                    {children}\n                  </AuthProvider>\n                </SettingsProvider>\n              </LocalizationProvider>\n            </StorageProvider>\n          </ErrorBoundary>\n        </SafeAreaProvider>\n      </GestureHandlerRootView>\n    </trpc.Provider>\n  </QueryClientProvider>\n);\n\n// Feature providers that can be conditionally loaded\ninterface FeatureProvidersProps {\n  children: React.ReactNode;\n  features?: {\n    admin?: boolean;\n    gamification?: boolean;\n    notifications?: boolean;\n    messaging?: boolean;\n  };\n}\n\nconst FeatureProviders: React.FC<FeatureProvidersProps> = ({ \n  children, \n  features = {} \n}) => {\n  const {\n    admin = false,\n    gamification = false,\n    notifications = false,\n    messaging = false,\n  } = features;\n\n  let content = children;\n\n  // Conditionally wrap with feature providers\n  if (messaging) {\n    content = <MessagingProvider>{content}</MessagingProvider>;\n  }\n\n  if (gamification) {\n    content = <GamificationProvider>{content}</GamificationProvider>;\n  }\n\n  if (notifications) {\n    content = <NotificationProvider>{content}</NotificationProvider>;\n  }\n\n  if (admin) {\n    content = <AdminProvider>{content}</AdminProvider>;\n  }\n\n  return <>{content}</>;\n};\n\n// Main app provider composition\ninterface AppProvidersProps {\n  children: React.ReactNode;\n  features?: {\n    admin?: boolean;\n    gamification?: boolean;\n    notifications?: boolean;\n    messaging?: boolean;\n  };\n}\n\nconst AppProviders: React.FC<AppProvidersProps> = ({ children, features }) => {\n  // Memoize query client to prevent recreation\n  const queryClient = useMemo(\n    () => new QueryClient({\n      defaultOptions: {\n        queries: {\n          retry: APP_CONFIG.api.retryAttempts,\n          staleTime: APP_CONFIG.api.staleTime,\n          gcTime: APP_CONFIG.api.cacheTime,\n          refetchOnWindowFocus: false,\n          refetchOnReconnect: true,\n          networkMode: 'online',\n          refetchOnMount: false,\n        },\n        mutations: {\n          retry: 1,\n          networkMode: 'online',\n        },\n      },\n    }),\n    []\n  );\n\n  return (\n    <CoreProviders queryClient={queryClient}>\n      <FeatureProviders features={features}>\n        {children}\n      </FeatureProviders>\n    </CoreProviders>\n  );\n};\n\nconst styles = StyleSheet.create({\n  container: {\n    flex: 1,\n  },\n});\n\nexport default AppProviders;\nexport { CoreProviders, FeatureProviders };
+import React, { useMemo, Suspense } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StyleSheet, View, ActivityIndicator } from 'react-native';
+
+import { trpc, trpcClient } from '@/lib/trpc';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import { StorageProvider } from '@/providers/StorageProvider';
+import { AuthProvider } from '@/providers/AuthProvider';
+import { SettingsProvider } from '@/providers/SettingsProvider';
+import { LocalizationProvider } from '@/providers/LocalizationProvider';
+import { AdminProvider } from '@/providers/AdminProvider';
+import { GamificationProvider } from '@/providers/GamificationProvider';
+import { NotificationProvider } from '@/providers/NotificationProvider';
+import { MessagingProvider } from '@/providers/MessagingProvider';
+import { ThemeProvider } from '@/providers/ThemeProvider';
+import { APP_CONFIG } from '@/constants/app-config';
+import Colors from '@/constants/colors';
+
+// Loading fallback component
+const LoadingFallback: React.FC = () => (
+  <View style={styles.loadingContainer}>
+    <ActivityIndicator size="large" color={Colors.light.tint} />
+  </View>
+);
+
+// Core providers that are always needed
+interface CoreProvidersProps {
+  children: React.ReactNode;
+  queryClient: QueryClient;
+}
+
+const CoreProviders: React.FC<CoreProvidersProps> = ({ children, queryClient }) => (
+  <QueryClientProvider client={queryClient}>
+    <trpc.Provider client={trpcClient} queryClient={queryClient}>
+      <GestureHandlerRootView style={styles.container}>
+        <SafeAreaProvider>
+          <ErrorBoundary>
+            <StorageProvider>
+              <LocalizationProvider>
+                <ThemeProvider>
+                  <SettingsProvider>
+                    <AuthProvider>
+                      {children}
+                    </AuthProvider>
+                  </SettingsProvider>
+                </ThemeProvider>
+              </LocalizationProvider>
+            </StorageProvider>
+          </ErrorBoundary>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </trpc.Provider>
+  </QueryClientProvider>
+);
+
+// Feature providers that can be conditionally loaded
+interface FeatureProvidersProps {
+  children: React.ReactNode;
+}
+
+const FeatureProviders: React.FC<FeatureProvidersProps> = ({ children }) => (
+  <Suspense fallback={<LoadingFallback />}>
+    <NotificationProvider>
+      <GamificationProvider>
+        <MessagingProvider>
+          <AdminProvider>
+            {children}
+          </AdminProvider>
+        </MessagingProvider>
+      </GamificationProvider>
+    </NotificationProvider>
+  </Suspense>
+);
+
+// Main app providers composition
+interface AppProvidersProps {
+  children: React.ReactNode;
+  queryClient: QueryClient;
+  enableFeatures?: boolean;
+}
+
+export const AppProviders: React.FC<AppProvidersProps> = ({ 
+  children, 
+  queryClient, 
+  enableFeatures = true 
+}) => {
+  const providers = useMemo(() => {
+    if (enableFeatures) {
+      return (
+        <CoreProviders queryClient={queryClient}>
+          <FeatureProviders>
+            {children}
+          </FeatureProviders>
+        </CoreProviders>
+      );
+    }
+    
+    return (
+      <CoreProviders queryClient={queryClient}>
+        {children}
+      </CoreProviders>
+    );
+  }, [children, queryClient, enableFeatures]);
+
+  return providers;
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.light.background,
+  },
+});

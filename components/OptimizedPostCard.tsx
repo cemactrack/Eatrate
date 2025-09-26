@@ -1,1 +1,267 @@
-import React, { memo, useMemo } from 'react';\nimport {\n  View,\n  Text,\n  Image,\n  TouchableOpacity,\n  StyleSheet,\n  ViewStyle,\n} from 'react-native';\nimport { Heart, MessageSquare, Share2, Bookmark } from 'lucide-react-native';\nimport { useSettings } from '@/providers/SettingsProvider';\nimport { Post } from '@/types/restaurant';\nimport { getOptimizedImageUri } from '@/utils/helpers';\n\ninterface OptimizedPostCardProps {\n  post: Post;\n  onPress: (postId: string) => void;\n  onLike: (postId: string) => void;\n  onComment: (postId: string) => void;\n  onShare: (postId: string) => void;\n  onBookmark: (postId: string) => void;\n  style?: ViewStyle;\n  compact?: boolean;\n}\n\nconst OptimizedPostCard = memo<OptimizedPostCardProps>(function OptimizedPostCard({\n  post,\n  onPress,\n  onLike,\n  onComment,\n  onShare,\n  onBookmark,\n  style,\n  compact = false,\n}) {\n  const { colors } = useSettings();\n\n  const optimizedImageUri = useMemo(() => {\n    const imageUri = post.content?.images?.[0];\n    if (!imageUri) return null;\n    return getOptimizedImageUri(imageUri, compact ? 150 : 300, compact ? 150 : 200);\n  }, [post.content?.images, compact]);\n\n  const cardStyles = useMemo(() => [\n    styles.card,\n    { backgroundColor: colors.card },\n    compact && styles.compactCard,\n    style,\n  ], [colors.card, compact, style]);\n\n  const handlePress = () => onPress(post.id);\n  const handleLike = () => onLike(post.id);\n  const handleComment = () => onComment(post.id);\n  const handleShare = () => onShare(post.id);\n  const handleBookmark = () => onBookmark(post.id);\n\n  return (\n    <TouchableOpacity\n      style={cardStyles}\n      onPress={handlePress}\n      activeOpacity={0.9}\n      testID={`post-card-${post.id}`}\n    >\n      {/* Header */}\n      <View style={styles.header}>\n        <Image\n          source={{ uri: post.user.avatar }}\n          style={styles.avatar}\n          resizeMode=\"cover\"\n        />\n        <View style={styles.userInfo}>\n          <Text style={[styles.username, { color: colors.text }]}>\n            {post.user.displayName}\n          </Text>\n          {post.restaurant && (\n            <Text style={[styles.restaurant, { color: colors.tint }]}>\n              at {post.restaurant.name}\n            </Text>\n          )}\n        </View>\n        <Text style={[styles.timestamp, { color: colors.secondary }]}>\n          {new Date(post.createdAt).toLocaleDateString()}\n        </Text>\n      </View>\n\n      {/* Content */}\n      {post.content?.text && (\n        <Text\n          style={[styles.content, { color: colors.text }]}\n          numberOfLines={compact ? 2 : undefined}\n        >\n          {post.content.text}\n        </Text>\n      )}\n\n      {/* Image */}\n      {optimizedImageUri && (\n        <Image\n          source={{ uri: optimizedImageUri }}\n          style={compact ? styles.compactImage : styles.image}\n          resizeMode=\"cover\"\n        />\n      )}\n\n      {/* Actions */}\n      <View style={styles.actions}>\n        <TouchableOpacity\n          style={styles.actionButton}\n          onPress={handleLike}\n          testID={`like-${post.id}`}\n        >\n          <Heart\n            size={20}\n            color={post.isLiked ? colors.error : colors.secondary}\n            fill={post.isLiked ? colors.error : 'transparent'}\n          />\n          <Text style={[styles.actionText, { color: colors.secondary }]}>\n            {post.likesCount || 0}\n          </Text>\n        </TouchableOpacity>\n\n        <TouchableOpacity\n          style={styles.actionButton}\n          onPress={handleComment}\n          testID={`comment-${post.id}`}\n        >\n          <MessageSquare size={20} color={colors.secondary} />\n          <Text style={[styles.actionText, { color: colors.secondary }]}>\n            {post.commentsCount || 0}\n          </Text>\n        </TouchableOpacity>\n\n        <TouchableOpacity\n          style={styles.actionButton}\n          onPress={handleShare}\n          testID={`share-${post.id}`}\n        >\n          <Share2 size={20} color={colors.secondary} />\n        </TouchableOpacity>\n\n        <TouchableOpacity\n          style={styles.actionButton}\n          onPress={handleBookmark}\n          testID={`bookmark-${post.id}`}\n        >\n          <Bookmark\n            size={20}\n            color={post.isBookmarked ? colors.tint : colors.secondary}\n            fill={post.isBookmarked ? colors.tint : 'transparent'}\n          />\n        </TouchableOpacity>\n      </View>\n    </TouchableOpacity>\n  );\n}, (prevProps, nextProps) => {\n  // Custom comparison for better performance\n  return (\n    prevProps.post.id === nextProps.post.id &&\n    prevProps.post.likesCount === nextProps.post.likesCount &&\n    prevProps.post.commentsCount === nextProps.post.commentsCount &&\n    prevProps.post.isLiked === nextProps.post.isLiked &&\n    prevProps.post.isBookmarked === nextProps.post.isBookmarked &&\n    prevProps.compact === nextProps.compact\n  );\n});\n\nconst styles = StyleSheet.create({\n  card: {\n    borderRadius: 12,\n    marginHorizontal: 16,\n    marginVertical: 8,\n    padding: 16,\n    shadowColor: '#000',\n    shadowOffset: { width: 0, height: 2 },\n    shadowOpacity: 0.08,\n    shadowRadius: 8,\n    elevation: 3,\n  },\n  compactCard: {\n    padding: 12,\n    marginVertical: 4,\n  },\n  header: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    marginBottom: 12,\n  },\n  avatar: {\n    width: 40,\n    height: 40,\n    borderRadius: 20,\n    marginRight: 12,\n  },\n  userInfo: {\n    flex: 1,\n  },\n  username: {\n    fontSize: 16,\n    fontWeight: '600',\n    marginBottom: 2,\n  },\n  restaurant: {\n    fontSize: 14,\n    fontWeight: '500',\n  },\n  timestamp: {\n    fontSize: 12,\n    fontWeight: '500',\n  },\n  content: {\n    fontSize: 16,\n    lineHeight: 22,\n    marginBottom: 12,\n  },\n  image: {\n    width: '100%',\n    height: 200,\n    borderRadius: 8,\n    marginBottom: 12,\n  },\n  compactImage: {\n    width: '100%',\n    height: 120,\n    borderRadius: 8,\n    marginBottom: 8,\n  },\n  actions: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    gap: 16,\n  },\n  actionButton: {\n    flexDirection: 'row',\n    alignItems: 'center',\n    gap: 6,\n    paddingVertical: 4,\n    paddingHorizontal: 8,\n  },\n  actionText: {\n    fontSize: 14,\n    fontWeight: '500',\n  },\n});\n\nexport default OptimizedPostCard;
+import React, { memo, useMemo } from 'react';
+import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import { Heart, MessageCircle, Share, Bookmark } from 'lucide-react-native';
+import { useSettings } from '@/providers/SettingsProvider';
+import { useStableCallback } from '@/utils/performance';
+
+interface PostData {
+  id: string;
+  title: string;
+  content: string;
+  author: {
+    id: string;
+    name: string;
+    avatar?: string;
+  };
+  image?: string;
+  likes: number;
+  comments: number;
+  isLiked: boolean;
+  isBookmarked: boolean;
+  createdAt: string;
+}
+
+interface OptimizedPostCardProps {
+  post: PostData;
+  onLike: (postId: string) => void;
+  onComment: (postId: string) => void;
+  onShare: (postId: string) => void;
+  onBookmark: (postId: string) => void;
+  onPress: (postId: string) => void;
+}
+
+const OptimizedPostCard: React.FC<OptimizedPostCardProps> = ({
+  post,
+  onLike,
+  onComment,
+  onShare,
+  onBookmark,
+  onPress,
+}) => {
+  const { colors } = useSettings();
+  
+  // Stable callbacks to prevent unnecessary re-renders
+  const handleLike = useStableCallback(() => onLike(post.id));
+  const handleComment = useStableCallback(() => onComment(post.id));
+  const handleShare = useStableCallback(() => onShare(post.id));
+  const handleBookmark = useStableCallback(() => onBookmark(post.id));
+  const handlePress = useStableCallback(() => onPress(post.id));
+  
+  // Memoized styles
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  
+  // Memoized formatted date
+  const formattedDate = useMemo(() => {
+    const date = new Date(post.createdAt);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }, [post.createdAt]);
+  
+  return (
+    <Pressable
+      style={styles.container}
+      onPress={handlePress}
+      android_ripple={{ color: colors.accent }}
+    >
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.authorInfo}>
+          {post.author.avatar ? (
+            <Image source={{ uri: post.author.avatar }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+              <Text style={styles.avatarText}>
+                {post.author.name.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <View style={styles.authorDetails}>
+            <Text style={styles.authorName}>{post.author.name}</Text>
+            <Text style={styles.timestamp}>{formattedDate}</Text>
+          </View>
+        </View>
+      </View>
+      
+      {/* Content */}
+      <View style={styles.content}>
+        <Text style={styles.title}>{post.title}</Text>
+        <Text style={styles.description} numberOfLines={3}>
+          {post.content}
+        </Text>
+      </View>
+      
+      {/* Image */}
+      {post.image && (
+        <Image
+          source={{ uri: post.image }}
+          style={styles.postImage}
+          resizeMode="cover"
+        />
+      )}
+      
+      {/* Actions */}
+      <View style={styles.actions}>
+        <Pressable
+          style={styles.actionButton}
+          onPress={handleLike}
+          android_ripple={{ color: colors.accent, radius: 20 }}
+        >
+          <Heart
+            size={20}
+            color={post.isLiked ? colors.error : colors.secondary}
+            fill={post.isLiked ? colors.error : 'transparent'}
+          />
+          <Text style={[styles.actionText, post.isLiked && { color: colors.error }]}>
+            {post.likes}
+          </Text>
+        </Pressable>
+        
+        <Pressable
+          style={styles.actionButton}
+          onPress={handleComment}
+          android_ripple={{ color: colors.accent, radius: 20 }}
+        >
+          <MessageCircle size={20} color={colors.secondary} />
+          <Text style={styles.actionText}>{post.comments}</Text>
+        </Pressable>
+        
+        <Pressable
+          style={styles.actionButton}
+          onPress={handleShare}
+          android_ripple={{ color: colors.accent, radius: 20 }}
+        >
+          <Share size={20} color={colors.secondary} />
+        </Pressable>
+        
+        <View style={styles.spacer} />
+        
+        <Pressable
+          style={styles.actionButton}
+          onPress={handleBookmark}
+          android_ripple={{ color: colors.accent, radius: 20 }}
+        >
+          <Bookmark
+            size={20}
+            color={post.isBookmarked ? colors.tint : colors.secondary}
+            fill={post.isBookmarked ? colors.tint : 'transparent'}
+          />
+        </Pressable>
+      </View>
+    </Pressable>
+  );
+};
+
+const createStyles = (colors: any) => StyleSheet.create({
+  container: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    marginVertical: 6,
+    marginHorizontal: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  authorInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  avatarPlaceholder: {
+    backgroundColor: colors.accent,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  authorDetails: {
+    flex: 1,
+  },
+  authorName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  timestamp: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  content: {
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+    lineHeight: 24,
+  },
+  description: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  postImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+    marginRight: 16,
+  },
+  actionText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  spacer: {
+    flex: 1,
+  },
+});
+
+// Memoize the component with custom comparison
+export default memo(OptimizedPostCard, (prevProps, nextProps) => {
+  // Only re-render if essential props change
+  return (
+    prevProps.post.id === nextProps.post.id &&
+    prevProps.post.likes === nextProps.post.likes &&
+    prevProps.post.comments === nextProps.post.comments &&
+    prevProps.post.isLiked === nextProps.post.isLiked &&
+    prevProps.post.isBookmarked === nextProps.post.isBookmarked
+  );
+});

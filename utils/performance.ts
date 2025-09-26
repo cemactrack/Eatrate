@@ -1,2 +1,141 @@
-import React from "react";
-import React, { memo, useMemo, useCallback } from 'react';\nimport { Platform } from 'react-native';\n\n/**\n * Performance optimization utilities for React Native components\n */\n\n// Memoization helper with custom comparison\nexport function createMemoComponent<T extends React.ComponentType<any>>(\n  Component: T,\n  areEqual?: (prevProps: React.ComponentProps<T>, nextProps: React.ComponentProps<T>) => boolean\n): T {\n  return memo(Component, areEqual) as T;\n}\n\n// Optimized list item component factory\nexport function createOptimizedListItem<T>(\n  renderItem: (item: T, index: number) => React.ReactElement,\n  keyExtractor: (item: T, index: number) => string,\n  areEqual?: (prevProps: { item: T; index: number }, nextProps: { item: T; index: number }) => boolean\n) {\n  const ListItem = memo<{ item: T; index: number }>(({ item, index }) => {\n    return renderItem(item, index);\n  }, areEqual);\n\n  return {\n    ListItem,\n    keyExtractor,\n  };\n}\n\n// Debounced callback hook\nexport function useDebounceCallback<T extends (...args: any[]) => any>(\n  callback: T,\n  delay: number,\n  deps: React.DependencyList\n): T {\n  const debouncedCallback = useMemo(() => {\n    let timeoutId: NodeJS.Timeout;\n    \n    return ((...args: Parameters<T>) => {\n      clearTimeout(timeoutId);\n      timeoutId = setTimeout(() => callback(...args), delay);\n    }) as T;\n  }, [callback, delay, ...deps]);\n\n  return debouncedCallback;\n}\n\n// Stable callback hook (prevents unnecessary re-renders)\nexport function useStableCallback<T extends (...args: any[]) => any>(\n  callback: T\n): T {\n  const callbackRef = React.useRef(callback);\n  callbackRef.current = callback;\n\n  return useCallback((...args: Parameters<T>) => {\n    return callbackRef.current(...args);\n  }, []) as T;\n}\n\n// Platform-specific optimization\nexport function usePlatformOptimization() {\n  return useMemo(() => ({\n    isWeb: Platform.OS === 'web',\n    isNative: Platform.OS !== 'web',\n    shouldUseNativeDriver: Platform.OS !== 'web',\n    shouldUseVirtualization: Platform.OS !== 'web',\n    maxImageCacheSize: Platform.OS === 'web' ? 50 : 100,\n  }), []);\n}\n\n// Image optimization helper\nexport function getOptimizedImageUri(\n  uri: string,\n  width?: number,\n  height?: number,\n  quality: number = 80\n): string {\n  if (!uri) return '';\n  \n  // For Unsplash images, add optimization parameters\n  if (uri.includes('unsplash.com')) {\n    const params = new URLSearchParams();\n    if (width) params.set('w', width.toString());\n    if (height) params.set('h', height.toString());\n    params.set('q', quality.toString());\n    params.set('fit', 'crop');\n    \n    return `${uri}?${params.toString()}`;\n  }\n  \n  return uri;\n}\n\n// Performance monitoring hook\nexport function usePerformanceMonitor(componentName: string, enabled: boolean = __DEV__) {\n  React.useEffect(() => {\n    if (!enabled) return;\n    \n    const startTime = performance.now();\n    console.log(`[Performance] ${componentName} mounted`);\n    \n    return () => {\n      const endTime = performance.now();\n      console.log(`[Performance] ${componentName} unmounted after ${endTime - startTime}ms`);\n    };\n  }, [componentName, enabled]);\n}\n\n// List optimization helpers\nexport const LIST_OPTIMIZATION = {\n  getItemLayout: (itemHeight: number) => (data: any, index: number) => ({\n    length: itemHeight,\n    offset: itemHeight * index,\n    index,\n  }),\n  \n  keyExtractor: (item: any, index: number) => {\n    return item.id?.toString() || item.key?.toString() || index.toString();\n  },\n  \n  windowSize: Platform.OS === 'web' ? 10 : 21,\n  initialNumToRender: Platform.OS === 'web' ? 5 : 10,\n  maxToRenderPerBatch: Platform.OS === 'web' ? 5 : 10,\n  updateCellsBatchingPeriod: 50,\n};
+import React, { memo, useMemo, useCallback, useRef, useEffect } from 'react';
+import { Platform, InteractionManager } from 'react-native';
+
+/**
+ * Performance optimization utilities for React Native components
+ */
+
+// Memoization helper with custom comparison
+export function createMemoComponent<T extends React.ComponentType<any>>(
+  Component: T,
+  areEqual?: (prevProps: React.ComponentProps<T>, nextProps: React.ComponentProps<T>) => boolean
+): T {
+  return memo(Component, areEqual) as T;
+}
+
+// Optimized list item component factory
+export function createOptimizedListItem<T>(
+  renderItem: (item: T, index: number) => React.ReactElement,
+  keyExtractor: (item: T, index: number) => string,
+  areEqual?: (prevProps: { item: T; index: number }, nextProps: { item: T; index: number }) => boolean
+) {
+  const ListItem = memo<{ item: T; index: number }>(({ item, index }) => {
+    return renderItem(item, index);
+  }, areEqual);
+
+  return {
+    ListItem,
+    keyExtractor,
+  };
+}
+
+// Debounced callback hook
+export function useDebounceCallback<T extends (...args: any[]) => any>(
+  callback: T,
+  delay: number,
+  deps: React.DependencyList
+): T {
+  const debouncedCallback = useMemo(() => {
+    let timeoutId: NodeJS.Timeout;
+    
+    return ((...args: Parameters<T>) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => callback(...args), delay);
+    }) as T;
+  }, [callback, delay, ...deps]);
+
+  return debouncedCallback;
+}
+
+// Stable callback hook (prevents unnecessary re-renders)
+export function useStableCallback<T extends (...args: any[]) => any>(
+  callback: T
+): T {
+  const callbackRef = useRef(callback);
+  callbackRef.current = callback;
+
+  return useCallback((...args: Parameters<T>) => {
+    return callbackRef.current(...args);
+  }, []) as T;
+}
+
+// Platform-specific optimization
+export function usePlatformOptimization() {
+  return useMemo(() => ({
+    isWeb: Platform.OS === 'web',
+    isNative: Platform.OS !== 'web',
+    shouldUseNativeDriver: Platform.OS !== 'web',
+    shouldUseVirtualization: Platform.OS !== 'web',
+    maxConcurrentRequests: Platform.OS === 'web' ? 6 : 4,
+  }), []);
+}
+
+// Interaction manager hook for heavy operations
+export function useInteractionManager(callback: () => void, deps: React.DependencyList) {
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      callback();
+    });
+
+    return () => task.cancel();
+  }, deps);
+}
+
+// Throttled callback hook
+export function useThrottleCallback<T extends (...args: any[]) => any>(
+  callback: T,
+  delay: number
+): T {
+  const lastRun = useRef<number>(Date.now());
+  
+  return useCallback((...args: Parameters<T>) => {
+    if (Date.now() - lastRun.current >= delay) {
+      callback(...args);
+      lastRun.current = Date.now();
+    }
+  }, [callback, delay]) as T;
+}
+
+// Memory-efficient state hook for large objects
+export function useOptimizedState<T>(initialState: T) {
+  const [state, setState] = React.useState<T>(initialState);
+  
+  const updateState = useCallback((updates: Partial<T>) => {
+    setState(prevState => ({ ...prevState, ...updates }));
+  }, []);
+  
+  const resetState = useCallback(() => {
+    setState(initialState);
+  }, [initialState]);
+  
+  return [state, updateState, resetState] as const;
+}
+
+// Lazy component loader
+export function createLazyComponent<T extends React.ComponentType<any>>(
+  importFn: () => Promise<{ default: T }>
+): React.LazyExoticComponent<T> {
+  return React.lazy(importFn);
+}
+
+// Performance monitoring hook
+export function usePerformanceMonitor(componentName: string) {
+  const renderCount = useRef(0);
+  const startTime = useRef<number>(Date.now());
+  
+  useEffect(() => {
+    renderCount.current += 1;
+    const endTime = Date.now();
+    const renderTime = endTime - startTime.current;
+    
+    if (__DEV__) {
+      console.log(`[Performance] ${componentName} - Render #${renderCount.current} took ${renderTime}ms`);
+    }
+    
+    startTime.current = Date.now();
+  });
+  
+  return {
+    renderCount: renderCount.current,
+  };
+}
