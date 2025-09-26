@@ -90,17 +90,7 @@ export interface User {
   rewards?: Reward[];
 }
 
-export interface NutritionItem {
-  name: string;
-  calories: number;
-  confidence: number;
-}
 
-export interface NutritionEstimate {
-  totalCalories: number;
-  items: NutritionItem[];
-  confidence: number;
-}
 
 export interface Post {
   id: string;
@@ -129,7 +119,7 @@ export interface Post {
     cleanliness: number;
     overall: number;
   };
-  nutritionEstimate?: NutritionEstimate;
+
   tags: string[];
   location?: {
     latitude: number;
