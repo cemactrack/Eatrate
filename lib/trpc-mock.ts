@@ -1,5 +1,6 @@
 // Mock tRPC client for development when API routes are not working
 import { createTRPCReact } from "@trpc/react-query";
+import { httpLink } from "@trpc/client";
 import type { AppRouter } from "@/backend/trpc/app-router";
 
 export const trpc = createTRPCReact<AppRouter>();
@@ -46,37 +47,59 @@ const mockData = {
   ]
 };
 
-// Create a mock client that returns the mock data
-export const trpcClient = {
-  restaurants: {
-    list: { query: async () => mockData.restaurants },
-    yaounde: { query: async () => ({ restaurants: mockData.restaurants.filter(r => r.location === 'Yaoundé'), total: 1 }) },
-    douala: { query: async () => ({ restaurants: mockData.restaurants.filter(r => r.location === 'Douala'), total: 1 }) },
-    buea: { query: async () => ({ restaurants: [], total: 0 }) },
-    limbe: { query: async () => ({ restaurants: [], total: 0 }) },
-  },
-  posts: {
-    feed: { query: async () => ({ posts: mockData.posts, nextCursor: null }) },
-    list: { query: async () => mockData.posts },
-  },
-  users: {
-    list: { query: async () => mockData.users },
-  },
-  dishes: {
-    list: { query: async () => [] },
-  },
-  notifications: {
-    getAll: { query: async () => [] },
-    getSettings: { query: async () => ({ email: true, push: true, sms: false }) },
-  },
-  messaging: {
-    getConversations: { query: async () => [] },
-    getUnreadCount: { query: async () => 0 },
-  },
-  gamification: {
-    getStats: { query: async () => ({ points: 0, level: 1, badges: [] }) },
-  },
-  healthCheck: { query: async () => ({ status: 'ok', message: 'Mock client working' }) }
-};
+// Create a mock client that intercepts requests and returns mock data
+export const trpcClient = trpc.createClient({
+  links: [
+    httpLink({
+      url: 'http://mock-api/trpc', // This will never be called
+      fetch: async (url, options) => {
+        console.log('[Mock tRPC] Intercepting request:', url);
+        
+        // Parse the URL to determine which endpoint is being called
+        const urlObj = new URL(url);
+        const path = urlObj.pathname;
+        const searchParams = urlObj.searchParams;
+        const input = searchParams.get('input');
+        
+        let mockResponse;
+        
+        if (path.includes('restaurants.list')) {
+          mockResponse = mockData.restaurants;
+        } else if (path.includes('restaurants.yaounde')) {
+          mockResponse = { restaurants: mockData.restaurants.filter(r => r.location === 'Yaoundé'), total: 1 };
+        } else if (path.includes('restaurants.douala')) {
+          mockResponse = { restaurants: mockData.restaurants.filter(r => r.location === 'Douala'), total: 1 };
+        } else if (path.includes('posts.feed')) {
+          mockResponse = { posts: mockData.posts, nextCursor: null };
+        } else if (path.includes('posts.list')) {
+          mockResponse = mockData.posts;
+        } else if (path.includes('users.list')) {
+          mockResponse = mockData.users;
+        } else if (path.includes('notifications.getAll')) {
+          mockResponse = [];
+        } else if (path.includes('notifications.getSettings')) {
+          mockResponse = { email: true, push: true, sms: false };
+        } else if (path.includes('messaging.getConversations')) {
+          mockResponse = [];
+        } else if (path.includes('messaging.getUnreadCount')) {
+          mockResponse = 0;
+        } else if (path.includes('gamification.getStats')) {
+          mockResponse = { points: 0, level: 1, badges: [] };
+        } else if (path.includes('dishes.list')) {
+          mockResponse = [];
+        } else if (path.includes('healthCheck')) {
+          mockResponse = { status: 'ok', message: 'Mock client working' };
+        } else {
+          mockResponse = { status: 'ok', message: 'Mock response' };
+        }
+        
+        return new Response(JSON.stringify({ result: { data: mockResponse } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      },
+    }),
+  ],
+});
 
 console.log('[Mock tRPC] Using mock tRPC client for development');

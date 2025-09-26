@@ -4,6 +4,7 @@ import type { AppRouter } from "@/backend/trpc/app-router";
 import superjson from "superjson";
 import { Platform } from "react-native";
 import Constants from "expo-constants";
+import { trpcClient as mockTrpcClient } from "./trpc-mock";
 
 export const trpc = createTRPCReact<AppRouter>();
 
@@ -44,6 +45,9 @@ if (Platform.OS === 'web') {
   console.log('[tRPC] Web page:', href);
 }
 
+// Flag to track if we should use mock client
+let useMockClient = false;
+
 export const trpcClient = trpc.createClient({
   links: [
     httpLink({
@@ -57,8 +61,14 @@ export const trpcClient = trpc.createClient({
         };
       },
       async fetch(url, options) {
+        // If we've determined to use mock client, throw immediately
+        if (useMockClient) {
+          console.log('[tRPC] Using mock client, skipping real API call');
+          throw new Error('Using mock client');
+        }
+
         const controller = new AbortController();
-        const timeoutMs = 30000;
+        const timeoutMs = 10000; // Reduced timeout for faster fallback
         const timeoutId = setTimeout(() => {
           console.warn(`[tRPC] Request timeout after ${timeoutMs / 1000} seconds:`, url);
           controller.abort();
@@ -90,22 +100,23 @@ export const trpcClient = trpc.createClient({
             console.error('[tRPC] Full URL that returned HTML:', url);
             console.error('[tRPC] Request headers:', options?.headers);
             
-            // Check if this is a 404 or routing issue
-            if (response.status === 404) {
-              throw new Error(`API route not found: ${url}. Make sure the tRPC API route is properly configured.`);
-            }
+            // Switch to mock client for future requests
+            console.warn('[tRPC] Switching to mock client due to HTML response');
+            useMockClient = true;
             
-            // For development, provide more helpful error message
-            if (text.includes('Expo') || text.includes('React')) {
-              throw new Error(`API route is returning the React app instead of JSON. This usually means the API route is not properly configured or the development server needs to be restarted.`);
-            }
-            
-            throw new Error(`Server returned HTML instead of JSON. URL: ${url}. Check that the API route is properly configured and the server is running.`);
+            throw new Error(`Server returned HTML instead of JSON. Switching to mock client.`);
           }
 
           if (!response.ok) {
             const text = await response.clone().text();
             console.error(`[tRPC] HTTP ${response.status}:`, text.slice(0, 200));
+            
+            // Switch to mock client for 404s and 500s
+            if (response.status === 404 || response.status >= 500) {
+              console.warn('[tRPC] Switching to mock client due to server error');
+              useMockClient = true;
+            }
+            
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           }
 
@@ -117,7 +128,9 @@ export const trpcClient = trpc.createClient({
           const anyErr = error as { name?: string; message?: string } | undefined;
 
           if (anyErr?.name === 'AbortError') {
-            const timeoutError = new Error('Request timeout - please check your internet connection');
+            console.warn('[tRPC] Request timeout, switching to mock client');
+            useMockClient = true;
+            const timeoutError = new Error('Request timeout - switching to mock client');
             (timeoutError as any).name = 'TimeoutError';
             throw timeoutError;
           }
@@ -125,7 +138,9 @@ export const trpcClient = trpc.createClient({
           const msg: string = String(anyErr?.message ?? '');
 
           if (msg.includes('Failed to fetch') || msg.includes('Network request failed')) {
-            const networkError = new Error('Network error - please check your internet connection and ensure the API server is running');
+            console.warn('[tRPC] Network error, switching to mock client');
+            useMockClient = true;
+            const networkError = new Error('Network error - switching to mock client');
             (networkError as any).name = 'NetworkError';
             console.error('[tRPC] Network error while fetching', url, error);
             throw networkError;
@@ -137,3 +152,7 @@ export const trpcClient = trpc.createClient({
     }),
   ],
 });
+
+// Export both real and mock clients
+export { mockTrpcClient };
+export const getCurrentTrpcClient = () => useMockClient ? mockTrpcClient : trpcClient;

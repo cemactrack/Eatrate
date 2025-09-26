@@ -4,7 +4,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StyleSheet, View, ActivityIndicator } from 'react-native';
 
-import { trpc, trpcClient } from '@/lib/trpc';
+import { trpc } from '@/lib/trpc';
+import { trpcClient as mockTrpcClient } from '@/lib/trpc-mock';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { StorageProvider } from '@/providers/StorageProvider';
 import { AuthProvider } from '@/providers/AuthProvider';
@@ -33,7 +34,7 @@ interface CoreProvidersProps {
 
 const CoreProviders: React.FC<CoreProvidersProps> = ({ children, queryClient }) => (
   <QueryClientProvider client={queryClient}>
-    <trpc.Provider client={trpcClient} queryClient={queryClient}>
+    <trpc.Provider client={mockTrpcClient as any} queryClient={queryClient}>
       <GestureHandlerRootView style={styles.container}>
         <SafeAreaProvider>
           <ErrorBoundary>
