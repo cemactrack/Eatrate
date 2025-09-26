@@ -16,7 +16,7 @@ import { GamificationProvider } from '@/providers/GamificationProvider';
 import { NotificationProvider } from '@/providers/NotificationProvider';
 import { MessagingProvider } from '@/providers/MessagingProvider';
 import { ThemeProvider } from '@/providers/ThemeProvider';
-import { APP_CONFIG } from '@/constants/app-config';
+
 import Colors from '@/constants/colors';
 
 // Loading fallback component

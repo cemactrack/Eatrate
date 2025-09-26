@@ -4,8 +4,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserPlus, UserCheck, MapPin, Award } from 'lucide-react-native';
 import Colors from '@/constants/colors';
-import { trpc, trpcClient } from '@/lib/trpc';
-import { useQuery } from '@tanstack/react-query';
+import { trpc } from '@/lib/trpc';
 
 export default function OtherUserProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -13,16 +12,18 @@ export default function OtherUserProfileScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const userId = String(params.id ?? '');
 
-  const usersQuery = useQuery({
-    queryKey: ['users.list'],
-    queryFn: () => trpcClient.users.list.query(),
-    enabled: userId.length > 0,
-    staleTime: 1000 * 60,
-  });
+  const usersQuery = trpc.users.list.useQuery(
+    undefined,
+    {
+      enabled: userId.length > 0,
+      staleTime: 1000 * 60,
+    }
+  );
 
   const user = useMemo(() => {
-    return (usersQuery.data?.users ?? []).find((u) => u.id === userId);
-  }, [usersQuery.data?.users, userId]);
+    const list = (usersQuery.data as any)?.users ?? usersQuery.data ?? [];
+    return (list as Array<any>).find((u) => u?.id === userId);
+  }, [usersQuery.data, userId]);
 
   const { data: followStats } = trpc.users.followStats.useQuery(
     { userId },
