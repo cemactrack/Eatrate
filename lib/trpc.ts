@@ -3,13 +3,14 @@ import { httpLink } from "@trpc/client";
 import type { AppRouter } from "@/backend/trpc/app-router";
 import superjson from "superjson";
 import { Platform } from "react-native";
-
+import Constants from "expo-constants";
 
 export const trpc = createTRPCReact<AppRouter>();
 
 const getBaseUrl = (): string => {
   if (Platform.OS === 'web') {
     try {
+      // For web, use the current origin
       const origin = typeof window !== 'undefined' && window.location ? window.location.origin : '';
       console.log('[tRPC] Web origin:', origin);
       return origin || '';
@@ -19,10 +20,18 @@ const getBaseUrl = (): string => {
     }
   }
 
-  // For native, use localhost with the dev server port
-  const devServerUrl = 'http://localhost:8081';
-  console.log('[tRPC] Using dev server URL for native:', devServerUrl);
-  return devServerUrl;
+  // For native, try to get the dev server URL from Constants
+  try {
+    const debuggerHost = Constants.expoConfig?.hostUri
+      ? Constants.expoConfig.hostUri.split(':').shift()
+      : Constants.expoConfig?.debuggerHost || 'localhost';
+    const devServerUrl = `http://${debuggerHost}:8081`;
+    console.log('[tRPC] Using dev server URL for native:', devServerUrl);
+    return devServerUrl;
+  } catch (error) {
+    console.error('[tRPC] Error getting native URL:', error);
+    return 'http://localhost:8081';
+  }
 };
 
 const base = getBaseUrl();
@@ -80,6 +89,17 @@ export const trpcClient = trpc.createClient({
             console.error('[tRPC] Received HTML instead of JSON:', text.slice(0, 500));
             console.error('[tRPC] Full URL that returned HTML:', url);
             console.error('[tRPC] Request headers:', options?.headers);
+            
+            // Check if this is a 404 or routing issue
+            if (response.status === 404) {
+              throw new Error(`API route not found: ${url}. Make sure the tRPC API route is properly configured.`);
+            }
+            
+            // For development, provide more helpful error message
+            if (text.includes('Expo') || text.includes('React')) {
+              throw new Error(`API route is returning the React app instead of JSON. This usually means the API route is not properly configured or the development server needs to be restarted.`);
+            }
+            
             throw new Error(`Server returned HTML instead of JSON. URL: ${url}. Check that the API route is properly configured and the server is running.`);
           }
 
