@@ -15,7 +15,7 @@ const getBaseUrl = (): string => {
       return origin || '';
     } catch (error) {
       console.error('[tRPC] Error getting web origin:', error);
-      return '' as const;
+      return '';
     }
   }
 
@@ -77,8 +77,10 @@ export const trpcClient = trpc.createClient({
           
           if (contentType.includes('text/html')) {
             const text = await response.clone().text();
-            console.error('[tRPC] Received HTML instead of JSON:', text.slice(0, 200));
-            throw new Error('Server returned HTML instead of JSON - check API configuration');
+            console.error('[tRPC] Received HTML instead of JSON:', text.slice(0, 500));
+            console.error('[tRPC] Full URL that returned HTML:', url);
+            console.error('[tRPC] Request headers:', options?.headers);
+            throw new Error(`Server returned HTML instead of JSON. URL: ${url}. Check that the API route is properly configured and the server is running.`);
           }
 
           if (!response.ok) {

@@ -48,6 +48,16 @@ app.use(
   })
 );
 
+// Handle tRPC requests at root level for debugging
+app.all('/api/trpc', (c) => {
+  console.log('[tRPC] Root API endpoint hit:', c.req.method, c.req.url);
+  return c.json({ 
+    error: 'tRPC endpoint requires a procedure path', 
+    example: '/api/trpc/healthCheck',
+    timestamp: new Date().toISOString()
+  }, 400);
+});
+
 // Simple health check endpoint
 app.get("/", (c) => {
   return c.json({ status: "ok", message: "EatRate API is running", timestamp: new Date().toISOString() });
@@ -107,3 +117,4 @@ app.all('*', (c) => {
 });
 
 export default app;
+export { app };
