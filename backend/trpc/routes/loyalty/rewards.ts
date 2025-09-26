@@ -25,8 +25,8 @@ const mockRewards: Reward[] = [
   },
   {
     id: 'reward_3',
-    title: 'Jumia Food Voucher',
-    description: '5000 CFA voucher for Jumia Food delivery',
+    title: 'Restaurant Voucher',
+    description: '5000 CFA voucher for participating restaurants',
     pointsCost: 1200,
     type: 'partner_reward',
     value: 5000,

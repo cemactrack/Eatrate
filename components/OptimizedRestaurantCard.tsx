@@ -1,6 +1,6 @@
 import React, { memo, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
-import { MapPin, Star, Clock, DollarSign } from 'lucide-react-native';
+import { MapPin, Star, DollarSign } from 'lucide-react-native';
 import { useSettings } from '@/providers/SettingsProvider';
 import { useStableCallback } from '@/utils/performance';
 import { Restaurant } from '@/types/restaurant';
@@ -74,12 +74,7 @@ const OptimizedRestaurantCard: React.FC<OptimizedRestaurantCardProps> = ({
           </View>
           
           <View style={styles.metaContainer}>
-            {restaurant.estimatedDeliveryTime && (
-              <View style={styles.metaItem}>
-                <Clock size={12} color={colors.secondary} />
-                <Text style={styles.metaText}>{restaurant.estimatedDeliveryTime}min</Text>
-              </View>
-            )}
+
             
             <View style={styles.metaItem}>
               <DollarSign size={12} color={colors.secondary} />

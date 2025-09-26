@@ -210,7 +210,7 @@ eatrate-app/
 
 ### Long Term (Month 3-12)
 1. **Advanced AI**: Implement advanced AI features
-2. **Partnerships**: Establish restaurant and delivery partnerships
+2. **Partnerships**: Establish restaurant partnerships (delivery partnerships removed)
 3. **Monetization**: Implement revenue streams
 4. **International**: Expand to other countries
 

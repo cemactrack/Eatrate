@@ -7,7 +7,7 @@ export type Supplier = {
   category: "Produce" | "Meat & Poultry" | "Seafood" | "Dairy" | "Dry Goods" | "Beverages" | "Bakery" | "Spices" | "Packaging";
   rating: number;
   minOrder: string;
-  deliveryTime: string;
+  fulfillmentTime: string;
   image: string;
   tags: string[];
   phone?: string;
@@ -63,13 +63,13 @@ export const listSuppliersProcedure = publicProcedure
         const category = categoryPool[u.id % categoryPool.length];
         const rating = 3 + (u.id % 3) + 0.1 * (u.age % 10);
         const minOrder = `${50 + (u.id % 200)}`;
-        const deliveryTime = ["Same-day", "24-48h", "2-3 days", "3-5 days"][u.id % 4] ?? "2-3 days";
+        const fulfillmentTime = ["Same-day", "24-48h", "2-3 days", "3-5 days"][u.id % 4] ?? "2-3 days";
         const image = String(u.image ?? `https://i.pravatar.cc/300?img=${u.id}`);
         const tags = [u.company?.department, u.company?.title].filter(Boolean).map(String) as string[];
         const phone = String(u.phone ?? "");
         const website = u.domain ? `https://${String(u.domain)}` : undefined;
         const location = `${u.address?.city ?? ""}`.trim() || undefined;
-        return { id, name, category, rating, minOrder, deliveryTime, image, tags, phone, website, location } satisfies Supplier;
+        return { id, name, category, rating, minOrder, fulfillmentTime, image, tags, phone, website, location } satisfies Supplier;
       });
 
       if (q.length > 0) {

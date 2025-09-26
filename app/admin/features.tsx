@@ -236,7 +236,7 @@ const FEATURES: Feature[] = [
     status: 'not-implemented',
     category: 'Delivery & Ordering',
     completionPercentage: 0,
-    notes: 'Third-party delivery integrations have been removed from the platform',
+    notes: 'Third-party delivery integrations have been completely removed from the platform',
   },
   
   // Loyalty & Rewards

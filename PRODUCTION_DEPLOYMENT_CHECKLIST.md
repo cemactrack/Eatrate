@@ -150,7 +150,7 @@ npm run test:web:production
 - **Feature Updates**: Regular feature releases
 - **User Feedback**: Continuous improvement based on feedback
 - **Market Expansion**: Additional cities and features
-- **Partnerships**: Restaurant and delivery partnerships
+- **Partnerships**: Restaurant partnerships (delivery partnerships removed)
 
 ## Team Responsibilities
 

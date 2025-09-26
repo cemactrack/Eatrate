@@ -25,7 +25,7 @@ interface SupplierItemProps {
     category: SupplierCategory;
     rating: number;
     minOrder: string;
-    deliveryTime: string;
+    fulfillmentTime: string;
     image: string;
     tags: string[];
     phone?: string;
@@ -51,7 +51,7 @@ function SupplierItem({ item }: SupplierItemProps) {
           <Text style={styles.metaDot}>•</Text>
           <Text style={styles.metaText}>Min {item.minOrder}</Text>
           <Text style={styles.metaDot}>•</Text>
-          <Text style={styles.metaText}>{item.deliveryTime}</Text>
+          <Text style={styles.metaText}>{item.fulfillmentTime}</Text>
         </View>
         {(item.location || item.tags.length > 0) && (
           <View style={styles.infoRow}>

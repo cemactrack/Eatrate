@@ -131,7 +131,7 @@
 #### 4. Monetization Features
 - ❌ Premium subscriptions
 - ❌ Sponsored restaurant listings & ads
-- ❌ Affiliate deals with delivery apps
+- ❌ Affiliate deals with delivery apps (removed from platform)
 - ❌ In-app rewards system
 
 #### 5. Advanced Restaurant Features
