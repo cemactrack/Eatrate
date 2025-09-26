@@ -17,7 +17,6 @@ import {
   Heart,
   Bookmark,
   MapPin,
-  LogOut,
   Shield,
   Calendar,
   Trophy,
@@ -32,9 +31,11 @@ import {
   Bell,
   Gift,
   BarChart3,
-  Medal,
   Crown,
   Flame,
+  Edit3,
+  Users,
+  Zap,
 } from 'lucide-react-native';
 import { Stack, useRouter } from 'expo-router';
 import Colors from '@/constants/colors';
@@ -107,7 +108,7 @@ export default function ProfileScreen() {
   const [showFullBio, setShowFullBio] = useState<boolean>(false);
   const [selectedStatsPeriod] = useState<'week' | 'month' | 'year'>('month');
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { isAdmin } = useAdmin();
   const router = useRouter();
 
@@ -254,14 +255,7 @@ export default function ProfileScreen() {
     router.push('/settings');
   }, [router]);
 
-  const handleLogout = useCallback(async () => {
-    try {
-      await logout();
-      router.replace('/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-  }, [logout, router]);
+  // Removed unused handleLogout function
 
   const handleAdminPanel = useCallback(() => {
     router.push('/admin');
@@ -288,67 +282,81 @@ export default function ProfileScreen() {
       <Stack.Screen options={{ title: 'Profile', headerShown: false }} />
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.heroContainer}>
-          <Image
-            source={{ uri: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1200&h=500&fit=crop' }}
-            style={styles.heroCover}
-            resizeMode="cover"
-          />
-          <View style={styles.heroOverlay} />
+        {/* Modern Header with Gradient */}
+        <View style={styles.modernHeader}>
+          <View style={styles.gradientBackground}>
+            <Image
+              source={{ uri: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1200&h=500&fit=crop' }}
+              style={styles.backgroundImage}
+              resizeMode="cover"
+            />
+            <View style={styles.gradientOverlay} />
+          </View>
 
-          <View style={styles.heroTopBar}>
-            <Text style={styles.heroUsername} numberOfLines={1}>
-              @{currentUser.username}
-            </Text>
-            <View style={styles.headerActions}>
+          {/* Top Navigation */}
+          <View style={styles.topNav}>
+            <View style={styles.usernameContainer}>
+              <Text style={styles.modernUsername}>@{currentUser.username}</Text>
+              {currentUser.isVerified && (
+                <CheckCircle size={18} color="#00D4FF" style={styles.verifiedIcon} />
+              )}
+            </View>
+            <View style={styles.navActions}>
               {isAdmin && (
-                <TouchableOpacity onPress={handleAdminPanel} style={styles.headerButton} testID="admin-button">
-                  <Shield size={22} color={Colors.light.card} />
+                <TouchableOpacity onPress={handleAdminPanel} style={styles.navButton} testID="admin-button">
+                  <Shield size={20} color="white" />
                 </TouchableOpacity>
               )}
-              <TouchableOpacity onPress={handleSettings} style={styles.headerButton} testID="settings-button">
-                <Settings size={22} color={Colors.light.card} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleLogout} style={styles.headerButton} testID="logout-button">
-                <LogOut size={22} color={Colors.light.card} />
+              <TouchableOpacity onPress={handleSettings} style={styles.navButton} testID="settings-button">
+                <Settings size={20} color="white" />
               </TouchableOpacity>
             </View>
           </View>
 
-          <View style={styles.heroBottom}>
-            <Image source={{ uri: currentUser.avatar }} style={styles.heroAvatar} />
-            <View style={styles.heroInfo}>
-              <View style={styles.nameRow}>
-                <Text style={styles.displayName}>{currentUser.displayName}</Text>
-                {currentUser.isVerified && (
-                  <CheckCircle size={16} color={Colors.light.tint} style={styles.verifiedBadge} />
-                )}
-                <View style={styles.levelBadge}>
-                  <Medal size={12} color={Colors.light.warning} />
-                  <Text style={styles.levelText}>{userReputation?.level || 'Newcomer'}</Text>
+          {/* Profile Section */}
+          <View style={styles.profileSection}>
+            <View style={styles.avatarContainer}>
+              <Image source={{ uri: currentUser.avatar }} style={styles.modernAvatar} />
+              <View style={styles.statusIndicator} />
+            </View>
+            
+            <View style={styles.profileInfo}>
+              <View style={styles.nameSection}>
+                <Text style={styles.modernDisplayName}>{currentUser.displayName}</Text>
+                <View style={styles.badgeRow}>
+                  <View style={styles.modernLevelBadge}>
+                    <Crown size={14} color="#FFD700" />
+                    <Text style={styles.modernLevelText}>{userReputation?.level || 'Newcomer'}</Text>
+                  </View>
+                  <View style={styles.reputationBadge}>
+                    <Zap size={12} color="#FF6B35" />
+                    <Text style={styles.reputationText}>{userReputation?.points || 0}</Text>
+                  </View>
                 </View>
               </View>
-              <TouchableOpacity onPress={() => setShowFullBio(!showFullBio)}>
-                <Text style={styles.bio} numberOfLines={showFullBio ? undefined : 2}>
+              
+              <TouchableOpacity onPress={() => setShowFullBio(!showFullBio)} style={styles.bioContainer}>
+                <Text style={styles.modernBio} numberOfLines={showFullBio ? undefined : 2}>
                   {currentUser.bio}
                 </Text>
                 {currentUser.bio.length > 100 && (
-                  <Text style={styles.readMoreText}>{showFullBio ? 'Show less' : 'Read more'}</Text>
+                  <Text style={styles.modernReadMore}>{showFullBio ? 'Show less' : 'Read more'}</Text>
                 )}
               </TouchableOpacity>
-              <View style={styles.infoRow}>
+
+              <View style={styles.modernInfoRow}>
                 {currentUser.location && (
-                  <View style={styles.infoPill}>
-                    <MapPin size={14} color={Colors.light.secondary} />
-                    <Text style={styles.infoPillText} numberOfLines={1}>
+                  <View style={styles.modernInfoPill}>
+                    <MapPin size={12} color="#8E8E93" />
+                    <Text style={styles.modernInfoText}>
                       {currentUser.location.city}, {currentUser.location.country}
                     </Text>
                   </View>
                 )}
-                <View style={styles.infoPill}>
-                  <Clock size={14} color={Colors.light.secondary} />
-                  <Text style={styles.infoPillText}>
-                    Joined {new Date(currentUser.joinedDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                <View style={styles.modernInfoPill}>
+                  <Calendar size={12} color="#8E8E93" />
+                  <Text style={styles.modernInfoText}>
+                    {new Date(currentUser.joinedDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
                   </Text>
                 </View>
               </View>
@@ -356,57 +364,72 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <View style={styles.quickStatsRow}>
-          <View style={styles.quickStatCard}>
-            <Text style={styles.quickStatNumber}>{currentUser.postsCount}</Text>
-            <Text style={styles.quickStatLabel}>Posts</Text>
+        {/* Modern Stats Cards */}
+        <View style={styles.modernStatsContainer}>
+          <View style={styles.modernStatCard}>
+            <View style={styles.statIconContainer}>
+              <Grid size={20} color="#007AFF" />
+            </View>
+            <Text style={styles.modernStatNumber}>{currentUser.postsCount}</Text>
+            <Text style={styles.modernStatLabel}>Posts</Text>
           </View>
+          
           <TouchableOpacity
-            style={styles.quickStatCard}
+            style={styles.modernStatCard}
             onPress={() => router.push(`/users/${user?.id}/followers`)}
           >
-            <Text style={styles.quickStatNumber}>{currentUser.followersCount.toLocaleString()}</Text>
-            <Text style={styles.quickStatLabel}>Followers</Text>
+            <View style={styles.statIconContainer}>
+              <Users size={20} color="#34C759" />
+            </View>
+            <Text style={styles.modernStatNumber}>{currentUser.followersCount.toLocaleString()}</Text>
+            <Text style={styles.modernStatLabel}>Followers</Text>
           </TouchableOpacity>
+          
           <TouchableOpacity
-            style={styles.quickStatCard}
+            style={styles.modernStatCard}
             onPress={() => router.push(`/users/${user?.id}/following`)}
           >
-            <Text style={styles.quickStatNumber}>{currentUser.followingCount.toLocaleString()}</Text>
-            <Text style={styles.quickStatLabel}>Following</Text>
+            <View style={styles.statIconContainer}>
+              <Heart size={20} color="#FF3B30" />
+            </View>
+            <Text style={styles.modernStatNumber}>{currentUser.followingCount.toLocaleString()}</Text>
+            <Text style={styles.modernStatLabel}>Following</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.actionRow}>
+        {/* Modern Action Buttons */}
+        <View style={styles.modernActionRow}>
           <TouchableOpacity
             testID="edit-profile-button"
-            accessibilityRole="button"
-            style={styles.primaryButton}
+            style={styles.modernPrimaryButton}
             onPress={handleEditProfile}
           >
-            <Text style={styles.primaryButtonText}>Edit Profile</Text>
+            <Edit3 size={18} color="white" />
+            <Text style={styles.modernPrimaryButtonText}>Edit Profile</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             testID="share-profile-button"
-            style={styles.iconButton}
+            style={styles.modernSecondaryButton}
             onPress={() => console.log('Share profile')}
           >
-            <Share2 size={16} color={Colors.light.text} />
+            <Share2 size={18} color="#007AFF" />
           </TouchableOpacity>
+          
           <TouchableOpacity
             testID="camera-button"
-            style={styles.iconButton}
+            style={styles.modernSecondaryButton}
             onPress={() => router.push('/ai/scanner')}
           >
-            <Camera size={16} color={Colors.light.text} />
+            <Camera size={18} color="#007AFF" />
           </TouchableOpacity>
+          
           <TouchableOpacity
             testID="messages-button"
-            style={styles.iconButton}
+            style={styles.modernSecondaryButton}
             onPress={() => router.push('/messages')}
           >
-            <MessageCircle size={16} color={Colors.light.text} />
+            <MessageCircle size={18} color="#007AFF" />
           </TouchableOpacity>
         </View>
 
@@ -637,7 +660,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.background,
+    backgroundColor: '#F8F9FA',
   },
   center: {
     flex: 1,
@@ -653,166 +676,274 @@ const styles = StyleSheet.create({
     color: Colors.light.secondary,
     marginTop: 8,
   },
-  heroContainer: {
+  
+  // Modern Header Styles
+  modernHeader: {
     position: 'relative',
-    height: 200,
-    marginBottom: 56,
+    paddingBottom: 24,
   },
-  heroCover: {
+  gradientBackground: {
+    height: 280,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  backgroundImage: {
     width: '100%',
     height: '100%',
   },
-  heroOverlay: {
+  gradientOverlay: {
     position: 'absolute',
     top: 0,
-    bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    bottom: 0,
+    background: 'linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.7) 100%)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
-  heroTopBar: {
+  
+  // Top Navigation
+  topNav: {
     position: 'absolute',
-    top: 12,
-    left: 16,
-    right: 16,
+    top: 16,
+    left: 20,
+    right: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  usernameContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 8,
   },
-  heroUsername: {
-    color: Colors.light.card,
-    fontSize: 16,
+  modernUsername: {
+    color: 'white',
+    fontSize: 18,
     fontWeight: '700',
-    maxWidth: '60%',
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
-  headerActions: {
+  verifiedIcon: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+  },
+  navActions: {
     flexDirection: 'row',
     gap: 12,
   },
-  headerButton: {
-    padding: 6,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 10,
-  },
-  heroBottom: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: -48,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-  heroAvatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    borderWidth: 3,
-    borderColor: Colors.light.background,
-    backgroundColor: Colors.light.card,
-  },
-  heroInfo: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  verifiedBadge: {
-    marginLeft: 4,
-  },
-  displayName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.light.text,
-  },
-  bio: {
-    fontSize: 14,
-    color: Colors.light.text,
-    lineHeight: 20,
-  },
-  readMoreText: {
-    fontSize: 12,
-    color: Colors.light.tint,
-    marginTop: 4,
-    fontWeight: '500',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 10,
-    flexWrap: 'wrap',
-  },
-  infoPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.light.card,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  infoPillText: {
-    fontSize: 12,
-    color: Colors.light.secondary,
-  },
-  quickStatsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
-    marginTop: 8,
-  },
-  quickStatCard: {
-    flex: 1,
-    backgroundColor: Colors.light.card,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    borderRadius: 12,
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  quickStatNumber: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.light.text,
-  },
-  quickStatLabel: {
-    fontSize: 12,
-    color: Colors.light.secondary,
-    marginTop: 4,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  primaryButton: {
-    flex: 1,
-    backgroundColor: Colors.light.tint,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    borderRadius: 10,
+  navButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.light.card,
+    backdropFilter: 'blur(10px)',
+  },
+  
+  // Profile Section
+  profileSection: {
+    position: 'absolute',
+    bottom: -60,
+    left: 20,
+    right: 20,
+    zIndex: 5,
+  },
+  avatarContainer: {
+    position: 'relative',
+    alignSelf: 'flex-start',
+    marginBottom: 16,
+  },
+  modernAvatar: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 4,
+    borderColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+  },
+  statusIndicator: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#34C759',
+    borderWidth: 3,
+    borderColor: 'white',
+  },
+  
+  profileInfo: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  nameSection: {
+    marginBottom: 12,
+  },
+  modernDisplayName: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#1C1C1E',
+    marginBottom: 8,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  modernLevelBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF9E6',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  modernLevelText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#B8860B',
+  },
+  reputationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF0ED',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+  reputationText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FF6B35',
+  },
+  
+  bioContainer: {
+    marginVertical: 12,
+  },
+  modernBio: {
+    fontSize: 16,
+    color: '#3C3C43',
+    lineHeight: 22,
+  },
+  modernReadMore: {
+    fontSize: 14,
+    color: '#007AFF',
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  
+  modernInfoRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 8,
+  },
+  modernInfoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  modernInfoText: {
+    fontSize: 14,
+    color: '#8E8E93',
+    fontWeight: '500',
+  },
+  
+  // Modern Stats
+  modernStatsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginTop: 80,
+    marginBottom: 20,
+    gap: 12,
+  },
+  modernStatCard: {
+    flex: 1,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  statIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  modernStatNumber: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1C1C1E',
+    marginBottom: 4,
+  },
+  modernStatLabel: {
+    fontSize: 13,
+    color: '#8E8E93',
+    fontWeight: '600',
+  },
+  
+  // Modern Actions
+  modernActionRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 24,
+    gap: 12,
+  },
+  modernPrimaryButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#007AFF',
+    paddingVertical: 14,
+    borderRadius: 14,
+    gap: 8,
+    shadowColor: '#007AFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  modernPrimaryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  modernSecondaryButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   statsCardsContainer: {
     flexDirection: 'row',
