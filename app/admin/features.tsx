@@ -228,23 +228,15 @@ const FEATURES: Feature[] = [
   
 
   
-  // Delivery & Ordering
-  {
-    id: 'delivery-integration',
-    name: 'Delivery Integration',
-    description: 'Integration with UberEats, Glovo, Jumia Food',
-    status: 'partial',
-    category: 'Delivery & Ordering',
-    completionPercentage: 50,
-    notes: 'Backend routes exist, frontend integration needed',
-  },
+  // Delivery & Ordering (Removed third-party delivery integrations)
   {
     id: 'order-tracking',
     name: 'Order Tracking',
-    description: 'Real-time order status and delivery tracking',
+    description: 'In-app order status tracking (partner integrations removed)',
     status: 'not-implemented',
     category: 'Delivery & Ordering',
-    completionPercentage: 20,
+    completionPercentage: 0,
+    notes: 'Third-party delivery integrations have been removed from the platform',
   },
   
   // Loyalty & Rewards

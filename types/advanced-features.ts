@@ -1,14 +1,3 @@
-export interface DeliveryIntegration {
-  id: string;
-  restaurantId: string;
-  provider: 'ubereats' | 'glovo' | 'jumia' | 'eatrate';
-  isActive: boolean;
-  deliveryFee: number;
-  minimumOrder: number;
-  estimatedTime: string;
-  coverageAreas: string[];
-}
-
 export interface LoyaltyPoints {
   id: string;
   userId: string;

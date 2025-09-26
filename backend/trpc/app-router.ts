@@ -157,7 +157,6 @@ import {
   getSponsoredListingsProcedure,
   getUserRewardsProcedure,
   redeemRewardProcedure,
-  getDeliveryPartnersProcedure,
 } from "./routes/subscriptions/manage";
 
 // Groups & Community routes
@@ -221,12 +220,7 @@ import {
   getConversationParticipants,
 } from "./routes/messaging/manage";
 
-// Advanced Features routes
-import {
-  getDeliveryOptionsProcedure,
-  initiateOrderProcedure,
-  trackOrderProcedure,
-} from "./routes/delivery/integration";
+// Advanced Features routes (delivery removed)
 import {
   getUserPointsProcedure,
   awardPointsProcedure as loyaltyAwardPointsProcedure,
@@ -425,7 +419,6 @@ export const appRouter = createTRPCRouter({
     getSponsoredListings: getSponsoredListingsProcedure,
     getUserRewards: getUserRewardsProcedure,
     redeemReward: redeemRewardProcedure,
-    getDeliveryPartners: getDeliveryPartnersProcedure,
   }),
   groups: createTRPCRouter({
     getAll: getGroupsProcedure,
@@ -480,12 +473,7 @@ export const appRouter = createTRPCRouter({
     bulkMarkAsRead: bulkMarkAsRead,
     getConversationParticipants: getConversationParticipants,
   }),
-  // Advanced Features
-  delivery: createTRPCRouter({
-    getOptions: getDeliveryOptionsProcedure,
-    initiateOrder: initiateOrderProcedure,
-    trackOrder: trackOrderProcedure,
-  }),
+  // Advanced Features (delivery router removed)
   loyalty: createTRPCRouter({
     getUserPoints: getUserPointsProcedure,
     awardPoints: loyaltyAwardPointsProcedure,

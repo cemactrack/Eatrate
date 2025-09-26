@@ -14,7 +14,6 @@ export interface Restaurant {
   // Enhanced fields for missing features
   sponsored?: boolean;
   premiumListing?: boolean;
-  deliveryPartners?: DeliveryPartner[];
   emergencyContact?: string;
   complianceInfo?: {
     licenseNumber?: string;
@@ -294,9 +293,9 @@ export interface Supplier {
   rating: number;
   reviewCount: number;
   isVerified: boolean;
-  deliveryAreas: string[];
+  // deliveryAreas removed
   minimumOrder?: number;
-  deliveryFee?: number;
+  // deliveryFee removed
   operatingHours: {
     [key: string]: {
       open: string;
@@ -446,15 +445,6 @@ export interface SponsoredListing {
   };
 }
 
-export interface DeliveryPartner {
-  id: string;
-  name: string;
-  logo: string;
-  deepLink: string;
-  commission: number;
-  isActive: boolean;
-  supportedCities: string[];
-}
 
 export interface Reward {
   id: string;

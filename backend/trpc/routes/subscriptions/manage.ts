@@ -273,48 +273,4 @@ export const redeemRewardProcedure = protectedProcedure
     };
   });
 
-// Get delivery partners
-export const getDeliveryPartnersProcedure = publicProcedure
-  .input(z.object({
-    restaurantId: z.string(),
-    city: z.string().optional()
-  }))
-  .query(async ({ input }) => {
-    console.log('[getDeliveryPartners] Fetching delivery partners for restaurant:', input.restaurantId);
-    
-    // Mock delivery partners
-    const partners = [
-      {
-        id: '1',
-        name: 'UberEats',
-        logo: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b',
-        deepLink: 'ubereats://restaurant/' + input.restaurantId,
-        commission: 15,
-        isActive: true,
-        supportedCities: ['Douala', 'Yaounde', 'Buea']
-      },
-      {
-        id: '2',
-        name: 'Glovo',
-        logo: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b',
-        deepLink: 'glovo://restaurant/' + input.restaurantId,
-        commission: 18,
-        isActive: true,
-        supportedCities: ['Douala', 'Yaounde']
-      },
-      {
-        id: '3',
-        name: 'Jumia Food',
-        logo: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b',
-        deepLink: 'jumiafood://restaurant/' + input.restaurantId,
-        commission: 20,
-        isActive: true,
-        supportedCities: ['Douala', 'Yaounde', 'Buea', 'Limbe']
-      }
-    ];
-    
-    return partners.filter(partner => 
-      partner.isActive && 
-      (!input.city || partner.supportedCities.includes(input.city))
-    );
-  });
+// Delivery partners feature removed
