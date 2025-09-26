@@ -309,6 +309,28 @@ export const needsInitialImportProcedure = publicProcedure.query(async () => {
   return { needsImport: !isPopulated };
 });
 
+// Clear all restaurants from database
+export const clearRestaurantsProcedure = publicProcedure.mutation(async () => {
+  try {
+    await ensureDataDir();
+    const emptyData = {
+      restaurants: [],
+      lastUpdated: new Date().toISOString(),
+      count: 0
+    };
+    await fs.writeFile(RESTAURANTS_DB_FILE, JSON.stringify(emptyData, null, 2), 'utf8');
+    
+    // Clear cache
+    cache.clear();
+    
+    console.log('[DB] Cleared all restaurants from database');
+    return { success: true, message: 'All restaurants cleared from database' };
+  } catch (error) {
+    console.error('[DB] Failed to clear restaurants:', error);
+    throw error;
+  }
+});
+
 export const bootstrapImportProcedure = publicProcedure.mutation(async () => {
   const isPopulated = await isDatabasePopulated();
   if (isPopulated) {

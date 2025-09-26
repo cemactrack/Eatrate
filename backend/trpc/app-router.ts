@@ -5,7 +5,7 @@ import { fetchBueaRestaurantsProcedure } from "./routes/restaurants/buea";
 import { fetchLimbeRestaurantsProcedure } from "./routes/restaurants/limbe";
 import { searchRestaurantsProcedure } from "./routes/restaurants/search";
 import { searchByPhotoProcedure } from "./routes/restaurants/photo-search";
-import { importFromTripadvisorProcedure, getImportedOneTimeProcedure, needsInitialImportProcedure, bootstrapImportProcedure } from "./routes/restaurants/import";
+import { importFromTripadvisorProcedure, getImportedOneTimeProcedure, needsInitialImportProcedure, bootstrapImportProcedure, clearRestaurantsProcedure } from "./routes/restaurants/import";
 import hiRoute, {
   getPostsProcedure,
   createPostProcedure,
@@ -299,6 +299,7 @@ export const appRouter = createTRPCRouter({
     getImportedOneTime: getImportedOneTimeProcedure,
     needsInitialImport: needsInitialImportProcedure,
     bootstrapImport: bootstrapImportProcedure,
+    clearRestaurants: clearRestaurantsProcedure,
     claims: createTRPCRouter({
       submit: submitClaimProcedure,
       list: listClaimsProcedure,
