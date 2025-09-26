@@ -8,6 +8,7 @@ import { useSettings } from "@/providers/SettingsProvider";
 import { AppProviders } from "@/providers/AppProviders";
 import Colors from "@/constants/colors";
 import { APP_CONFIG } from "@/constants/app-config";
+import CustomSplashScreen from "@/components/SplashScreen";
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync();
@@ -220,16 +221,15 @@ function MobileBlockedScreen() {
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState<boolean>(false);
+  const [showCustomSplash, setShowCustomSplash] = useState<boolean>(true);
 
   useEffect(() => {
     const prepare = async () => {
       try {
-        if (Platform.OS === 'web') {
-          setIsReady(true);
-          return;
+        if (Platform.OS !== 'web') {
+          await SplashScreen.hideAsync();
         }
-        await new Promise(resolve => setTimeout(resolve, 50));
-        await SplashScreen.hideAsync();
+        await new Promise(resolve => setTimeout(resolve, 100));
         setIsReady(true);
       } catch (e) {
         console.warn('Error during app initialization:', e);
@@ -239,11 +239,22 @@ export default function RootLayout() {
     prepare();
   }, []);
 
-  if (!isReady) {
+  const handleSplashFinish = () => {
+    setShowCustomSplash(false);
+  };
+
+  if (!isReady || showCustomSplash) {
     return (
-      <View style={[styles.container, styles.loading]}>
-        <ActivityIndicator size="large" color={Colors.light.tint} />
-      </View>
+      <>
+        {!isReady && (
+          <View style={[styles.container, styles.loading]}>
+            <ActivityIndicator size="large" color={Colors.light.tint} />
+          </View>
+        )}
+        {isReady && showCustomSplash && (
+          <CustomSplashScreen onFinish={handleSplashFinish} />
+        )}
+      </>
     );
   }
 
