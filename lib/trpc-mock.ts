@@ -30,19 +30,59 @@ const mockData = {
   posts: [
     {
       id: '1',
-      content: 'Just had an amazing meal at Le Beau Restaurant!',
-      author: { name: 'John Doe', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=john' },
-      timestamp: new Date().toISOString(),
-      likes: 12,
-      comments: 3
+      userId: '1',
+      user: {
+        id: '1',
+        username: 'john_doe',
+        displayName: 'John Doe',
+        avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b47c?w=200&h=200&fit=crop',
+        bio: 'Food enthusiast and reviewer',
+        followersCount: 150,
+        followingCount: 75,
+        postsCount: 25,
+        badges: ['Top Reviewer'],
+        preferences: { cuisines: ['Italian', 'French'], dietaryRestrictions: [], priceRange: ['$$', '$$$'] }
+      },
+      type: 'review' as const,
+      content: {
+        text: 'Just had an amazing meal at Le Beau Restaurant!',
+        images: ['https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=400&fit=crop'],
+        videos: []
+      },
+      restaurant: {
+        id: '1',
+        name: 'Le Beau Restaurant',
+        location: 'Yaoundé'
+      },
+      ratings: {
+        food: 5,
+        service: 4,
+        ambiance: 4,
+        cleanliness: 5,
+        overall: 4.5
+      },
+      tags: ['french', 'fine-dining', 'recommended'],
+      likesCount: 12,
+      commentsCount: 3,
+      sharesCount: 1,
+      viewsCount: 45,
+      isLiked: false,
+      isBookmarked: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     }
   ],
   users: [
     {
       id: '1',
-      name: 'John Doe',
+      username: 'john_doe',
+      displayName: 'John Doe',
       email: 'john@example.com',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=john'
+      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b47c?w=200&h=200&fit=crop',
+      bio: 'Food enthusiast and reviewer',
+      followersCount: 150,
+      followingCount: 75,
+      postsCount: 25
     }
   ]
 };
@@ -64,17 +104,17 @@ export const trpcClient = trpc.createClient({
         let mockResponse;
         
         if (path.includes('restaurants.list')) {
-          mockResponse = mockData.restaurants;
+          mockResponse = { restaurants: mockData.restaurants, total: mockData.restaurants.length };
         } else if (path.includes('restaurants.yaounde')) {
           mockResponse = { restaurants: mockData.restaurants.filter(r => r.location === 'Yaoundé'), total: 1 };
         } else if (path.includes('restaurants.douala')) {
           mockResponse = { restaurants: mockData.restaurants.filter(r => r.location === 'Douala'), total: 1 };
         } else if (path.includes('posts.feed')) {
-          mockResponse = { posts: mockData.posts, nextCursor: null };
+          mockResponse = { posts: mockData.posts, nextCursor: null, hasMore: false, total: mockData.posts.length };
         } else if (path.includes('posts.list')) {
-          mockResponse = mockData.posts;
+          mockResponse = { posts: mockData.posts, total: mockData.posts.length };
         } else if (path.includes('users.list')) {
-          mockResponse = mockData.users;
+          mockResponse = { users: mockData.users, total: mockData.users.length };
         } else if (path.includes('notifications.getAll')) {
           mockResponse = [];
         } else if (path.includes('notifications.getSettings')) {
@@ -86,7 +126,7 @@ export const trpcClient = trpc.createClient({
         } else if (path.includes('gamification.getStats')) {
           mockResponse = { points: 0, level: 1, badges: [] };
         } else if (path.includes('dishes.list')) {
-          mockResponse = [];
+          mockResponse = { dishes: [], total: 0 };
         } else if (path.includes('healthCheck')) {
           mockResponse = { status: 'ok', message: 'Mock client working' };
         } else {

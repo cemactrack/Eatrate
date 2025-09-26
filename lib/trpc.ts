@@ -68,7 +68,7 @@ export const trpcClient = trpc.createClient({
         }
 
         const controller = new AbortController();
-        const timeoutMs = 10000; // Reduced timeout for faster fallback
+        const timeoutMs = 8000; // Reduced timeout for faster fallback
         const timeoutId = setTimeout(() => {
           console.warn(`[tRPC] Request timeout after ${timeoutMs / 1000} seconds:`, url);
           controller.abort();
@@ -94,25 +94,60 @@ export const trpcClient = trpc.createClient({
           const contentType = response.headers.get('content-type') ?? '';
           console.log('[tRPC] Response content-type:', contentType);
           
-          if (contentType.includes('text/html')) {
-            const text = await response.clone().text();
-            console.error('[tRPC] Received HTML instead of JSON:', text.slice(0, 500));
-            console.error('[tRPC] Full URL that returned HTML:', url);
+          // Check if response is HTML (common when API routes aren't working)
+          if (contentType.includes('text/html') || response.status === 404) {
+            let text = '';
+            try {
+              text = await response.clone().text();
+            } catch {
+              text = 'Unable to read response text';
+            }
+            
+            console.error('[tRPC] Received HTML/404 instead of JSON:', text.slice(0, 300));
+            console.error('[tRPC] Full URL that returned HTML/404:', url);
             console.error('[tRPC] Request headers:', options?.headers);
             
             // Switch to mock client for future requests
-            console.warn('[tRPC] Switching to mock client due to HTML response');
+            console.warn('[tRPC] Switching to mock client due to HTML/404 response');
             useMockClient = true;
             
-            throw new Error(`Server returned HTML instead of JSON. Switching to mock client.`);
+            throw new Error(`Server returned HTML/404 instead of JSON. Switching to mock client.`);
+          }
+
+          // Check for JSON parse errors by trying to read the response
+          if (response.ok) {
+            try {
+              const clonedResponse = response.clone();
+              const text = await clonedResponse.text();
+              
+              // Try to parse as JSON to catch parse errors early
+              if (text.trim()) {
+                JSON.parse(text);
+              }
+            } catch (parseError) {
+              console.error('[tRPC] JSON parse error in response:', parseError);
+              console.error('[tRPC] Response text that failed to parse:', await response.clone().text());
+              
+              // Switch to mock client for JSON parse errors
+              console.warn('[tRPC] Switching to mock client due to JSON parse error');
+              useMockClient = true;
+              
+              throw new Error(`JSON parse error - switching to mock client: ${parseError}`);
+            }
           }
 
           if (!response.ok) {
-            const text = await response.clone().text();
+            let text = '';
+            try {
+              text = await response.clone().text();
+            } catch {
+              text = 'Unable to read error response';
+            }
+            
             console.error(`[tRPC] HTTP ${response.status}:`, text.slice(0, 200));
             
-            // Switch to mock client for 404s and 500s
-            if (response.status === 404 || response.status >= 500) {
+            // Switch to mock client for server errors
+            if (response.status >= 500) {
               console.warn('[tRPC] Switching to mock client due to server error');
               useMockClient = true;
             }
@@ -137,12 +172,12 @@ export const trpcClient = trpc.createClient({
 
           const msg: string = String(anyErr?.message ?? '');
 
-          if (msg.includes('Failed to fetch') || msg.includes('Network request failed')) {
-            console.warn('[tRPC] Network error, switching to mock client');
+          if (msg.includes('Failed to fetch') || msg.includes('Network request failed') || msg.includes('JSON parse error')) {
+            console.warn('[tRPC] Network/Parse error, switching to mock client');
             useMockClient = true;
-            const networkError = new Error('Network error - switching to mock client');
+            const networkError = new Error('Network/Parse error - switching to mock client');
             (networkError as any).name = 'NetworkError';
-            console.error('[tRPC] Network error while fetching', url, error);
+            console.error('[tRPC] Network/Parse error while fetching', url, error);
             throw networkError;
           }
 

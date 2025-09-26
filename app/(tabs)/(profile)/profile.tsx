@@ -419,7 +419,7 @@ export default function ProfileScreen() {
           <TouchableOpacity
             testID="camera-button"
             style={styles.modernSecondaryButton}
-            onPress={() => router.push('/ai/scanner')}
+            onPress={() => console.log('AI Scanner feature removed')}
           >
             <Camera size={18} color="#007AFF" />
           </TouchableOpacity>
