@@ -7,12 +7,18 @@ import { createContext } from "./trpc/create-context";
 // Create the main app
 const app = new Hono();
 
-// Enable CORS for all routes with permissive dev-friendly configuration
+// Enable CORS with strict configuration
 app.use("*", cors({
-  origin: '*',
-  credentials: true,
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization', 'x-trpc-source'],
+  origin: [
+    'https://eatrate.vercel.app',
+    'https://eatrate-api.vercel.app',
+    'exp://127.0.0.1:8081',
+    'http://localhost:8081',
+    'https://eatrate.co'
+  ],
+  credentials: false,
+  allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
 
 // Add request logging middleware
