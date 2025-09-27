@@ -2,10 +2,15 @@ export const APP_CONFIG = {
   name: 'EatRate',
   version: '1.0.0',
   api: {
+    baseUrl: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000',
     timeout: 45000,
     retryAttempts: 2,
     staleTime: 30 * 60 * 1000, // 30 minutes
     cacheTime: 45 * 60 * 1000, // 45 minutes
+  },
+  supabase: {
+    url: process.env.EXPO_PUBLIC_SUPABASE_URL || '',
+    anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
   },
   features: {
     enablePerformanceMonitoring: __DEV__,
