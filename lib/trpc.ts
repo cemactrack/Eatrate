@@ -7,7 +7,12 @@ import { APP_CONFIG } from "@/constants/app-config";
 
 export const trpc = createTRPCReact<AppRouter>();
 
-const base = APP_CONFIG.api.baseUrl;
+const normalizeBaseUrl = (url: string): string => {
+  if (!url) return '';
+  return url.endsWith('/') ? url.slice(0, -1) : url;
+};
+
+const base = normalizeBaseUrl(APP_CONFIG.api.baseUrl);
 const trpcPath = '/api/trpc';
 const trpcUrl = `${base}${trpcPath}`;
 console.log('[tRPC] API URL:', trpcUrl);
