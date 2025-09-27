@@ -1,6 +1,27 @@
 import { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
+import { createClient } from "@supabase/supabase-js";
+
+// Initialize Supabase client with server-side credentials
+const supabaseUrl = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+// Create a Supabase client for server-side operations using the service key
+const supabaseAdmin = supabaseUrl && supabaseServiceKey 
+  ? createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
+  : null;
+
+// Create a Supabase client with anon key as fallback (less privileged)
+const supabaseClient = supabaseUrl && supabaseAnonKey && !supabaseAdmin
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
 
 // Context creation function
 export const createContext = async (opts: FetchCreateContextFnOptions) => {
@@ -19,7 +40,9 @@ export const createContext = async (opts: FetchCreateContextFnOptions) => {
   return {
     req: opts.req,
     user,
-    // You can add more context items here like database connections, auth, etc.
+    // Provide Supabase clients to the context
+    supabase: supabaseAdmin || supabaseClient,
+    supabaseAdmin,
   };
 };
 

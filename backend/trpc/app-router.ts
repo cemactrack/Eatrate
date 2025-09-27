@@ -4,6 +4,7 @@ import { fetchYaoundeRestaurantsProcedure } from "./routes/restaurants/yaounde";
 import { fetchBueaRestaurantsProcedure } from "./routes/restaurants/buea";
 import { fetchLimbeRestaurantsProcedure } from "./routes/restaurants/limbe";
 import { searchRestaurantsProcedure } from "./routes/restaurants/search";
+import { supabaseTestProcedure } from "./routes/example/supabase-test/route";
 
 import { importFromTripadvisorProcedure, getImportedOneTimeProcedure, needsInitialImportProcedure, bootstrapImportProcedure, clearRestaurantsProcedure } from "./routes/restaurants/import";
 import hiRoute, {
@@ -235,6 +236,7 @@ export const appRouter = createTRPCRouter({
   }),
   example: createTRPCRouter({
     hi: hiRoute,
+    supabaseTest: supabaseTestProcedure,
   }),
   posts: createTRPCRouter({
     list: getPostsProcedure,
