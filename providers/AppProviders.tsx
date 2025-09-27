@@ -4,8 +4,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StyleSheet, View, ActivityIndicator } from 'react-native';
 
-import { trpc } from '@/lib/trpc';
-import { trpcClient as mockTrpcClient } from '@/lib/trpc-mock';
+import { trpc, trpcClient } from '@/lib/trpc';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { StorageProvider } from '@/providers/StorageProvider';
 import { AuthProvider } from '@/providers/AuthProvider';
@@ -19,14 +18,12 @@ import { ThemeProvider } from '@/providers/ThemeProvider';
 
 import Colors from '@/constants/colors';
 
-// Loading fallback component
 const LoadingFallback: React.FC = () => (
   <View style={styles.loadingContainer}>
     <ActivityIndicator size="large" color={Colors.light.tint} />
   </View>
 );
 
-// Core providers that are always needed
 interface CoreProvidersProps {
   children: React.ReactNode;
   queryClient: QueryClient;
@@ -34,7 +31,7 @@ interface CoreProvidersProps {
 
 const CoreProviders: React.FC<CoreProvidersProps> = ({ children, queryClient }) => (
   <QueryClientProvider client={queryClient}>
-    <trpc.Provider client={mockTrpcClient as any} queryClient={queryClient}>
+    <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <GestureHandlerRootView style={styles.container}>
         <SafeAreaProvider>
           <ErrorBoundary>
@@ -56,7 +53,6 @@ const CoreProviders: React.FC<CoreProvidersProps> = ({ children, queryClient }) 
   </QueryClientProvider>
 );
 
-// Feature providers that can be conditionally loaded
 interface FeatureProvidersProps {
   children: React.ReactNode;
 }
@@ -75,7 +71,6 @@ const FeatureProviders: React.FC<FeatureProvidersProps> = ({ children }) => (
   </Suspense>
 );
 
-// Main app providers composition
 interface AppProvidersProps {
   children: React.ReactNode;
   queryClient: QueryClient;
@@ -97,7 +92,7 @@ export const AppProviders: React.FC<AppProvidersProps> = ({
         </CoreProviders>
       );
     }
-    
+
     return (
       <CoreProviders queryClient={queryClient}>
         {children}
