@@ -1,21 +1,20 @@
-import { Hono } from 'hono';
-import { cors } from 'hono/cors';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const app = new Hono();
-
-app.use('*', cors({
-  origin: '*',
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
-}));
-
-app.get('/', (c) => c.json({ ok: true, timestamp: new Date().toISOString() }));
-
-export const config = { runtime: 'edge' }; // remove this line if you prefer Node runtime
-
-export default async function handler(req: Request) {
-  return new Response(
-    JSON.stringify({ ok: true, timestamp: new Date().toISOString() }),
-    { headers: { 'content-type': 'application/json' } }
-  );
+export default function handler(req: VercelRequest, res: VercelResponse) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+  
+  // Return health check response
+  res.status(200).json({
+    ok: true,
+    timestamp: new Date().toISOString()
+  });
 }
