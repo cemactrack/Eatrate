@@ -5,11 +5,17 @@ import { TRPCError } from '@trpc/server';
 // Create a post
 export const createPostProcedure = protectedProcedure
   .input(z.object({
-    content: z.string().min(1),
-    images: z.array(z.string().url()).optional(),
+    text: z.string().optional(),
+    media: z.array(z.string().url('Invalid media URL format')).optional(),
     restaurant_id: z.string().optional(),
     type: z.enum(['text', 'image', 'review']).default('text'),
-  }))
+  }).refine(
+    (data) => data.text || (data.media && data.media.length > 0),
+    {
+      message: 'Post must contain either text or media',
+      path: ['text'],
+    }
+  ))
   .mutation(async ({ ctx, input }) => {
     if (!ctx.supabase) {
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database not available' });
@@ -19,8 +25,8 @@ export const createPostProcedure = protectedProcedure
       .from('posts')
       .insert({
         user_id: ctx.user.id,
-        content: input.content,
-        images: input.images,
+        content: input.text,
+        images: input.media,
         restaurant_id: input.restaurant_id,
         type: input.type,
         created_at: new Date().toISOString(),
@@ -125,21 +131,32 @@ export const getPostByIdProcedure = publicProcedure
 // Update own post
 export const updatePostProcedure = protectedProcedure
   .input(z.object({
-    id: z.string(),
-    content: z.string().min(1).optional(),
-    images: z.array(z.string().url()).optional(),
-  }))
+    id: z.string().min(1, 'Post ID is required'),
+    text: z.string().optional(),
+    media: z.array(z.string().url('Invalid media URL format')).optional(),
+  }).refine(
+    (data) => data.text || (data.media && data.media.length > 0),
+    {
+      message: 'Post must contain either text or media',
+      path: ['text'],
+    }
+  ))
   .mutation(async ({ ctx, input }) => {
     if (!ctx.supabase) {
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database not available' });
     }
 
-    const { id, ...updateData } = input;
+    const { id, text, media, ...updateData } = input;
+    const mappedUpdateData = {
+      ...updateData,
+      ...(text !== undefined && { content: text }),
+      ...(media !== undefined && { images: media }),
+    };
 
     const { data: post, error } = await ctx.supabase
       .from('posts')
       .update({
-        ...updateData,
+        ...mappedUpdateData,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)

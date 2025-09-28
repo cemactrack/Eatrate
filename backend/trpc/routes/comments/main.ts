@@ -5,8 +5,8 @@ import { TRPCError } from '@trpc/server';
 // Create a comment
 export const createCommentProcedure = protectedProcedure
   .input(z.object({
-    post_id: z.string(),
-    content: z.string().min(1),
+    post_id: z.string().min(1, 'Post ID is required'),
+    text: z.string().min(1, 'Comment text is required and cannot be empty'),
     parent_id: z.string().optional(), // For nested comments
   }))
   .mutation(async ({ ctx, input }) => {
@@ -19,7 +19,7 @@ export const createCommentProcedure = protectedProcedure
       .insert({
         user_id: ctx.user.id,
         post_id: input.post_id,
-        content: input.content,
+        content: input.text,
         parent_id: input.parent_id,
         created_at: new Date().toISOString(),
       })
@@ -76,8 +76,8 @@ export const getCommentsByPostProcedure = publicProcedure
 // Update own comment
 export const updateCommentProcedure = protectedProcedure
   .input(z.object({
-    id: z.string(),
-    content: z.string().min(1),
+    id: z.string().min(1, 'Comment ID is required'),
+    text: z.string().min(1, 'Comment text is required and cannot be empty'),
   }))
   .mutation(async ({ ctx, input }) => {
     if (!ctx.supabase) {
@@ -87,7 +87,7 @@ export const updateCommentProcedure = protectedProcedure
     const { data: comment, error } = await ctx.supabase
       .from('comments')
       .update({
-        content: input.content,
+        content: input.text,
         updated_at: new Date().toISOString(),
       })
       .eq('id', input.id)

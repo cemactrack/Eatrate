@@ -5,7 +5,7 @@ import { TRPCError } from '@trpc/server';
 // Add/remove restaurant bookmark
 export const toggleRestaurantBookmarkProcedure = protectedProcedure
   .input(z.object({
-    restaurant_id: z.string(),
+    restaurant_id: z.string().min(1, 'Restaurant ID is required'),
   }))
   .mutation(async ({ ctx, input }) => {
     if (!ctx.supabase) {
@@ -96,7 +96,7 @@ export const getBookmarkedRestaurantsProcedure = protectedProcedure
 // Check if restaurant is bookmarked
 export const isRestaurantBookmarkedProcedure = protectedProcedure
   .input(z.object({
-    restaurant_id: z.string(),
+    restaurant_id: z.string().min(1, 'Restaurant ID is required'),
   }))
   .query(async ({ ctx, input }) => {
     if (!ctx.supabase) {

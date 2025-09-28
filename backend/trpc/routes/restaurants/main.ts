@@ -95,7 +95,7 @@ export const getRestaurantByIdProcedure = publicProcedure
 // Search restaurants by name or cuisine
 export const searchRestaurantsProcedure = publicProcedure
   .input(z.object({
-    query: z.string().min(1),
+    query: z.string().min(1, 'Search query is required and cannot be empty'),
     city: z.string().optional(),
     limit: z.number().min(1).max(50).default(20),
   }))

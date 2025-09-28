@@ -5,10 +5,10 @@ import { TRPCError } from '@trpc/server';
 // Create a review
 export const createReviewProcedure = protectedProcedure
   .input(z.object({
-    restaurant_id: z.string(),
-    rating: z.number().min(1).max(5),
-    comment: z.string().optional(),
-    images: z.array(z.string().url()).optional(),
+    restaurant_id: z.string().min(1, 'Restaurant ID is required'),
+    rating: z.number().min(1, 'Rating must be at least 1').max(5, 'Rating cannot exceed 5'),
+    text: z.string().optional(),
+    photos: z.array(z.string().url('Invalid photo URL format')).optional(),
   }))
   .mutation(async ({ ctx, input }) => {
     if (!ctx.supabase) {
@@ -33,8 +33,8 @@ export const createReviewProcedure = protectedProcedure
         user_id: ctx.user.id,
         restaurant_id: input.restaurant_id,
         rating: input.rating,
-        comment: input.comment,
-        images: input.images,
+        comment: input.text,
+        images: input.photos,
         created_at: new Date().toISOString(),
       })
       .select(`
@@ -92,22 +92,27 @@ export const getReviewsByRestaurantProcedure = publicProcedure
 // Update own review
 export const updateReviewProcedure = protectedProcedure
   .input(z.object({
-    id: z.string(),
-    rating: z.number().min(1).max(5).optional(),
-    comment: z.string().optional(),
-    images: z.array(z.string().url()).optional(),
+    id: z.string().min(1, 'Review ID is required'),
+    rating: z.number().min(1, 'Rating must be at least 1').max(5, 'Rating cannot exceed 5').optional(),
+    text: z.string().optional(),
+    photos: z.array(z.string().url('Invalid photo URL format')).optional(),
   }))
   .mutation(async ({ ctx, input }) => {
     if (!ctx.supabase) {
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database not available' });
     }
 
-    const { id, ...updateData } = input;
+    const { id, text, photos, ...updateData } = input;
+    const mappedUpdateData = {
+      ...updateData,
+      ...(text !== undefined && { comment: text }),
+      ...(photos !== undefined && { images: photos }),
+    };
 
     const { data: review, error } = await ctx.supabase
       .from('reviews')
       .update({
-        ...updateData,
+        ...mappedUpdateData,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)

@@ -5,14 +5,14 @@ import { TRPCError } from '@trpc/server';
 // Follow/unfollow a user
 export const toggleFollowUserProcedure = protectedProcedure
   .input(z.object({
-    target_user_id: z.string(),
+    followee_id: z.string().min(1, 'User ID to follow is required'),
   }))
   .mutation(async ({ ctx, input }) => {
     if (!ctx.supabase) {
       throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database not available' });
     }
 
-    if (ctx.user.id === input.target_user_id) {
+    if (ctx.user.id === input.followee_id) {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cannot follow yourself' });
     }
 
@@ -21,7 +21,7 @@ export const toggleFollowUserProcedure = protectedProcedure
       .from('follows')
       .select('id')
       .eq('follower_id', ctx.user.id)
-      .eq('following_id', input.target_user_id)
+      .eq('following_id', input.followee_id)
       .single();
 
     if (existingFollow) {
@@ -30,7 +30,7 @@ export const toggleFollowUserProcedure = protectedProcedure
         .from('follows')
         .delete()
         .eq('follower_id', ctx.user.id)
-        .eq('following_id', input.target_user_id);
+        .eq('following_id', input.followee_id);
 
       if (error) {
         console.error('Error unfollowing user:', error);
@@ -44,7 +44,7 @@ export const toggleFollowUserProcedure = protectedProcedure
         .from('follows')
         .insert({
           follower_id: ctx.user.id,
-          following_id: input.target_user_id,
+          following_id: input.followee_id,
           created_at: new Date().toISOString(),
         });
 
