@@ -3,6 +3,7 @@ import { trpcServer } from "@hono/trpc-server";
 import { cors } from "hono/cors";
 import { appRouter } from "./trpc/app-router";
 import { createContext } from "./trpc/create-context";
+import { supabaseAdmin } from "./supabase-admin";
 
 // Create the main app
 const app = new Hono();
@@ -78,7 +79,8 @@ app.get("/api", (c) => {
       trpc: "/api/trpc",
       trpcAlt: "/trpc",
       health: "/api",
-      healthCheck: "/api/trpc/healthCheck"
+      healthCheck: "/api/trpc/healthCheck",
+      authSession: "/api/auth/session",
     },
     timestamp: new Date().toISOString() 
   });
@@ -107,7 +109,95 @@ app.get("/debug/server-status", (c) => {
   });
 });
 
+// Auth session endpoint: verifies Supabase access token and ensures profile row exists
+app.post('/api/auth/session', async (c) => {
+  try {
+    if (!supabaseAdmin) {
+      console.error('[AuthSession] Supabase admin client is not configured');
+      return c.json({ error: 'Server configuration error' }, 500);
+    }
 
+    const authHeader = c.req.header('authorization') || '';
+    const bearerPrefix = 'bearer ';
+    let accessToken = '';
+
+    if (authHeader.toLowerCase().startsWith(bearerPrefix)) {
+      accessToken = authHeader.slice(bearerPrefix.length).trim();
+    } else {
+      try {
+        const body = await c.req.json<{ access_token?: string }>();
+        accessToken = body?.access_token ?? '';
+      } catch {
+        // ignore body parse errors
+      }
+    }
+
+    if (!accessToken) {
+      return c.json({ error: 'Missing access token' }, 401);
+    }
+
+    const {
+      data: userResult,
+      error: userError,
+    } = await supabaseAdmin.auth.getUser(accessToken);
+
+    if (userError || !userResult?.user) {
+      console.error('[AuthSession] Invalid access token', userError);
+      return c.json({ error: 'Invalid token' }, 401);
+    }
+
+    const user = userResult.user;
+    const userId = user.id;
+    const email: string = (user.email ?? '').toString();
+    const emailLocal = email.includes('@') ? email.split('@')[0] : '';
+    const defaultDisplayName = emailLocal || `user-${userId.slice(0, 6)}`;
+
+    // Try to insert profile if not exists (id is PK)
+    const insertPayload: Record<string, unknown> = {
+      id: userId,
+      email: email || null,
+      display_name: defaultDisplayName,
+      created_at: new Date().toISOString(),
+    };
+
+    const { error: upsertError } = await supabaseAdmin
+      .from('profiles')
+      .insert(insertPayload)
+      .onConflict('id')
+      .ignore();
+
+    if (upsertError) {
+      console.error('[AuthSession] Upsert error', upsertError);
+    }
+
+    // Ensure display_name is set if null
+    const { data: profile, error: selectErr } = await supabaseAdmin
+      .from('profiles')
+      .select('id, email, display_name')
+      .eq('id', userId)
+      .single();
+
+    if (selectErr) {
+      console.error('[AuthSession] Select profile error', selectErr);
+      return c.json({ error: 'Failed to read profile' }, 500);
+    }
+
+    if (profile && !profile.display_name) {
+      const { error: updateErr } = await supabaseAdmin
+        .from('profiles')
+        .update({ display_name: defaultDisplayName })
+        .eq('id', userId);
+      if (updateErr) {
+        console.error('[AuthSession] Update display_name error', updateErr);
+      }
+    }
+
+    return c.json({ ok: true, user: { id: userId, email }, profile: { id: userId, email, display_name: profile?.display_name ?? defaultDisplayName }, timestamp: new Date().toISOString() });
+  } catch (e) {
+    console.error('[AuthSession] Unexpected error', e);
+    return c.json({ error: 'Unexpected server error' }, 500);
+  }
+});
 
 // Catch-all for debugging
 app.all('*', (c) => {
