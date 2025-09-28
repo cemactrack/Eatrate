@@ -7,7 +7,7 @@ import { searchRestaurantsProcedure } from "./routes/restaurants/search";
 import { supabaseTestProcedure } from "./routes/example/supabase-test/route";
 
 // New main routers
-import { getCurrentProfileProcedure, updateProfileProcedure, getProfileByIdProcedure } from "./routes/auth/profile";
+import { getCurrentProfileProcedure, updateProfileProcedure, getProfileByIdProcedure, updatePushTokenProcedure } from "./routes/auth/profile";
 import { listRestaurantsProcedure, getRestaurantByIdProcedure, searchRestaurantsProcedure as newSearchRestaurantsProcedure } from "./routes/restaurants/main";
 import { createReviewProcedure, getReviewsByRestaurantProcedure, updateReviewProcedure, deleteReviewProcedure } from "./routes/reviews/main";
 import { createPostProcedure as mainCreatePostProcedure, getPostsFeedProcedure as mainGetPostsFeedProcedure, getPostByIdProcedure, updatePostProcedure as mainUpdatePostProcedure, deletePostProcedure as mainDeletePostProcedure } from "./routes/posts/main";
@@ -259,6 +259,7 @@ export const appRouter = createTRPCRouter({
     getCurrentProfile: getCurrentProfileProcedure,
     updateProfile: updateProfileProcedure,
     getProfileById: getProfileByIdProcedure,
+    updatePushToken: updatePushTokenProcedure,
   }),
   restaurantsMain: createTRPCRouter({
     list: listRestaurantsProcedure,

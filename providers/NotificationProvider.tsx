@@ -83,7 +83,10 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
   const markAllAsReadMutation = trpc.notifications.markAllAsRead.useMutation();
   const deleteMutation = trpc.notifications.delete.useMutation();
   const updateSettingsMutation = trpc.notifications.updateSettings.useMutation();
-  const registerTokenMutation = trpc.notifications.registerPushToken.useMutation({
+  const registerTokenMutation = trpc.auth.updatePushToken.useMutation({
+    onSuccess: () => {
+      console.log('[NotificationProvider] Push token registered successfully');
+    },
     onError: (e) => {
       console.log('[NotificationProvider] register token failed', e);
     },
@@ -111,10 +114,10 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
 
         if (Platform.OS !== 'web') {
           const token = await Notifications.getExpoPushTokenAsync({
-            projectId: Constants.expoConfig?.extra?.eas?.projectId || undefined,
+            projectId: process.env.EXPO_PUBLIC_PROJECT_ID || Constants.expoConfig?.extra?.eas?.projectId || undefined,
           });
           setExpoPushToken(token.data);
-          registerTokenMutation.mutate({ token: token.data });
+          registerTokenMutation.mutate({ pushToken: token.data });
         }
       } catch (error) {
         console.error('Failed to initialize push notifications:', error);

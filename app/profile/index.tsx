@@ -6,6 +6,7 @@ import { trpc } from '@/lib/trpc';
 import Protected from '@/components/Protected';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/providers/AuthProvider';
+import { useNotifications } from '@/providers/NotificationProvider';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadImageAsync } from '@/utils/supabaseUpload';
 
@@ -13,6 +14,7 @@ export default function ProfileScreen() {
   const { signOut } = useAuth();
   const router = useRouter();
   const qc = useQueryClient();
+  const { requestPermissions } = useNotifications();
 
   const profileQuery = trpc.auth.getCurrentProfile.useQuery();
 
@@ -79,6 +81,27 @@ export default function ProfileScreen() {
         <Text style={styles.label}>Avatar URL</Text>
         <TextInput style={styles.input} value={avatarUrl} onChangeText={setAvatarUrl} placeholder="https://…" autoCapitalize="none" />
 
+        {/* Push Token Status */}
+        <View style={styles.notificationSection}>
+          <Text style={styles.label}>Push Notifications</Text>
+          <Text style={styles.notificationStatus}>
+            {profileQuery.data?.push_token ? '✅ Push token registered' : '❌ No push token'}
+          </Text>
+          <TouchableOpacity 
+            style={[styles.button, styles.notificationButton]} 
+            onPress={async () => {
+              const granted = await requestPermissions();
+              if (granted) {
+                Alert.alert('Success', 'Push notifications enabled!');
+              } else {
+                Alert.alert('Permission Denied', 'Please enable notifications in your device settings.');
+              }
+            }}
+          >
+            <Text style={styles.buttonText}>Request Notification Permission</Text>
+          </TouchableOpacity>
+        </View>
+
         <TouchableOpacity style={styles.button} onPress={onSave} disabled={updateMutation.isPending}>
           <Text style={styles.buttonText}>{updateMutation.isPending ? 'Saving…' : 'Save'}</Text>
         </TouchableOpacity>
@@ -101,4 +124,7 @@ const styles = StyleSheet.create({
   buttonText: { color: 'white', fontWeight: '800' },
   changeAvatarBtn: { alignSelf: 'center', backgroundColor: Colors.light.card, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginBottom: 12, borderWidth: 1, borderColor: Colors.light.border },
   changeAvatarText: { color: Colors.light.text, fontWeight: '600' },
+  notificationSection: { backgroundColor: '#f8f9fa', padding: 16, borderRadius: 12, marginVertical: 8 },
+  notificationStatus: { fontSize: 14, color: Colors.light.text, marginBottom: 8 },
+  notificationButton: { backgroundColor: '#6366f1' },
 });

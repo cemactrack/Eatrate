@@ -56,6 +56,35 @@ export const updateProfileProcedure = protectedProcedure
     return profile;
   });
 
+// Update push token
+export const updatePushTokenProcedure = protectedProcedure
+  .input(z.object({
+    pushToken: z.string(),
+  }))
+  .mutation(async ({ ctx, input }) => {
+    if (!ctx.supabase) {
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Database not available' });
+    }
+
+    const { data: profile, error } = await ctx.supabase
+      .from('profiles')
+      .update({
+        push_token: input.pushToken,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', ctx.user.id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating push token:', error);
+      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to update push token' });
+    }
+
+    console.log('[Push Token] Updated for user:', ctx.user.id);
+    return profile;
+  });
+
 // Get profile by user ID (public)
 export const getProfileByIdProcedure = publicProcedure
   .input(z.object({
