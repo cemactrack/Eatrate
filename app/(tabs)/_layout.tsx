@@ -1,4 +1,4 @@
-import { Tabs, useRouter } from "expo-router";
+import { Tabs, router } from "expo-router";
 import { Home, Search, User, Truck } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef } from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
@@ -6,7 +6,6 @@ import { useSettings } from "@/providers/SettingsProvider";
 import { useAuth } from "@/providers/AuthProvider";
 
 export default function TabsLayout() {
-  const router = useRouter();
   const auth = useAuth();
   const user = auth?.user ?? null;
   const isLoading = auth?.isLoading ?? true;
@@ -42,7 +41,7 @@ export default function TabsLayout() {
         console.log('[Tabs/_layout] redirect error', e);
       }
     }
-  }, [isLoading, user, router]);
+  }, [isLoading, user]);
 
   if (isLoading) {
     return (

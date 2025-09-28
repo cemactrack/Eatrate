@@ -10,7 +10,7 @@ import {
   Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import {
 
   Bell,
@@ -88,7 +88,6 @@ function SettingSection({ title, children }: SettingSectionProps) {
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const authContext = useAuth();
   const { user, logout } = authContext || { user: null, logout: async () => {} };
   const { settings, updateSettings, colors, setTheme } = useSettings();

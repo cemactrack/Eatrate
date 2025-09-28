@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
 import { Star, Phone, MapPin, Clock, Heart, Share, ArrowLeft, UserPlus } from 'lucide-react-native';
@@ -13,7 +13,6 @@ import RestaurantProfileAudit from '@/components/RestaurantProfileAudit';
 export default function RestaurantDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'menu' | 'reviews'>('menu');
 
   const douala = trpc.restaurants.douala.useQuery({}, { staleTime: 1000 * 60 * 10 });

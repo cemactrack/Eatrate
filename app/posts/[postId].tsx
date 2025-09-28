@@ -9,7 +9,7 @@ import {
   Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { 
   Heart, 
   MessageSquare, 
@@ -27,7 +27,6 @@ import Colors from '@/constants/colors';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
 export default function PostDetailScreen() {
-  const router = useRouter();
   const { postId } = useLocalSearchParams<{ postId: string }>();
   const insets = useSafeAreaInsets();
   
@@ -140,12 +139,12 @@ export default function PostDetailScreen() {
   const handleComment = useCallback(() => {
     if (!postData?.post) return;
     router.push(`/comments/${postData.post.id}`);
-  }, [router, postData?.post]);
+  }, [postData?.post]);
 
   const handleUserPress = useCallback(() => {
     if (!postData?.post) return;
     router.push(`/users/${postData.post.userId}`);
-  }, [router, postData?.post]);
+  }, [postData?.post]);
 
   if (isLoading) {
     return <LoadingSpinner text="Loading post..." showGradient />;

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserPlus, UserCheck, MapPin, Award } from 'lucide-react-native';
 import Colors from '@/constants/colors';
@@ -8,7 +8,6 @@ import { trpc } from '@/lib/trpc';
 
 export default function OtherUserProfileScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
   const userId = String(params.id ?? '');
 

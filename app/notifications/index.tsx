@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import { Bell, Settings, Trash2, Check, CheckCheck, Heart, MessageSquare, UserPlus, Award, Calendar, AlertTriangle } from 'lucide-react-native';
 import { useSettings } from '@/providers/SettingsProvider';
 import { useNotifications } from '@/providers/NotificationProvider';
@@ -137,7 +137,6 @@ const NotificationItem = React.memo(function NotificationItem({
 export default function NotificationsScreen() {
   const { colors } = useSettings();
   const { t } = useLocalization();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   
   const {
@@ -196,7 +195,7 @@ export default function NotificationsScreen() {
           break;
       }
     }
-  }, [markAsRead, router]);
+  }, [markAsRead]);
 
   const handleDeleteNotification = useCallback((notificationId: string) => {
     Alert.alert(
@@ -242,7 +241,7 @@ export default function NotificationsScreen() {
 
   const handleSettingsPress = useCallback(() => {
     router.push('/settings');
-  }, [router]);
+  }, []);
 
   if (isLoading) {
     return (

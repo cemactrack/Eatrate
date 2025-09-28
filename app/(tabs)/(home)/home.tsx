@@ -12,7 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Award, MapPin, Users, Flame, Plus, UserPlus, Heart, MessageSquare, Shield } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -117,7 +117,6 @@ function HomeScreenContent() {
   const [showComposer, setShowComposer] = useState<boolean>(false);
 
   const insets = useSafeAreaInsets();
-  const router = useRouter();
 
   // Use optimized hooks
   const { restaurants: featuredRestaurants, isLoading: isLoadingRestaurants, error: restaurantsError } = useFeaturedRestaurants(3);
