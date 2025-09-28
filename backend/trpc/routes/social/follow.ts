@@ -1,73 +1,108 @@
 import { z } from "zod";
 import { protectedProcedure, publicProcedure } from "@/backend/trpc/create-context";
+import { supabaseAdmin } from "@/backend/supabase-admin";
 
-const userFollowState = new Map<string, Set<string>>();
-const restaurantFollowState = new Map<string, Set<string>>();
-const userProfiles = new Map<string, {
-  bio?: string;
-  location?: { city: string; country: string; };
-  badges: string[];
-  joinedAt: string;
-  preferences: {
-    cuisines: string[];
-    dietaryRestrictions: string[];
-    priceRange: string[];
-  };
-}>();
 
-// Initialize some sample data
-if (userProfiles.size === 0) {
-  userProfiles.set('temp_user_123', {
-    bio: 'Food enthusiast exploring great flavors around the world 🍕🍜',
-    location: { city: 'Douala', country: 'Cameroon' },
-    badges: ['Foodie', 'Explorer', 'Reviewer'],
-    joinedAt: new Date().toISOString(),
-    preferences: {
-      cuisines: ['Italian', 'Asian', 'Local'],
-      dietaryRestrictions: [],
-      priceRange: ['$$', '$$$']
-    }
-  });
-}
 
 export const toggleUserFollowProcedure = protectedProcedure
   .input(z.object({ targetUserId: z.string() }))
-  .mutation(({ input, ctx }) => {
+  .mutation(async ({ input, ctx }) => {
     const me = ctx.user!.id;
     if (me === input.targetUserId) {
-      return { following: false, followersCount: (userFollowState.get(input.targetUserId)?.size ?? 0) };
+      return { following: false, followersCount: 0 };
     }
-    const set = userFollowState.get(input.targetUserId) ?? new Set<string>();
-    const wasFollowing = set.has(me);
-    if (wasFollowing) {
-      set.delete(me);
-    } else {
-      set.add(me);
+
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client not configured');
     }
-    userFollowState.set(input.targetUserId, set);
-    return { following: !wasFollowing, followersCount: set.size };
+
+    try {
+      // Check if already following
+      const { data: existingFollow } = await supabaseAdmin
+        .from('follows')
+        .select('id')
+        .eq('follower_id', me)
+        .eq('following_id', input.targetUserId)
+        .single();
+
+      let following: boolean;
+      if (existingFollow) {
+        // Unfollow
+        await supabaseAdmin
+          .from('follows')
+          .delete()
+          .eq('follower_id', me)
+          .eq('following_id', input.targetUserId);
+        following = false;
+      } else {
+        // Follow
+        await supabaseAdmin
+          .from('follows')
+          .insert({
+            follower_id: me,
+            following_id: input.targetUserId,
+          });
+        following = true;
+      }
+
+      // Get updated followers count
+      const { count: followersCount } = await supabaseAdmin
+        .from('follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('following_id', input.targetUserId);
+
+      return { following, followersCount: followersCount || 0 };
+    } catch (error) {
+      console.error('[tRPC] toggleUserFollow error', error);
+      throw new Error('Failed to toggle follow');
+    }
   });
 
 export const getUserFollowStatsProcedure = publicProcedure
   .input(z.object({ userId: z.string() }))
-  .query(({ input, ctx }) => {
-    const followers = userFollowState.get(input.userId)?.size ?? 0;
-    let following = 0;
-    
-    // Count how many users this user is following
-    for (const [, followersSet] of userFollowState) {
-      if (followersSet.has(input.userId)) {
-        following++;
-      }
+  .query(async ({ input, ctx }) => {
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client not configured');
     }
-    
-    const isFollowing = ctx.user ? userFollowState.get(input.userId)?.has(ctx.user.id) ?? false : false;
-    
-    return {
-      followersCount: followers,
-      followingCount: following,
-      isFollowing
-    };
+
+    try {
+      // Get followers count
+      const { count: followersCount } = await supabaseAdmin
+        .from('follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('following_id', input.userId);
+
+      // Get following count
+      const { count: followingCount } = await supabaseAdmin
+        .from('follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('follower_id', input.userId);
+
+      // Check if current user is following this user
+      let isFollowing = false;
+      if (ctx.user) {
+        const { data: followRecord } = await supabaseAdmin
+          .from('follows')
+          .select('id')
+          .eq('follower_id', ctx.user.id)
+          .eq('following_id', input.userId)
+          .single();
+        isFollowing = !!followRecord;
+      }
+
+      return {
+        followersCount: followersCount || 0,
+        followingCount: followingCount || 0,
+        isFollowing
+      };
+    } catch (error) {
+      console.error('[tRPC] getUserFollowStats error', error);
+      return {
+        followersCount: 0,
+        followingCount: 0,
+        isFollowing: false
+      };
+    }
   });
 
 export const getFollowersProcedure = protectedProcedure
@@ -76,21 +111,51 @@ export const getFollowersProcedure = protectedProcedure
     limit: z.number().min(1).max(100).default(20),
     offset: z.number().min(0).default(0)
   }))
-  .query(({ input }) => {
-    const followersSet = userFollowState.get(input.userId) ?? new Set();
-    const followers = Array.from(followersSet).slice(input.offset, input.offset + input.limit);
-    
-    return {
-      followers: followers.map(id => ({
-        id,
-        username: `user_${id.slice(-6)}`,
-        displayName: `User ${id.slice(-6)}`,
-        avatar: `https://images.unsplash.com/photo-${Math.abs(id.split('').reduce((a, b) => a + b.charCodeAt(0), 0)) % 1000 + 1500000000000}?w=100&h=100&fit=crop&crop=faces`,
-        isFollowing: userFollowState.get(id)?.has(input.userId) ?? false
-      })),
-      total: followersSet.size,
-      hasMore: input.offset + input.limit < followersSet.size
-    };
+  .query(async ({ input }) => {
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client not configured');
+    }
+
+    try {
+      const { data: followers, error, count } = await supabaseAdmin
+        .from('follows')
+        .select(`
+          follower_id,
+          profiles!follows_follower_id_fkey (
+            id,
+            display_name,
+            avatar_url,
+            bio
+          )
+        `, { count: 'exact' })
+        .eq('following_id', input.userId)
+        .range(input.offset, input.offset + input.limit - 1);
+
+      if (error) {
+        console.error('[tRPC] getFollowers error', error);
+        return { followers: [], total: 0, hasMore: false };
+      }
+
+      const mapped = (followers || []).map((f) => {
+        const profile = f.profiles;
+        return {
+          id: f.follower_id,
+          username: profile?.display_name?.toLowerCase().replace(/\s+/g, '_') || `user_${f.follower_id.slice(-6)}`,
+          displayName: profile?.display_name || `User ${f.follower_id.slice(-6)}`,
+          avatar: profile?.avatar_url || `https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop`,
+          isFollowing: false // TODO: Check if input.userId is following this user back
+        };
+      });
+
+      return {
+        followers: mapped,
+        total: count || 0,
+        hasMore: input.offset + input.limit < (count || 0)
+      };
+    } catch (error) {
+      console.error('[tRPC] getFollowers error', error);
+      return { followers: [], total: 0, hasMore: false };
+    }
   });
 
 export const getFollowingProcedure = protectedProcedure
@@ -99,29 +164,51 @@ export const getFollowingProcedure = protectedProcedure
     limit: z.number().min(1).max(100).default(20),
     offset: z.number().min(0).default(0)
   }))
-  .query(({ input }) => {
-    const following: string[] = [];
-    
-    // Find all users that this user is following
-    for (const [targetUserId, followersSet] of userFollowState) {
-      if (followersSet.has(input.userId)) {
-        following.push(targetUserId);
-      }
+  .query(async ({ input }) => {
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client not configured');
     }
-    
-    const paginatedFollowing = following.slice(input.offset, input.offset + input.limit);
-    
-    return {
-      following: paginatedFollowing.map(id => ({
-        id,
-        username: `user_${id.slice(-6)}`,
-        displayName: `User ${id.slice(-6)}`,
-        avatar: `https://images.unsplash.com/photo-${Math.abs(id.split('').reduce((a, b) => a + b.charCodeAt(0), 0)) % 1000 + 1500000000000}?w=100&h=100&fit=crop&crop=faces`,
-        isFollowing: true
-      })),
-      total: following.length,
-      hasMore: input.offset + input.limit < following.length
-    };
+
+    try {
+      const { data: following, error, count } = await supabaseAdmin
+        .from('follows')
+        .select(`
+          following_id,
+          profiles!follows_following_id_fkey (
+            id,
+            display_name,
+            avatar_url,
+            bio
+          )
+        `, { count: 'exact' })
+        .eq('follower_id', input.userId)
+        .range(input.offset, input.offset + input.limit - 1);
+
+      if (error) {
+        console.error('[tRPC] getFollowing error', error);
+        return { following: [], total: 0, hasMore: false };
+      }
+
+      const mapped = (following || []).map((f) => {
+        const profile = f.profiles;
+        return {
+          id: f.following_id,
+          username: profile?.display_name?.toLowerCase().replace(/\s+/g, '_') || `user_${f.following_id.slice(-6)}`,
+          displayName: profile?.display_name || `User ${f.following_id.slice(-6)}`,
+          avatar: profile?.avatar_url || `https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop`,
+          isFollowing: true
+        };
+      });
+
+      return {
+        following: mapped,
+        total: count || 0,
+        hasMore: input.offset + input.limit < (count || 0)
+      };
+    } catch (error) {
+      console.error('[tRPC] getFollowing error', error);
+      return { following: [], total: 0, hasMore: false };
+    }
   });
 
 export const updateUserProfileProcedure = protectedProcedure
@@ -137,46 +224,105 @@ export const updateUserProfileProcedure = protectedProcedure
       priceRange: z.array(z.string()).max(4)
     }).optional()
   }))
-  .mutation(({ input, ctx }) => {
+  .mutation(async ({ input, ctx }) => {
     const userId = ctx.user!.id;
-    const currentProfile = userProfiles.get(userId) ?? {
-      badges: [],
-      joinedAt: new Date().toISOString(),
-      preferences: {
-        cuisines: [],
-        dietaryRestrictions: [],
-        priceRange: []
+    
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client not configured');
+    }
+
+    try {
+      const updateData: any = {};
+      if (input.bio !== undefined) updateData.bio = input.bio;
+      if (input.location !== undefined) updateData.location = input.location;
+      if (input.preferences !== undefined) updateData.preferences = input.preferences;
+
+      const { data: profile, error } = await supabaseAdmin
+        .from('profiles')
+        .update(updateData)
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[tRPC] updateUserProfile error', error);
+        throw new Error('Failed to update profile');
       }
-    };
-    
-    const updatedProfile = {
-      ...currentProfile,
-      ...input
-    };
-    
-    userProfiles.set(userId, updatedProfile);
-    
-    return {
-      success: true,
-      profile: updatedProfile
-    };
+
+      return {
+        success: true,
+        profile: {
+          bio: profile.bio,
+          location: profile.location,
+          badges: profile.badges || [],
+          joinedAt: profile.created_at,
+          preferences: profile.preferences || {
+            cuisines: [],
+            dietaryRestrictions: [],
+            priceRange: []
+          }
+        }
+      };
+    } catch (error) {
+      console.error('[tRPC] updateUserProfile error', error);
+      throw new Error('Failed to update profile');
+    }
   });
 
 export const getUserProfileProcedure = publicProcedure
   .input(z.object({ userId: z.string() }))
-  .query(({ input }) => {
-    const profile = userProfiles.get(input.userId);
-    return profile ?? {
-      bio: undefined,
-      location: undefined,
-      badges: [],
-      joinedAt: new Date().toISOString(),
-      preferences: {
-        cuisines: [],
-        dietaryRestrictions: [],
-        priceRange: []
+  .query(async ({ input }) => {
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client not configured');
+    }
+
+    try {
+      const { data: profile, error } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', input.userId)
+        .single();
+
+      if (error) {
+        console.error('[tRPC] getUserProfile error', error);
+        return {
+          bio: undefined,
+          location: undefined,
+          badges: [],
+          joinedAt: new Date().toISOString(),
+          preferences: {
+            cuisines: [],
+            dietaryRestrictions: [],
+            priceRange: []
+          }
+        };
       }
-    };
+
+      return {
+        bio: profile.bio,
+        location: profile.location,
+        badges: profile.badges || [],
+        joinedAt: profile.created_at,
+        preferences: profile.preferences || {
+          cuisines: [],
+          dietaryRestrictions: [],
+          priceRange: []
+        }
+      };
+    } catch (error) {
+      console.error('[tRPC] getUserProfile error', error);
+      return {
+        bio: undefined,
+        location: undefined,
+        badges: [],
+        joinedAt: new Date().toISOString(),
+        preferences: {
+          cuisines: [],
+          dietaryRestrictions: [],
+          priceRange: []
+        }
+      };
+    }
   });
 
 export const awardBadgeProcedure = protectedProcedure
@@ -184,34 +330,101 @@ export const awardBadgeProcedure = protectedProcedure
     userId: z.string(),
     badge: z.string().max(50)
   }))
-  .mutation(({ input }) => {
-    const currentProfile = userProfiles.get(input.userId) ?? {
-      badges: [],
-      joinedAt: new Date().toISOString(),
-      preferences: {
-        cuisines: [],
-        dietaryRestrictions: [],
-        priceRange: []
-      }
-    };
-    
-    if (!currentProfile.badges.includes(input.badge)) {
-      currentProfile.badges.push(input.badge);
-      userProfiles.set(input.userId, currentProfile);
+  .mutation(async ({ input }) => {
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client not configured');
     }
-    
-    return {
-      success: true,
-      badges: currentProfile.badges
-    };
+
+    try {
+      // Get current profile
+      const { data: profile, error: fetchError } = await supabaseAdmin
+        .from('profiles')
+        .select('badges')
+        .eq('id', input.userId)
+        .single();
+
+      if (fetchError) {
+        console.error('[tRPC] awardBadge fetch error', fetchError);
+        throw new Error('Failed to fetch profile');
+      }
+
+      const currentBadges = profile.badges || [];
+      if (!currentBadges.includes(input.badge)) {
+        const updatedBadges = [...currentBadges, input.badge];
+        
+        const { error: updateError } = await supabaseAdmin
+          .from('profiles')
+          .update({ badges: updatedBadges })
+          .eq('id', input.userId);
+
+        if (updateError) {
+          console.error('[tRPC] awardBadge update error', updateError);
+          throw new Error('Failed to award badge');
+        }
+
+        return {
+          success: true,
+          badges: updatedBadges
+        };
+      }
+
+      return {
+        success: true,
+        badges: currentBadges
+      };
+    } catch (error) {
+      console.error('[tRPC] awardBadge error', error);
+      throw new Error('Failed to award badge');
+    }
   });
 
 export const toggleRestaurantFollowProcedure = protectedProcedure
   .input(z.object({ restaurantId: z.string() }))
-  .mutation(({ input, ctx }) => {
+  .mutation(async ({ input, ctx }) => {
     const me = ctx.user!.id;
-    const set = restaurantFollowState.get(input.restaurantId) ?? new Set<string>();
-    if (set.has(me)) set.delete(me); else set.add(me);
-    restaurantFollowState.set(input.restaurantId, set);
-    return { following: set.has(me), followersCount: set.size };
+    
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client not configured');
+    }
+
+    try {
+      // Check if already following
+      const { data: existingBookmark } = await supabaseAdmin
+        .from('bookmarks')
+        .select('id')
+        .eq('user_id', me)
+        .eq('restaurant_id', input.restaurantId)
+        .single();
+
+      let following: boolean;
+      if (existingBookmark) {
+        // Unfollow (remove bookmark)
+        await supabaseAdmin
+          .from('bookmarks')
+          .delete()
+          .eq('user_id', me)
+          .eq('restaurant_id', input.restaurantId);
+        following = false;
+      } else {
+        // Follow (add bookmark)
+        await supabaseAdmin
+          .from('bookmarks')
+          .insert({
+            user_id: me,
+            restaurant_id: input.restaurantId,
+          });
+        following = true;
+      }
+
+      // Get updated followers count
+      const { count: followersCount } = await supabaseAdmin
+        .from('bookmarks')
+        .select('*', { count: 'exact', head: true })
+        .eq('restaurant_id', input.restaurantId);
+
+      return { following, followersCount: followersCount || 0 };
+    } catch (error) {
+      console.error('[tRPC] toggleRestaurantFollow error', error);
+      throw new Error('Failed to toggle restaurant follow');
+    }
   });

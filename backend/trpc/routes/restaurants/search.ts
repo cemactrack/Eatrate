@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { publicProcedure } from "@/backend/trpc/create-context";
+import { supabaseAdmin } from "@/backend/supabase-admin";
 
 export const searchRestaurantsProcedure = publicProcedure
   .input(
@@ -20,157 +21,85 @@ export const searchRestaurantsProcedure = publicProcedure
     console.log('[tRPC] Search restaurants with filters:', input);
     
     try {
-      // Mock data for demonstration - in real app this would fetch from database
-      const mockRestaurants = [
-        {
-          id: 'mock-1',
-          name: 'Le Beau Restaurant',
-          cuisine: 'French',
-          rating: 4.5,
-          reviewCount: 120,
-          image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop',
-          address: 'Douala, Cameroon',
-          priceRange: '$$$' as const,
-          isOpen: true,
-          tags: ['French', 'Fine Dining', 'Romantic'],
-        },
-        {
-          id: 'mock-2',
-          name: 'Mama Africa Kitchen',
-          cuisine: 'African',
-          rating: 4.2,
-          reviewCount: 85,
-          image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&h=600&fit=crop',
-          address: 'Yaoundé, Cameroon',
-          priceRange: '$$' as const,
-          isOpen: true,
-          tags: ['African', 'Traditional', 'Local'],
-        },
-        {
-          id: 'mock-3',
-          name: 'Pizza Corner',
-          cuisine: 'Italian',
-          rating: 3.8,
-          reviewCount: 65,
-          image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=800&h=600&fit=crop',
-          address: 'Buea, Cameroon',
-          priceRange: '$$' as const,
-          isOpen: false,
-          tags: ['Italian', 'Pizza', 'Casual'],
-        },
-        {
-          id: 'mock-4',
-          name: 'Sushi Zen',
-          cuisine: 'Japanese',
-          rating: 4.7,
-          reviewCount: 95,
-          image: 'https://images.unsplash.com/photo-1579584425555-c3ce17fd4351?w=800&h=600&fit=crop',
-          address: 'Limbe, Cameroon',
-          priceRange: '$$$$' as const,
-          isOpen: true,
-          tags: ['Japanese', 'Sushi', 'Fresh'],
-        },
-        {
-          id: 'mock-5',
-          name: 'Burger Palace',
-          cuisine: 'American',
-          rating: 3.9,
-          reviewCount: 150,
-          image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&h=600&fit=crop',
-          address: 'Douala, Cameroon',
-          priceRange: '$' as const,
-          isOpen: true,
-          tags: ['American', 'Burgers', 'Fast Food'],
-        },
-      ];
+      if (!supabaseAdmin) {
+        throw new Error('Supabase admin client not configured');
+      }
       
-      let filteredRestaurants = [...mockRestaurants];
+      let query = supabaseAdmin
+        .from('restaurants')
+        .select('*', { count: 'exact' });
       
       // Apply location filter
       if (input.location !== 'all') {
-        filteredRestaurants = filteredRestaurants.filter(restaurant =>
-          restaurant.address.toLowerCase().includes(input.location!)
-        );
+        query = query.ilike('address', `%${input.location}%`);
       }
       
       // Apply search query filter
       if (input.query) {
-        const query = input.query.toLowerCase();
-        filteredRestaurants = filteredRestaurants.filter(restaurant =>
-          restaurant.name.toLowerCase().includes(query) ||
-          restaurant.cuisine.toLowerCase().includes(query) ||
-          restaurant.address.toLowerCase().includes(query) ||
-          restaurant.tags.some((tag: string) => tag.toLowerCase().includes(query))
-        );
+        query = query.or(`name.ilike.%${input.query}%,cuisine.ilike.%${input.query}%,address.ilike.%${input.query}%`);
       }
       
       // Apply cuisine filter
       if (input.cuisine && input.cuisine !== 'All') {
-        filteredRestaurants = filteredRestaurants.filter(restaurant =>
-          restaurant.cuisine === input.cuisine
-        );
+        query = query.ilike('cuisine', `%${input.cuisine}%`);
       }
       
       // Apply price range filter
       if (input.priceRange && input.priceRange.length > 0) {
-        filteredRestaurants = filteredRestaurants.filter(restaurant =>
-          input.priceRange!.includes(restaurant.priceRange)
-        );
+        query = query.in('price_range', input.priceRange);
       }
       
       // Apply rating filter
       if (input.rating && input.rating > 0) {
-        filteredRestaurants = filteredRestaurants.filter(restaurant =>
-          restaurant.rating >= input.rating!
-        );
+        query = query.gte('rating', input.rating);
       }
       
       // Apply open status filter
       if (input.isOpen !== undefined) {
-        filteredRestaurants = filteredRestaurants.filter(restaurant =>
-          restaurant.isOpen === input.isOpen
-        );
+        query = query.eq('is_open', input.isOpen);
       }
       
-      // Sort results
-      filteredRestaurants.sort((a, b) => {
-        let comparison = 0;
-        
-        switch (input.sortBy) {
-          case 'name':
-            comparison = a.name.localeCompare(b.name);
-            break;
-          case 'rating':
-            comparison = a.rating - b.rating;
-            break;
-          case 'reviewCount':
-            comparison = a.reviewCount - b.reviewCount;
-            break;
-          case 'distance':
-            // Mock distance sorting - in real app would use actual location
-            comparison = Math.random() - 0.5;
-            break;
-          default:
-            comparison = 0;
-        }
-        
-        return input.sortOrder === 'desc' ? -comparison : comparison;
-      });
+      // Apply sorting
+      const sortColumn = input.sortBy === 'reviewCount' ? 'review_count' : input.sortBy;
+      query = query.order(sortColumn, { ascending: input.sortOrder === 'asc' });
       
       // Apply pagination
-      const total = filteredRestaurants.length;
-      const paginatedRestaurants = filteredRestaurants.slice(
-        input.offset,
-        input.offset + input.limit
-      );
+      query = query.range(input.offset, input.offset + input.limit - 1);
+      
+      const { data: restaurants, error, count } = await query;
+      
+      if (error) {
+        console.error('[tRPC] Restaurant search error:', error);
+        throw new Error('Failed to search restaurants');
+      }
+      
+      const mapped = (restaurants || []).map((r) => ({
+        id: r.id,
+        name: r.name,
+        cuisine: r.cuisine || 'International',
+        rating: r.rating || 0,
+        reviewCount: r.review_count || 0,
+        image: r.image_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop',
+        address: r.address || '',
+        priceRange: r.price_range || '$' as const,
+        isOpen: r.is_open ?? true,
+        tags: r.tags || [],
+      }));
       
       // Get available cuisines for filtering
+      const { data: cuisineData } = await supabaseAdmin
+        .from('restaurants')
+        .select('cuisine')
+        .not('cuisine', 'is', null);
+      
       const cuisines = Array.from(new Set(
-        mockRestaurants.map(r => r.cuisine)
+        (cuisineData || []).map(r => r.cuisine).filter(Boolean)
       )).sort();
       
+      const total = count || 0;
+      
       return {
-        restaurants: paginatedRestaurants,
+        restaurants: mapped,
         total,
         offset: input.offset,
         limit: input.limit,

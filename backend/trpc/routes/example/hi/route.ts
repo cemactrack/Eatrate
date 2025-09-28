@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { publicProcedure, protectedProcedure } from "@/backend/trpc/create-context";
+import { supabaseAdmin } from "@/backend/supabase-admin";
 
 export const hiProcedure = publicProcedure
   .input(z.object({ name: z.string() }))
@@ -22,58 +23,75 @@ function avatarFor(id: number): string {
 
 export const getPostsProcedure = publicProcedure.query(async () => {
   try {
-    const [postsRes, usersRes] = await Promise.all([
-      fetch('https://jsonplaceholder.typicode.com/posts?_limit=20'),
-      fetch('https://jsonplaceholder.typicode.com/users'),
-    ]);
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client not configured');
+    }
 
-    if (!postsRes.ok || !usersRes.ok) throw new Error('Failed to fetch posts/users');
+    const { data: posts, error: postsError } = await supabaseAdmin
+      .from('posts')
+      .select(`
+        *,
+        profiles!posts_user_id_fkey (
+          id,
+          display_name,
+          avatar_url,
+          bio
+        ),
+        restaurants (
+          id,
+          name,
+          address
+        )
+      `)
+      .eq('status', 'published')
+      .order('created_at', { ascending: false })
+      .limit(20);
 
-    const posts = (await postsRes.json()) as Array<{ id: number; userId: number; title: string; body: string }>;
-    const users = (await usersRes.json()) as Array<any>;
+    if (postsError) {
+      console.error('[tRPC] posts.list error', postsError);
+      return { posts: [], message: 'Failed to fetch posts' };
+    }
 
-    const usersById = new Map<number, any>();
-    users.forEach((u) => usersById.set(u.id, u));
-
-    const mapped = posts.map((p) => {
-      const u = usersById.get(p.userId);
-      const uid = String(u?.id ?? p.userId);
-      const displayName = String(u?.name ?? `User ${uid}`);
-      const username = String(u?.username ?? `user_${uid}`);
+    const mapped = (posts || []).map((p) => {
+      const profile = p.profiles;
       return {
-        id: String(p.id),
-        userId: uid,
+        id: p.id,
+        userId: p.user_id,
         user: {
-          id: uid,
-          username,
-          displayName,
-          avatar: avatarFor(Number(uid)),
-          bio: `${displayName} from ${u?.address?.city ?? 'somewhere'}`,
-          followersCount: 100 + (p.id % 900),
-          followingCount: 50 + (p.id % 300),
-          postsCount: 1 + (p.id % 50),
+          id: p.user_id,
+          username: profile?.display_name?.toLowerCase().replace(/\s+/g, '_') || `user_${p.user_id.slice(-6)}`,
+          displayName: profile?.display_name || `User ${p.user_id.slice(-6)}`,
+          avatar: profile?.avatar_url || avatarFor(parseInt(p.user_id.slice(-6), 36) || 0),
+          bio: profile?.bio || '',
+          followersCount: 0, // TODO: Calculate from follows table
+          followingCount: 0, // TODO: Calculate from follows table
+          postsCount: 0, // TODO: Calculate from posts table
           badges: [],
           preferences: { cuisines: [], dietaryRestrictions: [], priceRange: [] },
         },
-        type: 'review' as const,
+        type: p.type || 'review' as const,
         content: {
-          text: p.body,
-          images: [`https://picsum.photos/seed/post${p.id}/800/600`],
+          text: p.content || '',
+          images: p.images || [],
         },
-        restaurant: undefined,
+        restaurant: p.restaurants ? {
+          id: p.restaurants.id,
+          name: p.restaurants.name,
+          location: p.restaurants.address,
+        } : undefined,
         ratings: {
-          food: 3 + (p.id % 3),
-          service: 3 + ((p.id + 1) % 3),
-          ambiance: 3 + ((p.id + 2) % 3),
-          cleanliness: 3 + ((p.id + 3) % 3),
-          overall: 4,
+          food: p.rating_food || 0,
+          service: p.rating_service || 0,
+          ambiance: p.rating_ambiance || 0,
+          cleanliness: p.rating_cleanliness || 0,
+          overall: p.rating_overall || 0,
         },
-        tags: ['live', 'feed'],
-        likesCount: (p.id * 7) % 100,
-        commentsCount: (p.id * 5) % 40,
-        sharesCount: (p.id * 3) % 20,
-        isLiked: false,
-        createdAt: new Date(Date.now() - p.id * 3600_000).toISOString(),
+        tags: p.tags || [],
+        likesCount: p.likes_count || 0,
+        commentsCount: p.comments_count || 0,
+        sharesCount: p.shares_count || 0,
+        isLiked: false, // TODO: Check if current user liked this post
+        createdAt: p.created_at,
       };
     });
 
@@ -98,22 +116,45 @@ export const createPostProcedure = protectedProcedure
     tags: z.array(z.string()).optional(),
   }))
   .mutation(async ({ input, ctx }) => {
-    console.log('[tRPC] Creating post (live API):', input);
+    console.log('[tRPC] Creating post:', input);
     try {
-      const res = await fetch('https://jsonplaceholder.typicode.com/posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: input.text.slice(0, 40),
-          body: input.text,
-          userId: ctx.user?.id || 'anonymous',
-        }),
-      });
-      const json = await res.json();
-      return { id: String(json.id ?? Date.now()) };
-    } catch (e) {
-      console.log('[tRPC] create post failed', e);
-      return { id: String(Date.now()) };
+      if (!supabaseAdmin) {
+        throw new Error('Supabase admin client not configured');
+      }
+
+      const overall = Math.round((input.ratings.food * 0.4 + input.ratings.service * 0.3 + input.ratings.ambiance * 0.2 + input.ratings.cleanliness * 0.1) * 10) / 10;
+
+      const { data: post, error } = await supabaseAdmin
+        .from('posts')
+        .insert({
+          user_id: ctx.user!.id,
+          content: input.text,
+          restaurant_id: input.restaurantId || null,
+          images: input.images || [],
+          rating_food: input.ratings.food,
+          rating_service: input.ratings.service,
+          rating_ambiance: input.ratings.ambiance,
+          rating_cleanliness: input.ratings.cleanliness,
+          rating_overall: overall,
+          tags: input.tags || [],
+          type: 'review',
+          status: 'published',
+          likes_count: 0,
+          comments_count: 0,
+          shares_count: 0,
+        })
+        .select('id')
+        .single();
+
+      if (error) {
+        console.error('[tRPC] create post error', error);
+        throw new Error('Failed to create post');
+      }
+
+      return { id: post.id };
+    } catch (e: any) {
+      console.log('[tRPC] create post failed', e?.message ?? e);
+      throw new Error('Failed to create post');
     }
   });
 
@@ -123,44 +164,74 @@ export const createStatusProcedure = protectedProcedure
     image: z.string().optional(),
   }))
   .mutation(async ({ input, ctx }) => {
-    console.log('[tRPC] Creating status (live API):', input);
+    console.log('[tRPC] Creating status:', input);
     try {
-      const res = await fetch('https://jsonplaceholder.typicode.com/posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: (input.text ?? '').slice(0, 40),
-          body: input.text ?? '',
-          userId: ctx.user?.id || 'anonymous',
-        }),
-      });
-      const json = await res.json();
-      return { id: String(json.id ?? Date.now()) };
-    } catch (e) {
-      console.log('[tRPC] create status failed', e);
-      return { id: String(Date.now()) };
+      if (!supabaseAdmin) {
+        throw new Error('Supabase admin client not configured');
+      }
+
+      const { data: post, error } = await supabaseAdmin
+        .from('posts')
+        .insert({
+          user_id: ctx.user!.id,
+          content: input.text || '',
+          images: input.image ? [input.image] : [],
+          type: 'story',
+          status: 'published',
+          likes_count: 0,
+          comments_count: 0,
+          shares_count: 0,
+        })
+        .select('id')
+        .single();
+
+      if (error) {
+        console.error('[tRPC] create status error', error);
+        throw new Error('Failed to create status');
+      }
+
+      return { id: post.id };
+    } catch (e: any) {
+      console.log('[tRPC] create status failed', e?.message ?? e);
+      throw new Error('Failed to create status');
     }
   });
 
 export const getRestaurantsProcedure = publicProcedure.query(async () => {
   try {
-    const res = await fetch('https://world.openfoodfacts.org/api/v2/search?categories_tags_en=restaurants&page_size=10');
-    if (!res.ok) throw new Error('Failed');
-    const data = await res.json();
-    const restaurants = (data.products ?? []).map((p: any, idx: number) => ({
-      id: String(p.id ?? idx),
-      name: String(p.brands ?? p.product_name ?? 'Restaurant'),
-      cuisine: 'International',
-      rating: 4,
-      reviewCount: 0,
-      image: p.image_url ?? 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop',
-      address: String(p.countries ?? 'Cameroon'),
-      priceRange: '$' as const,
-      isOpen: true,
-      tags: [],
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client not configured');
+    }
+
+    const { data: restaurants, error } = await supabaseAdmin
+      .from('restaurants')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) {
+      console.error('[tRPC] restaurants.list error', error);
+      return { restaurants: [], message: 'Failed to fetch restaurants' };
+    }
+
+    const mapped = (restaurants || []).map((r) => ({
+      id: r.id,
+      name: r.name,
+      cuisine: r.cuisine || 'International',
+      rating: r.rating || 0,
+      reviewCount: r.review_count || 0,
+      image: r.image_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop',
+      address: r.address || '',
+      priceRange: r.price_range || '$' as const,
+      isOpen: r.is_open ?? true,
+      tags: r.tags || [],
+      verified: r.verified || false,
+      claimed: r.claimed || false,
     }));
-    return { restaurants, message: 'Restaurants fetched successfully' };
-  } catch (e) {
+
+    return { restaurants: mapped, message: 'Restaurants fetched successfully' };
+  } catch (e: any) {
+    console.error('[tRPC] restaurants.list error', e?.message ?? e);
     return { restaurants: [], message: 'Failed to fetch restaurants' };
   }
 });
@@ -171,30 +242,56 @@ export const getCommentsProcedure = publicProcedure
   }))
   .query(async ({ input }) => {
     try {
-      const res = await fetch(`https://jsonplaceholder.typicode.com/comments?postId=${encodeURIComponent(input.postId)}`);
-      const items = res.ok ? ((await res.json()) as Array<{ id: number; name: string; email: string; body: string }>) : [];
-      const comments = items.slice(0, 20).map((c) => ({
-        id: String(c.id),
-        postId: input.postId,
-        userId: String(c.id),
-        user: {
-          id: String(c.id),
-          username: c.email.split('@')[0],
-          displayName: c.name,
-          avatar: avatarFor(c.id),
-          bio: '',
-          followersCount: 0,
-          followingCount: 0,
-          postsCount: 0,
-          badges: [],
-          preferences: { cuisines: [], dietaryRestrictions: [], priceRange: [] },
-        },
-        text: c.body,
-        likesCount: c.id % 10,
-        isLiked: false,
-        createdAt: new Date(Date.now() - c.id * 1800_000).toISOString(),
-      }));
-      return { comments, postId: input.postId, message: 'Comments fetched successfully' };
+      if (!supabaseAdmin) {
+        throw new Error('Supabase admin client not configured');
+      }
+
+      const { data: comments, error } = await supabaseAdmin
+        .from('comments')
+        .select(`
+          *,
+          profiles!comments_user_id_fkey (
+            id,
+            display_name,
+            avatar_url,
+            bio
+          )
+        `)
+        .eq('post_id', input.postId)
+        .order('created_at', { ascending: true })
+        .limit(50);
+
+      if (error) {
+        console.error('[tRPC] comments.list error', error);
+        return { comments: [], postId: input.postId, message: 'Failed to fetch comments' };
+      }
+
+      const mapped = (comments || []).map((c) => {
+        const profile = c.profiles;
+        return {
+          id: c.id,
+          postId: input.postId,
+          userId: c.user_id,
+          user: {
+            id: c.user_id,
+            username: profile?.display_name?.toLowerCase().replace(/\s+/g, '_') || `user_${c.user_id.slice(-6)}`,
+            displayName: profile?.display_name || `User ${c.user_id.slice(-6)}`,
+            avatar: profile?.avatar_url || avatarFor(parseInt(c.user_id.slice(-6), 36) || 0),
+            bio: profile?.bio || '',
+            followersCount: 0,
+            followingCount: 0,
+            postsCount: 0,
+            badges: [],
+            preferences: { cuisines: [], dietaryRestrictions: [], priceRange: [] },
+          },
+          text: c.content,
+          likesCount: c.likes_count || 0,
+          isLiked: false, // TODO: Check if current user liked this comment
+          createdAt: c.created_at,
+        };
+      });
+
+      return { comments: mapped, postId: input.postId, message: 'Comments fetched successfully' };
     } catch (e: any) {
       console.log('[tRPC] comments.list error', e?.message ?? e);
       return { comments: [], postId: input.postId, message: 'Failed to fetch comments' };
@@ -207,23 +304,36 @@ export const createCommentProcedure = protectedProcedure
     text: z.string().min(1).max(240),
   }))
   .mutation(async ({ input, ctx }) => {
-    console.log('[tRPC] Creating comment (live API):', input);
+    console.log('[tRPC] Creating comment:', input);
     try {
-      const res = await fetch('https://jsonplaceholder.typicode.com/comments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          postId: input.postId,
-          body: input.text,
-          email: `${ctx.user?.id ?? 'anonymous'}@example.com`,
-          name: 'comment',
-        }),
-      });
-      const json = await res.json();
-      return { id: String(json.id ?? Date.now()) };
-    } catch (e) {
-      console.log('[tRPC] create comment failed', e);
-      return { id: String(Date.now()) };
+      if (!supabaseAdmin) {
+        throw new Error('Supabase admin client not configured');
+      }
+
+      const { data: comment, error } = await supabaseAdmin
+        .from('comments')
+        .insert({
+          post_id: input.postId,
+          user_id: ctx.user!.id,
+          content: input.text,
+          likes_count: 0,
+        })
+        .select('id')
+        .single();
+
+      if (error) {
+        console.error('[tRPC] create comment error', error);
+        throw new Error('Failed to create comment');
+      }
+
+      // Update post comments count
+      await supabaseAdmin
+        .rpc('increment_post_comments', { post_id: input.postId });
+
+      return { id: comment.id };
+    } catch (e: any) {
+      console.log('[tRPC] create comment failed', e?.message ?? e);
+      throw new Error('Failed to create comment');
     }
   });
 
@@ -253,21 +363,34 @@ export const getDishesProcedure = publicProcedure.query(async () => {
 
 export const getUsersProcedure = publicProcedure.query(async () => {
   try {
-    const res = await fetch('https://jsonplaceholder.typicode.com/users');
-    if (!res.ok) throw new Error('Failed to fetch users');
-    const items = await res.json();
-    const users = (items as Array<any>).map((u: any) => ({
-      id: String(u.id),
-      username: String(u.username),
-      displayName: String(u.name),
-      avatar: avatarFor(Number(u.id)),
-      bio: `${u.company?.catchPhrase ?? ''}`,
-      followersCount: 0,
-      followingCount: 0,
-      postsCount: 0,
-      badges: [],
-      preferences: { cuisines: [], dietaryRestrictions: [], priceRange: [] },
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client not configured');
+    }
+
+    const { data: profiles, error } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) {
+      console.error('[tRPC] users.list error', error);
+      return { users: [], message: 'Failed to fetch users' };
+    }
+
+    const users = (profiles || []).map((p) => ({
+      id: p.id,
+      username: p.display_name?.toLowerCase().replace(/\s+/g, '_') || `user_${p.id.slice(-6)}`,
+      displayName: p.display_name || `User ${p.id.slice(-6)}`,
+      avatar: p.avatar_url || avatarFor(parseInt(p.id.slice(-6), 36) || 0),
+      bio: p.bio || '',
+      followersCount: 0, // TODO: Calculate from follows table
+      followingCount: 0, // TODO: Calculate from follows table
+      postsCount: 0, // TODO: Calculate from posts table
+      badges: p.badges || [],
+      preferences: p.preferences || { cuisines: [], dietaryRestrictions: [], priceRange: [] },
     }));
+
     return { users, message: 'Users fetched successfully' };
   } catch (e: any) {
     console.log('[tRPC] users.list error', e?.message ?? e);
@@ -276,4 +399,3 @@ export const getUsersProcedure = publicProcedure.query(async () => {
 });
 
 export default hiProcedure;
-export { createStatusProcedure };

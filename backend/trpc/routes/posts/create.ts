@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { protectedProcedure } from "@/backend/trpc/create-context";
+import { supabaseAdmin } from "@/backend/supabase-admin";
 
-const postsStorage = new Map<string, any>();
-let postIdCounter = 1000;
 const MAX_POST_TEXT_LENGTH = 500;
 const MAX_IMAGES_COUNT = 5;
 
@@ -44,6 +43,10 @@ export const createPostProcedure = protectedProcedure
     console.log('[tRPC] Creating post:', { textLength: input.text.length, imagesCount: input.images?.length || 0 });
     
     try {
+      if (!supabaseAdmin) {
+        throw new Error('Supabase admin client not configured');
+      }
+
       // Validate input
       if (!input.text?.trim() && (!input.images || input.images.length === 0)) {
         throw new Error('Post must contain text or images');
@@ -55,68 +58,48 @@ export const createPostProcedure = protectedProcedure
         throw new Error('All ratings must be between 1 and 5');
       }
       
-      const postId = String(postIdCounter++);
-      const now = new Date().toISOString();
+      const overall = Math.round((input.ratings.food * 0.4 + input.ratings.service * 0.3 + input.ratings.ambiance * 0.2 + input.ratings.cleanliness * 0.1) * 10) / 10;
+      const status = input.isDraft ? 'draft' : (input.scheduledFor ? 'scheduled' : 'published');
       
-      const post = {
-        id: postId,
-        userId: ctx.user?.id || 'anonymous',
-        user: {
-          id: ctx.user?.id || 'anonymous',
-          username: `user_${ctx.user?.id || 'anonymous'}`,
-          displayName: `User ${ctx.user?.id || 'Anonymous'}`,
-          avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=200&h=200&fit=crop',
-          bio: 'Food enthusiast',
-          followersCount: 0,
-          followingCount: 0,
-          postsCount: 1,
-          badges: [],
-          preferences: { cuisines: [], dietaryRestrictions: [], priceRange: [] },
-        },
-        type: input.category,
-        content: {
-          text: input.text,
+      const { data: post, error } = await supabaseAdmin
+        .from('posts')
+        .insert({
+          user_id: ctx.user!.id,
+          content: input.text,
+          restaurant_id: input.restaurantId || null,
           images: input.images || [],
           videos: input.videos || [],
-        },
-        restaurant: input.restaurantId ? {
-          id: input.restaurantId,
-          name: 'Selected Restaurant',
-          location: 'Location',
-        } : undefined,
-        ratings: {
-          ...input.ratings,
-          overall: Math.round((input.ratings.food * 0.4 + input.ratings.service * 0.3 + input.ratings.ambiance * 0.2 + input.ratings.cleanliness * 0.1) * 10) / 10,
-        },
-        nutritionEstimate: input.nutritionEstimate,
-        tags: input.tags || [],
-        location: input.location,
-        likesCount: 0,
-        commentsCount: 0,
-        sharesCount: 0,
-        viewsCount: 0,
-        isLiked: false,
-        isBookmarked: false,
-        createdAt: now,
-        updatedAt: now,
-        scheduledFor: input.scheduledFor,
-        isDraft: input.isDraft,
-        status: input.isDraft ? 'draft' : (input.scheduledFor ? 'scheduled' : 'published'),
-      };
-      
-      // Simulate processing time but keep it fast
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      postsStorage.set(postId, post);
+          rating_food: input.ratings.food,
+          rating_service: input.ratings.service,
+          rating_ambiance: input.ratings.ambiance,
+          rating_cleanliness: input.ratings.cleanliness,
+          rating_overall: overall,
+          tags: input.tags || [],
+          type: input.category,
+          status,
+          location: input.location,
+          scheduled_for: input.scheduledFor || null,
+          nutrition_estimate: input.nutritionEstimate || null,
+          likes_count: 0,
+          comments_count: 0,
+          shares_count: 0,
+          views_count: 0,
+        })
+        .select('id')
+        .single();
+
+      if (error) {
+        console.error('[tRPC] create post error', error);
+        throw new Error('Failed to create post');
+      }
       
       const processingTime = Date.now() - startTime;
-      console.log('[tRPC] Post created successfully:', postId, `(${processingTime}ms)`);
+      console.log('[tRPC] Post created successfully:', post.id, `(${processingTime}ms)`);
       
       return { 
-        id: postId, 
-        status: post.status,
-        message: input.isDraft ? 'Draft saved' : (input.scheduledFor ? 'Post scheduled' : 'Post created successfully'),
-        post: post // Return the created post for immediate UI updates
+        id: post.id, 
+        status,
+        message: input.isDraft ? 'Draft saved' : (input.scheduledFor ? 'Post scheduled' : 'Post created successfully')
       };
     } catch (error) {
       const processingTime = Date.now() - startTime;
@@ -136,55 +119,97 @@ export const updatePostProcedure = protectedProcedure
     isDraft: z.boolean().optional(),
   }))
   .mutation(async ({ input, ctx }) => {
-    const post = postsStorage.get(input.postId);
-    if (!post) {
-      throw new Error('Post not found');
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client not configured');
     }
-    
-    if (post.userId !== ctx.user?.id) {
-      throw new Error('Unauthorized');
+
+    try {
+      // Check if post exists and user owns it
+      const { data: existingPost, error: fetchError } = await supabaseAdmin
+        .from('posts')
+        .select('user_id')
+        .eq('id', input.postId)
+        .single();
+
+      if (fetchError || !existingPost) {
+        throw new Error('Post not found');
+      }
+      
+      if (existingPost.user_id !== ctx.user?.id) {
+        throw new Error('Unauthorized');
+      }
+
+      const updateData: any = { updated_at: new Date().toISOString() };
+      if (input.text !== undefined) updateData.content = input.text;
+      if (input.images !== undefined) updateData.images = input.images;
+      if (input.videos !== undefined) updateData.videos = input.videos;
+      if (input.tags !== undefined) updateData.tags = input.tags;
+      if (input.scheduledFor !== undefined) updateData.scheduled_for = input.scheduledFor;
+      if (input.isDraft !== undefined) {
+        updateData.status = input.isDraft ? 'draft' : 'published';
+      }
+      
+      const { error: updateError } = await supabaseAdmin
+        .from('posts')
+        .update(updateData)
+        .eq('id', input.postId);
+
+      if (updateError) {
+        console.error('[tRPC] update post error', updateError);
+        throw new Error('Failed to update post');
+      }
+      
+      return { 
+        id: input.postId, 
+        message: 'Post updated successfully' 
+      };
+    } catch (error) {
+      console.error('[tRPC] updatePost error', error);
+      throw new Error('Failed to update post');
     }
-    
-    const updatedPost = {
-      ...post,
-      content: {
-        ...post.content,
-        ...(input.text !== undefined && { text: input.text }),
-        ...(input.images !== undefined && { images: input.images }),
-        ...(input.videos !== undefined && { videos: input.videos }),
-      },
-      ...(input.tags !== undefined && { tags: input.tags }),
-      ...(input.scheduledFor !== undefined && { scheduledFor: input.scheduledFor }),
-      ...(input.isDraft !== undefined && { isDraft: input.isDraft }),
-      updatedAt: new Date().toISOString(),
-    };
-    
-    postsStorage.set(input.postId, updatedPost);
-    
-    return { 
-      id: input.postId, 
-      message: 'Post updated successfully' 
-    };
   });
 
 export const deletePostProcedure = protectedProcedure
   .input(z.object({ postId: z.string() }))
   .mutation(async ({ input, ctx }) => {
-    const post = postsStorage.get(input.postId);
-    if (!post) {
-      throw new Error('Post not found');
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client not configured');
     }
-    
-    if (post.userId !== ctx.user?.id) {
-      throw new Error('Unauthorized');
+
+    try {
+      // Check if post exists and user owns it
+      const { data: existingPost, error: fetchError } = await supabaseAdmin
+        .from('posts')
+        .select('user_id')
+        .eq('id', input.postId)
+        .single();
+
+      if (fetchError || !existingPost) {
+        throw new Error('Post not found');
+      }
+      
+      if (existingPost.user_id !== ctx.user?.id) {
+        throw new Error('Unauthorized');
+      }
+      
+      const { error: deleteError } = await supabaseAdmin
+        .from('posts')
+        .delete()
+        .eq('id', input.postId);
+
+      if (deleteError) {
+        console.error('[tRPC] delete post error', deleteError);
+        throw new Error('Failed to delete post');
+      }
+      
+      return { 
+        id: input.postId, 
+        message: 'Post deleted successfully' 
+      };
+    } catch (error) {
+      console.error('[tRPC] deletePost error', error);
+      throw new Error('Failed to delete post');
     }
-    
-    postsStorage.delete(input.postId);
-    
-    return { 
-      id: input.postId, 
-      message: 'Post deleted successfully' 
-    };
   });
 
 export const getUserPostsProcedure = protectedProcedure
@@ -195,23 +220,103 @@ export const getUserPostsProcedure = protectedProcedure
     offset: z.number().min(0).default(0),
   }))
   .query(async ({ input, ctx }) => {
-    const targetUserId = input.userId || ctx.user?.id;
-    const allPosts = Array.from(postsStorage.values());
-    
-    let filteredPosts = allPosts.filter(post => {
-      if (post.userId !== targetUserId) return false;
-      if (input.status === 'all') return true;
-      return post.status === input.status;
-    });
-    
-    // Sort by creation date (newest first)
-    filteredPosts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    
-    const paginatedPosts = filteredPosts.slice(input.offset, input.offset + input.limit);
-    
-    return {
-      posts: paginatedPosts,
-      total: filteredPosts.length,
-      hasMore: input.offset + input.limit < filteredPosts.length,
-    };
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client not configured');
+    }
+
+    try {
+      const targetUserId = input.userId || ctx.user?.id;
+      
+      let query = supabaseAdmin
+        .from('posts')
+        .select(`
+          *,
+          profiles!posts_user_id_fkey (
+            id,
+            display_name,
+            avatar_url,
+            bio
+          ),
+          restaurants (
+            id,
+            name,
+            address
+          )
+        `, { count: 'exact' })
+        .eq('user_id', targetUserId)
+        .order('created_at', { ascending: false })
+        .range(input.offset, input.offset + input.limit - 1);
+
+      if (input.status !== 'all') {
+        query = query.eq('status', input.status);
+      }
+
+      const { data: posts, error, count } = await query;
+
+      if (error) {
+        console.error('[tRPC] getUserPosts error', error);
+        return { posts: [], total: 0, hasMore: false };
+      }
+      
+      const mapped = (posts || []).map((p) => {
+        const profile = p.profiles;
+        return {
+          id: p.id,
+          userId: p.user_id,
+          user: {
+            id: p.user_id,
+            username: profile?.display_name?.toLowerCase().replace(/\s+/g, '_') || `user_${p.user_id.slice(-6)}`,
+            displayName: profile?.display_name || `User ${p.user_id.slice(-6)}`,
+            avatar: profile?.avatar_url || 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=200&h=200&fit=crop',
+            bio: profile?.bio || '',
+            followersCount: 0,
+            followingCount: 0,
+            postsCount: 0,
+            badges: [],
+            preferences: { cuisines: [], dietaryRestrictions: [], priceRange: [] },
+          },
+          type: p.type || 'review',
+          content: {
+            text: p.content || '',
+            images: p.images || [],
+            videos: p.videos || [],
+          },
+          restaurant: p.restaurants ? {
+            id: p.restaurants.id,
+            name: p.restaurants.name,
+            location: p.restaurants.address,
+          } : undefined,
+          ratings: {
+            food: p.rating_food || 0,
+            service: p.rating_service || 0,
+            ambiance: p.rating_ambiance || 0,
+            cleanliness: p.rating_cleanliness || 0,
+            overall: p.rating_overall || 0,
+          },
+          nutritionEstimate: p.nutrition_estimate,
+          tags: p.tags || [],
+          location: p.location,
+          likesCount: p.likes_count || 0,
+          commentsCount: p.comments_count || 0,
+          sharesCount: p.shares_count || 0,
+          viewsCount: p.views_count || 0,
+          isLiked: false, // TODO: Check if current user liked this post
+          isBookmarked: false, // TODO: Check if current user bookmarked this post
+          createdAt: p.created_at,
+          updatedAt: p.updated_at,
+          scheduledFor: p.scheduled_for,
+          isDraft: p.status === 'draft',
+          status: p.status,
+        };
+      });
+      
+      return {
+        posts: mapped,
+        total: count || 0,
+        hasMore: input.offset + input.limit < (count || 0),
+      };
+    } catch (error) {
+      console.error('[tRPC] getUserPosts error', error);
+      return { posts: [], total: 0, hasMore: false };
+    }
   });
