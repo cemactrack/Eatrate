@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import { appRouter } from "./trpc/app-router";
 import { createContext } from "./trpc/create-context";
 import { supabaseAdmin } from "./supabase-admin";
+import { writeOperationsLimiter, readOperationsLimiter, isWriteOperation } from "./middleware/rate-limiter";
 
 // Create the main app
 const app = new Hono();
@@ -29,6 +30,32 @@ app.use('*', async (c, next) => {
   console.log(`[Headers] Content-Type: ${c.req.header('content-type')}, Accept: ${c.req.header('accept')}`);
   console.log(`[Headers] x-trpc-source: ${c.req.header('x-trpc-source')}`);
   await next();
+});
+
+// Add rate limiting middleware for tRPC endpoints
+app.use('/api/trpc/*', async (c, next) => {
+  const url = new URL(c.req.url);
+  const procedurePath = url.pathname.replace('/api/trpc/', '');
+  
+  // Apply appropriate rate limiter based on operation type
+  if (isWriteOperation(procedurePath)) {
+    return writeOperationsLimiter(c, next);
+  } else {
+    return readOperationsLimiter(c, next);
+  }
+});
+
+// Add rate limiting middleware for fallback tRPC endpoints
+app.use('/trpc/*', async (c, next) => {
+  const url = new URL(c.req.url);
+  const procedurePath = url.pathname.replace('/trpc/', '');
+  
+  // Apply appropriate rate limiter based on operation type
+  if (isWriteOperation(procedurePath)) {
+    return writeOperationsLimiter(c, next);
+  } else {
+    return readOperationsLimiter(c, next);
+  }
 });
 
 // Mount tRPC router at /api/trpc (primary endpoint)
@@ -110,7 +137,7 @@ app.get("/debug/server-status", (c) => {
 });
 
 // Auth session endpoint: verifies Supabase access token and ensures profile row exists
-app.post('/api/auth/session', async (c) => {
+app.post('/api/auth/session', writeOperationsLimiter, async (c) => {
   try {
     if (!supabaseAdmin) {
       console.error('[AuthSession] Supabase admin client is not configured');
