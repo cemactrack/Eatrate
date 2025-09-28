@@ -1,11 +1,6 @@
 {
   "functions": {
-    "api/health.ts": {
-      "runtime": "nodejs18.x"
-    },
-    "api/health-edge.ts": {
-      "runtime": "edge"
-    }
+    "api/**/*.ts": { "runtime": "nodejs20.x" }
   },
   "rewrites": [
     {
