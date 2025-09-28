@@ -229,6 +229,13 @@ import {
   redeemRewardProcedure as loyaltyRedeemRewardProcedure,
 } from "./routes/loyalty/rewards";
 
+// Image upload routes
+import {
+  uploadImageProcedure,
+  deleteImageProcedure,
+  getImageUrlProcedure,
+} from "./routes/uploads/images";
+
 export const appRouter = createTRPCRouter({
   // Health check endpoint
   healthCheck: publicProcedure.query(() => {
@@ -481,6 +488,12 @@ export const appRouter = createTRPCRouter({
     awardPoints: loyaltyAwardPointsProcedure,
     getAvailableRewards: getAvailableRewardsProcedure,
     redeemReward: loyaltyRedeemRewardProcedure,
+  }),
+  // Image upload routes
+  uploads: createTRPCRouter({
+    uploadImage: uploadImageProcedure,
+    deleteImage: deleteImageProcedure,
+    getImageUrl: getImageUrlProcedure,
   }),
 });
 
