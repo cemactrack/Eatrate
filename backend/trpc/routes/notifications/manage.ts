@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { protectedProcedure } from '../../create-context';
+import { supabaseAdmin } from '../../../supabase-admin';
 
 // Mock notifications data
 const mockNotifications = [
@@ -130,7 +131,26 @@ export const updateSettingsProcedure = protectedProcedure
 export const registerPushTokenProcedure = protectedProcedure
   .input(z.object({ token: z.string() }))
   .mutation(async ({ input, ctx }) => {
-    // In a real app, save push token to database
-    console.log(`Registered push token for user ${ctx.user.id}: ${input.token}`);
-    return { success: true };
+    const userId = ctx.user.id;
+    try {
+      if (!supabaseAdmin) {
+        console.log(`[notifications.registerPushToken] No supabaseAdmin configured. user=${userId}`);
+        return { success: true, stored: false } as const;
+      }
+
+      const { error } = await supabaseAdmin
+        .from('profiles')
+        .upsert({ id: userId, push_token: input.token }, { onConflict: 'id' });
+
+      if (error) {
+        console.error('[notifications.registerPushToken] Failed to upsert profiles.push_token', error);
+        return { success: false, stored: false, error: error.message } as const;
+      }
+
+      console.log(`[notifications.registerPushToken] Stored token in profiles.push_token for user ${userId}`);
+      return { success: true, stored: true } as const;
+    } catch (e: any) {
+      console.error('[notifications.registerPushToken] Unexpected error', e);
+      return { success: false, stored: false, error: String(e?.message ?? e) } as const;
+    }
   });

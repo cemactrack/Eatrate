@@ -12,11 +12,11 @@ import { useRouter } from 'expo-router';
 if (Platform.OS !== 'web') {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
-      shouldShowBanner: true,
-      shouldShowList: true,
+      shouldShowAlert: false,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+      shouldShowBanner: false,
+      shouldShowList: false,
     }),
   });
 }
@@ -83,7 +83,11 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
   const markAllAsReadMutation = trpc.notifications.markAllAsRead.useMutation();
   const deleteMutation = trpc.notifications.delete.useMutation();
   const updateSettingsMutation = trpc.notifications.updateSettings.useMutation();
-  const registerTokenMutation = trpc.notifications.registerPushToken.useMutation();
+  const registerTokenMutation = trpc.notifications.registerPushToken.useMutation({
+    onError: (e) => {
+      console.log('[NotificationProvider] register token failed', e);
+    },
+  });
 
   // Initialize push notifications
   useEffect(() => {
@@ -105,14 +109,11 @@ export const [NotificationProvider, useNotifications] = createContextHook<Notifi
           return;
         }
 
-        // Get push token
         if (Platform.OS !== 'web') {
           const token = await Notifications.getExpoPushTokenAsync({
             projectId: Constants.expoConfig?.extra?.eas?.projectId || undefined,
           });
           setExpoPushToken(token.data);
-          
-          // Register token with backend
           registerTokenMutation.mutate({ token: token.data });
         }
       } catch (error) {

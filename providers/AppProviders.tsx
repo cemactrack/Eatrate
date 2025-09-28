@@ -13,6 +13,7 @@ import { LocalizationProvider } from '@/providers/LocalizationProvider';
 import { AdminProvider } from '@/providers/AdminProvider';
 import { GamificationProvider } from '@/providers/GamificationProvider';
 import { NotificationProvider } from '@/providers/NotificationProvider';
+import ForegroundNotificationHost from '@/components/ForegroundNotificationHost';
 import { MessagingProvider } from '@/providers/MessagingProvider';
 import { ThemeProvider } from '@/providers/ThemeProvider';
 
@@ -60,6 +61,7 @@ interface FeatureProvidersProps {
 const FeatureProviders: React.FC<FeatureProvidersProps> = ({ children }) => (
   <Suspense fallback={<LoadingFallback />}>
     <NotificationProvider>
+      <ForegroundNotificationHost />
       <GamificationProvider>
         <MessagingProvider>
           <AdminProvider>
