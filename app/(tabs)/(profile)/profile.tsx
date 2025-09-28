@@ -194,8 +194,8 @@ export default function ProfileScreen() {
     if (!user) return null;
     return {
       id: user.id,
-      username: user.email?.split('@')[0] || user.phone || 'user',
-      displayName: user.displayName,
+      username: user.email?.split('@')[0] || 'user',
+      displayName: user.displayName ?? (user.email?.split('@')[0] || 'User'),
       avatar:
         user.avatar ||
         'https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=200&h=200&fit=crop&crop=faces',

@@ -1,177 +1,120 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import createContextHook from '@nkzw/create-context-hook';
 import { Alert } from 'react-native';
-import { useStorage } from '@/providers/StorageProvider';
+import { supabase } from '@/lib/supabase';
 
-export interface AuthUser {
+export interface AuthContextUser {
   id: string;
   email?: string;
-  phone?: string;
-  displayName: string;
+  displayName?: string;
   avatar?: string;
 }
 
 interface AuthContextValue {
-  user: AuthUser | null;
-  isLoading: boolean;
-  loginWithEmail: (email: string) => Promise<void>;
-  loginWithPhone: (phone: string) => Promise<void>;
-  updateProfile: (patch: Partial<Pick<AuthUser, 'displayName' | 'avatar'>>) => Promise<void>;
-  logout: () => Promise<void>;
+  user: AuthContextUser | null;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
-const AUTH_KEY = 'eatrate_auth_user_v1';
-
 export const [AuthProvider, useAuthInternal] = createContextHook<AuthContextValue>(() => {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const storage = useStorage();
+  const [user, setUser] = useState<AuthContextUser | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const persist = useCallback(async (next: AuthUser | null) => {
-    if (!next) {
-      await storage.removeItem(AUTH_KEY);
+  const signIn = useCallback(async (email: string, password: string) => {
+    if (!supabase) {
+      Alert.alert('Auth not configured', 'Supabase client is not initialized.');
       return;
     }
-    await storage.setItem(AUTH_KEY, JSON.stringify(next));
-  }, [storage]);
-
-  const loginWithEmail = useCallback(async (email: string) => {
-    if (!email?.trim() || email.length > 100) return;
-    const sanitizedEmail = email.trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(sanitizedEmail)) {
-      Alert.alert('Invalid email', 'Please enter a valid email address.');
+    const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      console.error('[Auth] signIn error', error);
+      Alert.alert('Sign in failed', error.message);
       return;
     }
-    const newUser: AuthUser = {
-      id: `email_${Date.now()}`,
-      email: sanitizedEmail,
-      displayName: sanitizedEmail.split('@')[0],
-      avatar: 'https://images.unsplash.com/photo-1544435253-f0ead49638b9?w=200&h=200&fit=crop',
-    };
-    setUser(newUser);
-    await persist(newUser);
-  }, [persist]);
+    console.log('[Auth] signIn ok', Boolean(data.session));
+  }, []);
 
-  const loginWithPhone = useCallback(async (phone: string) => {
-    if (!phone?.trim() || phone.length > 20) return;
-    const cleaned = phone.trim().replace(/[^\d+]/g, '');
-    const phoneRegex = /^\+?[1-9]\d{7,14}$/;
-    if (!phoneRegex.test(cleaned)) {
-      Alert.alert('Invalid phone', 'Enter a valid phone number with country code, e.g. +14155552671');
+  const signUp = useCallback(async (email: string, password: string) => {
+    if (!supabase) {
+      Alert.alert('Auth not configured', 'Supabase client is not initialized.');
       return;
     }
-    const newUser: AuthUser = {
-      id: `phone_${Date.now()}`,
-      phone: cleaned,
-      displayName: cleaned,
-      avatar: 'https://images.unsplash.com/photo-1542902093-4b6b6c0b9c39?w=200&h=200&fit=crop',
-    };
-    setUser(newUser);
-    await persist(newUser);
-  }, [persist]);
-
-  const updateProfile = useCallback(async (patch: Partial<Pick<AuthUser, 'displayName' | 'avatar'>>) => {
-    try {
-      setUser((prev) => {
-        if (!prev) return prev;
-        const next = { ...prev, ...patch };
-        return next;
-      });
-      
-      const current = await storage.getItem(AUTH_KEY);
-      if (current) {
-        const parsed: AuthUser = JSON.parse(current);
-        const updated = { ...parsed, ...patch };
-        await storage.setItem(AUTH_KEY, JSON.stringify(updated));
-      }
-    } catch (e) {
-      console.error('[AuthProvider] updateProfile error', e);
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) {
+      console.error('[Auth] signUp error', error);
+      Alert.alert('Sign up failed', error.message);
+      return;
     }
-  }, [storage]);
+    Alert.alert('Check your email', 'We sent you a confirmation link.');
+  }, []);
 
-  const logout = useCallback(async () => {
-    setUser(null);
-    await persist(null);
-  }, [persist]);
+  const signOut = useCallback(async () => {
+    if (!supabase) return;
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('[Auth] signOut error', error);
+      Alert.alert('Sign out failed', error.message);
+    }
+  }, []);
 
   useEffect(() => {
-    let isMounted = true;
-    
-    const load = async () => {
+    let active = true;
+    const init = async () => {
       try {
-        const stored = await storage.getItem(AUTH_KEY);
-        if (isMounted && stored) {
-          const parsed: AuthUser = JSON.parse(stored);
-          if (parsed) {
-            console.log('[AuthProvider] Loaded user from storage:', parsed.id);
-            setUser(parsed);
-          }
-        } else if (isMounted) {
-          // For testing: create a temporary user to bypass login
-          console.log('[AuthProvider] No stored user, creating temporary user for testing');
-          const tempUser: AuthUser = {
-            id: 'temp_user_123',
-            email: 'test@example.com',
-            displayName: 'Test User',
-            avatar: 'https://images.unsplash.com/photo-1544435253-f0ead49638b9?w=200&h=200&fit=crop',
-          };
-          setUser(tempUser);
-          await storage.setItem(AUTH_KEY, JSON.stringify(tempUser));
-        }
+        if (!supabase) return;
+        const { data } = await supabase.auth.getSession();
+        const sessUser = data.session?.user;
+        setUser(
+          sessUser
+            ? {
+                id: sessUser.id,
+                email: sessUser.email ?? undefined,
+                displayName: sessUser.user_metadata?.full_name ?? sessUser.email ?? undefined,
+                avatar: sessUser.user_metadata?.avatar_url ?? undefined,
+              }
+            : null
+        );
       } catch (e) {
-        console.error('[AuthProvider] load error', e);
+        console.error('[Auth] getSession error', e);
       } finally {
-        if (isMounted) {
-          console.log('[AuthProvider] Setting isLoading to false');
-          setIsLoading(false);
-        }
+        if (active) setLoading(false);
       }
     };
-    
-    load();
-    
+
+    init();
+
+    if (!supabase) return () => {};
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      const next = session?.user
+        ? {
+            id: session.user.id,
+            email: session.user.email ?? undefined,
+            displayName: session.user.user_metadata?.full_name ?? session.user.email ?? undefined,
+            avatar: session.user.user_metadata?.avatar_url ?? undefined,
+          }
+        : null;
+      console.log('[Auth] onAuthStateChange', { hasUser: Boolean(next) });
+      setUser(next);
+    });
+
     return () => {
-      isMounted = false;
+      active = false;
+      sub.subscription.unsubscribe();
     };
-  }, [storage]);
+  }, []);
 
   return useMemo(() => ({
     user,
-    isLoading,
-    loginWithEmail,
-    loginWithPhone,
-    updateProfile,
-    logout,
-  }), [user, isLoading, loginWithEmail, loginWithPhone, updateProfile, logout]);
+    loading,
+    signIn,
+    signUp,
+    signOut,
+  }), [user, loading, signIn, signUp, signOut]);
 });
 
 export const useAuth = (): AuthContextValue => {
-  try {
-    const context = useAuthInternal();
-    if (!context) {
-      console.error('[useAuth] Context is undefined - AuthProvider not found in component tree');
-      // Return a safe default instead of throwing to prevent crashes
-      return {
-        user: null,
-        isLoading: true,
-        loginWithEmail: async () => {},
-        loginWithPhone: async () => {},
-        updateProfile: async () => {},
-        logout: async () => {},
-      };
-    }
-    return context;
-  } catch (error) {
-    console.error('[useAuth] Error accessing context:', error);
-    // Return a safe default to prevent crashes
-    return {
-      user: null,
-      isLoading: true,
-      loginWithEmail: async () => {},
-      loginWithPhone: async () => {},
-      updateProfile: async () => {},
-      logout: async () => {},
-    };
-  }
+  const ctx = useAuthInternal();
+  return ctx;
 };

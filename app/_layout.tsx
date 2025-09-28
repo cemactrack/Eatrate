@@ -71,7 +71,7 @@ function ThemedStack() {
         }} 
       />
       <Stack.Screen 
-        name="login" 
+        name="auth/login" 
         options={{ 
           headerShown: false,
           gestureEnabled: false,
@@ -79,7 +79,7 @@ function ThemedStack() {
         }} 
       />
       <Stack.Screen 
-        name="signup" 
+        name="auth/signup" 
         options={{ 
           headerShown: false,
           gestureEnabled: false,

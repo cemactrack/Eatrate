@@ -8,7 +8,7 @@ import { useAuth } from "@/providers/AuthProvider";
 export default function TabsLayout() {
   const auth = useAuth();
   const user = auth?.user ?? null;
-  const isLoading = auth?.isLoading ?? true;
+  const isLoading = auth?.loading ?? true;
   const redirectedRef = useRef<boolean>(false);
   const { colors } = useSettings();
 
@@ -36,7 +36,7 @@ export default function TabsLayout() {
     if (!isLoading && !user && !redirectedRef.current) {
       redirectedRef.current = true;
       try {
-        router.replace('/login' as const);
+        router.replace('/auth/login' as const);
       } catch (e) {
         console.log('[Tabs/_layout] redirect error', e);
       }
