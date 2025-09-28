@@ -21,6 +21,7 @@ interface NotificationToastProps {
   visible: boolean;
   onDismiss: () => void;
   duration?: number;
+  testID?: string;
 }
 
 const getToastConfig = (type: ToastType) => {
@@ -64,6 +65,7 @@ export default function NotificationToast({
   visible,
   onDismiss,
   duration = 4000,
+  testID,
 }: NotificationToastProps) {
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(-100)).current;
@@ -134,6 +136,7 @@ export default function NotificationToast({
 
   return (
     <Animated.View
+      testID={testID}
       style={[
         styles.container,
         {
