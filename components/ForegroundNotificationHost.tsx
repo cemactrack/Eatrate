@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Animated, Platform } from 'react-native';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, Animated, Platform, TouchableOpacity } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Bell, X } from 'lucide-react-native';
+import Colors from '@/constants/colors';
 
 interface NotificationToast {
   id: string;
@@ -10,7 +13,26 @@ interface NotificationToast {
 
 export default function ForegroundNotificationHost() {
   const [notifications, setNotifications] = useState<NotificationToast[]>([]);
-  const [fadeAnim] = useState(new Animated.Value(0));
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(-100)).current;
+  const insets = useSafeAreaInsets();
+
+  const dismissNotification = useCallback((id: string) => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: -100,
+        duration: 300,
+        useNativeDriver: true,
+      })
+    ]).start(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    });
+  }, [fadeAnim, translateY, setNotifications]);
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -32,46 +54,66 @@ export default function ForegroundNotificationHost() {
       setNotifications(prev => [...prev, toast]);
       
       // Animate in
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-      
-      // Auto-dismiss after 4 seconds
-      setTimeout(() => {
+      Animated.parallel([
         Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
           toValue: 0,
           duration: 300,
           useNativeDriver: true,
-        }).start(() => {
-          setNotifications(prev => prev.filter(n => n.id !== toast.id));
-        });
-      }, 4000);
+        })
+      ]).start();
+      
+      // Auto-dismiss after 5 seconds
+      setTimeout(() => {
+        dismissNotification(toast.id);
+      }, 5000);
     });
 
     return () => subscription.remove();
-  }, [fadeAnim]);
+  }, [fadeAnim, translateY, dismissNotification]);
 
   if (notifications.length === 0) {
     return null;
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { top: insets.top + 10 }]}>
       {notifications.map((notification) => (
         <Animated.View
           key={notification.id}
-          style={[styles.toast, { opacity: fadeAnim }]}
+          style={[
+            styles.toast, 
+            { 
+              opacity: fadeAnim,
+              transform: [{ translateY }] 
+            }
+          ]}
+          testID="foreground-notification-toast"
         >
-          <Text style={styles.title} numberOfLines={1}>
-            {notification.title}
-          </Text>
-          {notification.body ? (
-            <Text style={styles.body} numberOfLines={2}>
-              {notification.body}
+          <View style={styles.iconContainer}>
+            <Bell size={20} color={Colors.light.tint} />
+          </View>
+          <View style={styles.contentContainer}>
+            <Text style={styles.title} numberOfLines={1}>
+              {notification.title}
             </Text>
-          ) : null}
+            {notification.body ? (
+              <Text style={styles.body} numberOfLines={2}>
+                {notification.body}
+              </Text>
+            ) : null}
+          </View>
+          <TouchableOpacity 
+            style={styles.closeButton}
+            onPress={() => dismissNotification(notification.id)}
+            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+          >
+            <X size={16} color="#666" />
+          </TouchableOpacity>
         </Animated.View>
       ))}
     </View>
@@ -81,35 +123,47 @@ export default function ForegroundNotificationHost() {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 60,
     left: 16,
     right: 16,
     zIndex: 9999,
-    pointerEvents: 'none',
+    pointerEvents: 'auto',
   },
   toast: {
-    backgroundColor: '#333',
+    backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 16,
+    padding: 12,
     marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
     elevation: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.light.tint,
+  },
+  iconContainer: {
+    marginRight: 12,
+  },
+  contentContainer: {
+    flex: 1,
   },
   title: {
-    color: '#fff',
-    fontSize: 16,
+    color: '#333',
+    fontSize: 15,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   body: {
-    color: '#ccc',
-    fontSize: 14,
+    color: '#666',
+    fontSize: 13,
     lineHeight: 18,
+  },
+  closeButton: {
+    padding: 4,
   },
 });

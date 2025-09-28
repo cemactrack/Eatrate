@@ -81,7 +81,12 @@ export const [NotificationProvider, useNotificationInternal] = createContextHook
       console.log('[Notifications] Got push token:', tokenString);
       
       // Save token to database
-      await updatePushTokenMutation.mutateAsync({ pushToken: tokenString });
+      try {
+        await updatePushTokenMutation.mutateAsync({ pushToken: tokenString });
+        console.log('[Notifications] Successfully saved push token to database');
+      } catch (saveError) {
+        console.error('[Notifications] Failed to save push token to database:', saveError);
+      }
       
     } catch (error) {
       console.error('[Notifications] Error getting push token:', error);
@@ -119,12 +124,16 @@ export const [NotificationProvider, useNotificationInternal] = createContextHook
 
   // Auto-request permission and register token after login
   useEffect(() => {
-    if (user && !loading && permissionStatus === null) {
-      // First time after login, request permission
-      requestPermission();
-    } else if (user && permissionStatus === 'granted' && !pushToken) {
-      // Permission granted but no token yet
-      registerPushToken();
+    if (user && !loading) {
+      if (permissionStatus === null || permissionStatus === 'undetermined') {
+        // First time after login, request permission
+        console.log('[Notifications] First login detected, requesting permission');
+        requestPermission();
+      } else if (permissionStatus === 'granted' && !pushToken) {
+        // Permission granted but no token yet
+        console.log('[Notifications] Permission granted, registering push token');
+        registerPushToken();
+      }
     }
   }, [user, loading, permissionStatus, pushToken, requestPermission, registerPushToken]);
 
@@ -134,15 +143,10 @@ export const [NotificationProvider, useNotificationInternal] = createContextHook
     const foregroundSubscription = Notifications.addNotificationReceivedListener(notification => {
       console.log('[Notifications] Received in foreground:', notification);
       
-      // Show a simple toast-like alert
+      // The ForegroundNotificationHost component will handle displaying the notification
+      // It listens to the same event and shows a toast-like UI
       const { title, body } = notification.request.content;
-      if (Platform.OS === 'web') {
-        // For web, just log it
-        console.log('[Notifications] Foreground notification:', { title, body });
-      } else {
-        // For mobile, could show a custom toast here
-        console.log('[Notifications] Foreground notification:', { title, body });
-      }
+      console.log('[Notifications] Foreground notification:', { title, body });
     });
 
     // Handle notification taps

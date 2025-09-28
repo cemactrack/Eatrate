@@ -195,6 +195,20 @@ function ThemedStack() {
           title: "Messages",
         }} 
       />
+      <Stack.Screen 
+        name="push-notification-demo" 
+        options={{ 
+          title: "Push Notifications",
+          headerShown: true,
+        }} 
+      />
+      <Stack.Screen 
+        name="notifications-demo" 
+        options={{ 
+          title: "Notifications Demo",
+          headerShown: true,
+        }} 
+      />
     </Stack>
   );
 }
