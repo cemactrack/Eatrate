@@ -6,6 +6,15 @@ import { fetchLimbeRestaurantsProcedure } from "./routes/restaurants/limbe";
 import { searchRestaurantsProcedure } from "./routes/restaurants/search";
 import { supabaseTestProcedure } from "./routes/example/supabase-test/route";
 
+// New main routers
+import { getCurrentProfileProcedure, updateProfileProcedure, getProfileByIdProcedure } from "./routes/auth/profile";
+import { listRestaurantsProcedure, getRestaurantByIdProcedure, searchRestaurantsProcedure as newSearchRestaurantsProcedure } from "./routes/restaurants/main";
+import { createReviewProcedure, getReviewsByRestaurantProcedure, updateReviewProcedure, deleteReviewProcedure } from "./routes/reviews/main";
+import { createPostProcedure as mainCreatePostProcedure, getPostsFeedProcedure as mainGetPostsFeedProcedure, getPostByIdProcedure, updatePostProcedure as mainUpdatePostProcedure, deletePostProcedure as mainDeletePostProcedure } from "./routes/posts/main";
+import { createCommentProcedure as mainCreateCommentProcedure, getCommentsByPostProcedure, updateCommentProcedure as mainUpdateCommentProcedure, deleteCommentProcedure as mainDeleteCommentProcedure } from "./routes/comments/main";
+import { toggleFollowUserProcedure, getFollowersProcedure as mainGetFollowersProcedure, getFollowingProcedure as mainGetFollowingProcedure, getFollowStatsProcedure } from "./routes/follows/main";
+import { toggleRestaurantBookmarkProcedure, getBookmarkedRestaurantsProcedure, isRestaurantBookmarkedProcedure } from "./routes/bookmarks/main";
+
 import { importFromTripadvisorProcedure, getImportedOneTimeProcedure, needsInitialImportProcedure, bootstrapImportProcedure, clearRestaurantsProcedure } from "./routes/restaurants/import";
 import hiRoute, {
   getPostsProcedure,
@@ -244,6 +253,47 @@ export const appRouter = createTRPCRouter({
   example: createTRPCRouter({
     hi: hiRoute,
     supabaseTest: supabaseTestProcedure,
+  }),
+  // Main API routers
+  auth: createTRPCRouter({
+    getCurrentProfile: getCurrentProfileProcedure,
+    updateProfile: updateProfileProcedure,
+    getProfileById: getProfileByIdProcedure,
+  }),
+  restaurantsMain: createTRPCRouter({
+    list: listRestaurantsProcedure,
+    getById: getRestaurantByIdProcedure,
+    search: newSearchRestaurantsProcedure,
+  }),
+  reviews: createTRPCRouter({
+    create: createReviewProcedure,
+    getByRestaurant: getReviewsByRestaurantProcedure,
+    update: updateReviewProcedure,
+    delete: deleteReviewProcedure,
+  }),
+  postsMain: createTRPCRouter({
+    create: mainCreatePostProcedure,
+    feed: mainGetPostsFeedProcedure,
+    getById: getPostByIdProcedure,
+    update: mainUpdatePostProcedure,
+    delete: mainDeletePostProcedure,
+  }),
+  commentsMain: createTRPCRouter({
+    create: mainCreateCommentProcedure,
+    getByPost: getCommentsByPostProcedure,
+    update: mainUpdateCommentProcedure,
+    delete: mainDeleteCommentProcedure,
+  }),
+  follows: createTRPCRouter({
+    toggleUser: toggleFollowUserProcedure,
+    getFollowers: mainGetFollowersProcedure,
+    getFollowing: mainGetFollowingProcedure,
+    getStats: getFollowStatsProcedure,
+  }),
+  bookmarks: createTRPCRouter({
+    toggleRestaurant: toggleRestaurantBookmarkProcedure,
+    getRestaurants: getBookmarkedRestaurantsProcedure,
+    isBookmarked: isRestaurantBookmarkedProcedure,
   }),
   posts: createTRPCRouter({
     list: getPostsProcedure,
