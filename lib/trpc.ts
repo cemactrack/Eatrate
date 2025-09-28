@@ -3,6 +3,7 @@ import { httpLink } from "@trpc/client";
 import type { AppRouter } from "@/backend/trpc/app-router";
 import superjson from "superjson";
 import { Platform } from "react-native";
+import { getApiBase } from "@/lib/config";
 import { APP_CONFIG } from "@/constants/app-config";
 
 export const trpc = createTRPCReact<AppRouter>();
@@ -12,7 +13,7 @@ const normalizeBaseUrl = (url: string): string => {
   return url.endsWith('/') ? url.slice(0, -1) : url;
 };
 
-const base = normalizeBaseUrl(APP_CONFIG.api.baseUrl);
+const base = normalizeBaseUrl(getApiBase());
 const trpcPath = '/api/trpc';
 const trpcUrl = `${base}${trpcPath}`;
 console.log('[tRPC] API URL:', trpcUrl);

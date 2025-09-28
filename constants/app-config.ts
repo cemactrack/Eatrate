@@ -1,16 +1,18 @@
+import { API_URL, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/config';
+
 export const APP_CONFIG = {
   name: 'EatRate',
   version: '1.0.0',
   api: {
-    baseUrl: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000',
+    baseUrl: API_URL,
     timeout: 45000,
     retryAttempts: 2,
-    staleTime: 30 * 60 * 1000, // 30 minutes
-    cacheTime: 45 * 60 * 1000, // 45 minutes
+    staleTime: 30 * 60 * 1000,
+    cacheTime: 45 * 60 * 1000,
   },
   supabase: {
-    url: process.env.EXPO_PUBLIC_SUPABASE_URL || '',
-    anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
+    url: SUPABASE_URL ?? '',
+    anonKey: SUPABASE_ANON_KEY ?? '',
   },
   features: {
     enablePerformanceMonitoring: __DEV__,

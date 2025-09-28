@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
-import { APP_CONFIG } from '@/constants/app-config';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/config';
 
 // Create a single supabase client for client-side usage
 // This uses the public anon key which has limited permissions
-const supabaseUrl = APP_CONFIG.supabase.url;
-const supabaseAnonKey = APP_CONFIG.supabase.anonKey;
+const supabaseUrl = SUPABASE_URL;
+const supabaseAnonKey = SUPABASE_ANON_KEY;
 
 // Validate that we have the required configuration
 if (!supabaseUrl || !supabaseAnonKey) {

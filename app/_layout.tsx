@@ -9,6 +9,7 @@ import { AppProviders } from "@/providers/AppProviders";
 import Colors from "@/constants/colors";
 import { APP_CONFIG } from "@/constants/app-config";
 import CustomSplashScreen from "@/components/SplashScreen";
+import { API_URL, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/config";
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync();
@@ -224,6 +225,7 @@ export default function RootLayout() {
   const [showCustomSplash, setShowCustomSplash] = useState<boolean>(true);
 
   useEffect(() => {
+    console.info('[Config]', { API_URL, SUPABASE_URL: Boolean(SUPABASE_URL), anonKey: Boolean(SUPABASE_ANON_KEY) });
     const prepare = async () => {
       try {
         if (Platform.OS !== 'web') {
