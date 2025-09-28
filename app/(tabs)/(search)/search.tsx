@@ -567,7 +567,7 @@ export default function SearchScreen() {
           contentContainerStyle={styles.listContent}
           testID="search-results-list"
           numColumns={viewMode === 'grid' ? 2 : 1}
-          key={viewMode} // Force re-render when view mode changes
+          key={viewMode}
 
           ListEmptyComponent={!isLoading ? (
             <View style={styles.emptyState} testID="empty-results">
