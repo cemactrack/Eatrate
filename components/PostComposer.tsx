@@ -95,6 +95,7 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
   const router = useRouter();
   const [postText, setPostText] = useState<string>('');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [uploading, setUploading] = useState<boolean>(false);
 
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [selectedDish, setSelectedDish] = useState<string>('');
@@ -201,7 +202,7 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
         const files = input.files;
         if (!files) return;
         const uris: string[] = Array.from(files).map((f) => URL.createObjectURL(f));
-        setSelectedImages((prev) => [...prev, ...uris].slice(0, 5));
+        setSelectedImages((prev) => [...prev, ...uris].slice(0, 4));
       };
       input.click();
       return;
@@ -221,7 +222,7 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
 
     if (!result.canceled && result.assets) {
       const newImages = result.assets.map((asset) => asset.uri);
-      setSelectedImages((prev) => [...prev, ...newImages].slice(0, 5));
+      setSelectedImages((prev) => [...prev, ...newImages].slice(0, 4));
       // AI nutrition estimation disabled
     }
   };
@@ -246,7 +247,7 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
 
     if (!result.canceled && result.assets?.[0]) {
       const uri = result.assets[0].uri;
-      setSelectedImages((prev) => [...prev, uri].slice(0, 5));
+      setSelectedImages((prev) => [...prev, uri].slice(0, 4));
       // AI nutrition estimation disabled
     }
   };
@@ -313,11 +314,25 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean);
+
+      // Upload selected images to Supabase Storage first
+      setUploading(true);
+      const uploadedUrls: string[] = [];
+      for (const uri of selectedImages.slice(0, 4)) {
+        try {
+          const { uploadImageAsync } = await import('@/utils/supabaseUpload');
+          const { url } = await uploadImageAsync(uri, 'post-media');
+          uploadedUrls.push(url);
+        } catch (err) {
+          console.error('[PostComposer] Image upload failed, skipping one image', err);
+        }
+      }
+      setUploading(false);
       
       await createPost.mutateAsync({
         text: postText.trim(),
         restaurantId: selectedRestaurant?.id,
-        images: selectedImages,
+        images: uploadedUrls,
         ratings: finalRatings,
         tags: tagList,
         nutritionEstimate: undefined,
@@ -373,7 +388,7 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
             disabled={createPost.isPending || isPosting || (!postText.trim() && selectedImages.length === 0)}
           >
             <Text style={[styles.postButtonText, (!postText.trim() && selectedImages.length === 0) && styles.postButtonTextDisabled]}>
-              {createPost.isPending || isPosting ? 'Posting...' : 'Post'}
+              {createPost.isPending || isPosting || uploading ? 'Posting...' : 'Post'}
             </Text>
           </TouchableOpacity>
         </View>
