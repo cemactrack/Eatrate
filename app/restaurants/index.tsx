@@ -15,23 +15,45 @@ export default function RestaurantsListScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const { data, isLoading, error } = trpc.restaurants.yaounde.useQuery(
-    { page: 1 },
+
+  const listQuery = trpc.restaurantsMain.list.useQuery(
+    { limit: 50, offset: 0 },
     { staleTime: 1000 * 60 * 10 }
   );
-  
-  const list = useMemo<Restaurant[]>(() => data?.restaurants ?? [], [data?.restaurants]);
-  
-  const filteredRestaurants = useMemo(() => {
-    if (!searchQuery.trim()) return list;
-    const query = searchQuery.toLowerCase();
-    return list.filter((restaurant) => 
-      restaurant.name.toLowerCase().includes(query) ||
-      restaurant.cuisine.toLowerCase().includes(query) ||
-      restaurant.address.toLowerCase().includes(query) ||
-      restaurant.tags.some(tag => tag.toLowerCase().includes(query))
-    );
-  }, [list, searchQuery]);
+
+  const searchApi = trpc.restaurantsMain.search.useQuery(
+    { query: searchQuery.trim() || 'a', limit: 50 },
+    { enabled: searchQuery.trim().length > 0, staleTime: 1000 * 60 * 5 }
+  );
+
+  const mapItem = useCallback((r: any): Restaurant => ({
+    id: r.id,
+    name: r.name ?? 'Unknown',
+    cuisine: r.cuisine ?? 'Various',
+    rating: Number(r.rating ?? 0),
+    reviewCount: Number(r.reviewCount ?? 0),
+    image: r.image_url ?? 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=1200',
+    address: r.address ?? '—',
+    priceRange: (r.price_range as Restaurant['priceRange']) ?? '$',
+    distance: undefined,
+    isOpen: true,
+    tags: [],
+    verified: false,
+    claimed: false,
+  }), []);
+
+  const baseList = useMemo<Restaurant[]>(() => {
+    const data = listQuery.data ?? [];
+    return Array.isArray(data) ? data.map(mapItem) : [];
+  }, [listQuery.data, mapItem]);
+
+  const filteredRestaurants = useMemo<Restaurant[]>(() => {
+    if (searchQuery.trim().length > 0) {
+      const data = searchApi.data ?? [];
+      return Array.isArray(data) ? data.map(mapItem) : [];
+    }
+    return baseList;
+  }, [searchApi.data, searchQuery, baseList, mapItem]);
   
   const handleRestaurantPress = useCallback((restaurantId: string) => {
     console.log('[RestaurantsList] open detail', restaurantId);
@@ -78,17 +100,17 @@ export default function RestaurantsListScreen() {
           <Text style={styles.locationText}>Yaoundé</Text>
         </View>
         <Text style={styles.resultsCount}>
-          {isLoading ? 'Loading...' : `${filteredRestaurants.length} restaurants`}
+          {(listQuery.isLoading || searchApi.isLoading) ? 'Loading...' : `${filteredRestaurants.length} restaurants`}
         </Text>
       </View>
-      {isLoading ? (
-        <LoadingSpinner text="Loading Yaoundé restaurants..." />
-      ) : error ? (
+      {(listQuery.isLoading || searchApi.isLoading) ? (
+        <LoadingSpinner text="Loading restaurants..." />
+      ) : (listQuery.error || searchApi.error) ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>Couldn’t load restaurants</Text>
           <Text style={styles.emptySubtitle}>Please check your connection and try again.</Text>
         </View>
-      ) : list.length === 0 ? (
+      ) : filteredRestaurants.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>No restaurants found</Text>
           <Text style={styles.emptySubtitle}>Try again in a moment.</Text>

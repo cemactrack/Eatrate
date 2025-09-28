@@ -1,46 +1,59 @@
 import React, { useMemo, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, TextInput } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
-import { Star, Phone, MapPin, Clock, Heart, Share, ArrowLeft, UserPlus } from 'lucide-react-native';
+import { Star, Phone, MapPin, Clock, Heart, Share, ArrowLeft, UserPlus, Trash2 } from 'lucide-react-native';
 import { trpc } from '@/lib/trpc';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { Restaurant } from '@/types/restaurant';
 import RestaurantProfileAudit from '@/components/RestaurantProfileAudit';
 
-
 export default function RestaurantDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'menu' | 'reviews'>('menu');
+  const [bookmarking, setBookmarking] = useState<boolean>(false);
+  const [isBookmarked, setIsBookmarked] = useState<boolean>(false);
+  const [following, setFollowing] = useState<boolean>(false);
+  const [followersCount, setFollowersCount] = useState<number>(0);
 
-  const douala = trpc.restaurants.douala.useQuery({}, { staleTime: 1000 * 60 * 10 });
-  const yaounde = trpc.restaurants.yaounde.useQuery({ page: 1 }, { staleTime: 1000 * 60 * 10 });
-  const buea = trpc.restaurants.buea.useQuery({}, { staleTime: 1000 * 60 * 10 });
-  const limbe = trpc.restaurants.limbe.useQuery({}, { staleTime: 1000 * 60 * 10 });
-  const generic = trpc.restaurants.list.useQuery(undefined, { staleTime: 1000 * 60 * 10 });
-
-  const isLoading = (douala.isLoading || yaounde.isLoading || buea.isLoading || limbe.isLoading) && !generic.data;
+  const restaurantQuery = trpc.restaurantsMain.getById.useQuery(
+    { id: String(id) },
+    { enabled: !!id, staleTime: 1000 * 60 * 5 }
+  );
 
   const restaurant = useMemo<Restaurant | undefined>(() => {
-    const pools: Array<Restaurant[]> = [
-      douala.data?.restaurants ?? [],
-      yaounde.data?.restaurants ?? [],
-      buea.data?.restaurants ?? [],
-      limbe.data?.restaurants ?? [],
-      generic.data?.restaurants ?? [],
-    ];
-    for (const list of pools) {
-      const found = list.find((r) => r.id === id);
-      if (found) return found;
-    }
-    return undefined;
-  }, [buea.data?.restaurants, douala.data?.restaurants, generic.data?.restaurants, id, limbe.data?.restaurants, yaounde.data?.restaurants]);
+    const r: any = restaurantQuery.data;
+    if (!r) return undefined;
+    return {
+      id: r.id,
+      name: r.name ?? 'Unknown',
+      cuisine: r.cuisine ?? 'Various',
+      rating: Number(r.rating ?? 0),
+      reviewCount: Number(r.reviewCount ?? 0),
+      image: r.image_url ?? 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=1200',
+      address: r.address ?? '—',
+      priceRange: (r.price_range as Restaurant['priceRange']) ?? '$',
+      distance: undefined,
+      isOpen: true,
+      tags: [],
+      verified: false,
+      claimed: false,
+      followersCount: Number(r.followersCount ?? 0),
+    };
+  }, [restaurantQuery.data]);
 
-  const [following, setFollowing] = useState<boolean>(false);
-  const [followersCount, setFollowersCount] = useState<number>(restaurant?.followersCount ?? 0);
+  const reviewsQuery = trpc.reviews.getByRestaurant.useQuery(
+    { restaurantId: String(id) },
+    { enabled: !!id && activeTab === 'reviews', staleTime: 30000 }
+  );
+
   const followMutation = trpc.restaurants.follow.useMutation();
+  const bookmarkMutation = trpc.bookmarks.toggleRestaurant.useMutation();
+  const createReview = trpc.reviews.create.useMutation();
+  const deleteReview = trpc.reviews.delete.useMutation();
+  const utils = trpc.useUtils();
 
   const toggleFollow = useCallback(async () => {
     if (!restaurant?.id) return;
@@ -53,58 +66,68 @@ export default function RestaurantDetailScreen() {
     }
   }, [followMutation, restaurant?.id]);
 
-  const menu = useMemo(() => [], [restaurant]);
-  const reviews = useMemo(() => [], [restaurant]);
+  const toggleBookmark = useCallback(async () => {
+    if (!restaurant?.id || bookmarking) return;
+    setBookmarking(true);
+    setIsBookmarked((prev) => !prev);
+    try {
+      await bookmarkMutation.mutateAsync({ restaurantId: restaurant.id });
+    } catch (e) {
+      console.log('[RestaurantDetail] bookmark error', e);
+      setIsBookmarked((prev) => !prev);
+    } finally {
+      setBookmarking(false);
+    }
+  }, [bookmarkMutation, restaurant?.id, bookmarking]);
 
-  if (isLoading) {
+  const [newReview, setNewReview] = useState<string>('');
+  const [newRating] = useState<number>(5);
+
+  const submitReview = useCallback(async () => {
+    const text = newReview.trim();
+    if (!text || !restaurant?.id) return;
+    try {
+      await createReview.mutateAsync({ restaurantId: restaurant.id, text, rating: newRating });
+      setNewReview('');
+      utils.reviews.getByRestaurant.invalidate({ restaurantId: restaurant.id }).catch(() => {});
+    } catch (e) {
+      console.log('[RestaurantDetail] create review error', e);
+    }
+  }, [createReview, newReview, newRating, restaurant?.id, utils.reviews.getByRestaurant]);
+
+  const handleDeleteReview = useCallback(async (reviewId: string) => {
+    if (!reviewId || !restaurant?.id) return;
+    try {
+      await deleteReview.mutateAsync({ id: reviewId });
+      utils.reviews.getByRestaurant.invalidate({ restaurantId: restaurant.id }).catch(() => {});
+    } catch (e) {
+      console.log('[RestaurantDetail] delete review error', e);
+    }
+  }, [deleteReview, restaurant?.id, utils.reviews.getByRestaurant]);
+
+  if (restaurantQuery.isLoading) {
     return <LoadingSpinner text="Loading restaurant..." />;
   }
 
   if (!restaurant) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={[styles.container, { paddingTop: insets.top }]}> 
         <Text style={styles.error}>Restaurant not found</Text>
       </View>
     );
   }
 
-  const renderReviewItem = ({ item }: { item: any }) => (
-    <View style={styles.reviewItem}>
-      <View style={styles.reviewHeader}>
-        <Image source={{ uri: item.user.avatar }} style={styles.reviewAvatar} />
-        <View style={styles.reviewUserInfo}>
-          <Text style={styles.reviewUsername}>{item.user.displayName}</Text>
-          <View style={styles.reviewRating}>
-            {Array.from({ length: 5 }, (_, i) => (
-              <Star
-                key={i}
-                size={12}
-                color={i < (item.ratings?.food || 0) ? Colors.light.warning : Colors.light.border}
-                fill={i < (item.ratings?.food || 0) ? Colors.light.warning : 'transparent'}
-              />
-            ))}
-          </View>
-        </View>
-      </View>
-      <Text style={styles.reviewText} numberOfLines={3}>{item.content.text}</Text>
-      {item.content.images && item.content.images.length > 0 && (
-        <Image source={{ uri: item.content.images[0] }} style={styles.reviewImage} />
-      )}
-    </View>
-  );
-
   return (
     <View style={[styles.container, { paddingTop: insets.top }]} testID="restaurant-detail">
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header with back button */}
         <View style={styles.imageContainer}>
           <Image source={{ uri: restaurant.image }} style={styles.cover} />
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <ArrowLeft size={24} color="white" />
           </TouchableOpacity>
           <View style={styles.imageActions}>
-            <TouchableOpacity style={styles.actionButton}>
-              <Heart size={20} color="white" />
+            <TouchableOpacity style={styles.actionButton} onPress={toggleBookmark}>
+              <Heart size={20} color={isBookmarked ? Colors.light.error : 'white'} fill={isBookmarked ? Colors.light.error : 'transparent'} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionButton}>
               <Share size={20} color="white" />
@@ -112,7 +135,6 @@ export default function RestaurantDetailScreen() {
           </View>
         </View>
 
-        {/* Restaurant Info */}
         <View style={styles.header}>
           <View style={styles.titleRow}>
             <View style={styles.titleLeft}>
@@ -121,11 +143,11 @@ export default function RestaurantDetailScreen() {
             </View>
             <TouchableOpacity testID="restaurant-follow" style={[styles.followBtn, following ? styles.following : null]} onPress={toggleFollow}>
               {following ? (
-                <Text style={styles.followText}>Following • {followersCount}</Text>
+                <Text style={styles.followText}>Following • {followersCount || restaurant.followersCount || 0}</Text>
               ) : (
                 <View style={styles.followInner}>
                   <UserPlus size={14} color={Colors.light.tint} />
-                  <Text style={styles.followTextTint}>Follow • {followersCount}</Text>
+                  <Text style={styles.followTextTint}>Follow • {followersCount || restaurant.followersCount || 0}</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -137,7 +159,6 @@ export default function RestaurantDetailScreen() {
             <Text style={styles.ratingText}>{restaurant.rating} ({restaurant.reviewCount} reviews)</Text>
           </View>
           
-          {/* Contact Info */}
           <View style={styles.contactInfo}>
             <View style={styles.contactItem}>
               <MapPin size={16} color={Colors.light.secondary} />
@@ -153,7 +174,6 @@ export default function RestaurantDetailScreen() {
             </View>
           </View>
 
-          {/* Tags */}
           <View style={styles.tagsContainer}>
             {restaurant.tags.map((tag, index) => (
               <View key={`${restaurant.id}-${tag}-${index}`} style={styles.tag}>
@@ -165,7 +185,6 @@ export default function RestaurantDetailScreen() {
 
         <RestaurantProfileAudit restaurant={restaurant} />
 
-        {/* Tabs */}
         <View style={styles.tabsContainer}>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'menu' && styles.activeTab]}
@@ -181,7 +200,6 @@ export default function RestaurantDetailScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Content */}
         {activeTab === 'menu' ? (
           <View style={styles.menuContainer}>
             <View style={styles.emptyState}>
@@ -190,8 +208,46 @@ export default function RestaurantDetailScreen() {
           </View>
         ) : (
           <View style={styles.reviewsContainer}>
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>No reviews yet</Text>
+            {reviewsQuery.isLoading ? (
+              <LoadingSpinner text="Loading reviews..." />
+            ) : (Array.isArray(reviewsQuery.data) && reviewsQuery.data.length > 0) ? (
+              reviewsQuery.data.map((rev: any) => (
+                <View key={rev.id} style={styles.reviewItem}>
+                  <View style={styles.reviewHeader}>
+                    <Image source={{ uri: rev.user?.avatar || 'https://images.unsplash.com/photo-1544435253-f0ead49638b9?w=200&h=200&fit=crop' }} style={styles.reviewAvatar} />
+                    <View style={styles.reviewUserInfo}>
+                      <Text style={styles.reviewUsername}>{rev.user?.displayName || 'User'}</Text>
+                      <View style={styles.reviewRating}>
+                        {Array.from({ length: 5 }, (_, i) => (
+                          <Star key={i} size={12} color={i < (Number(rev.rating) || 0) ? Colors.light.warning : Colors.light.border} fill={i < (Number(rev.rating) || 0) ? Colors.light.warning : 'transparent'} />
+                        ))}
+                      </View>
+                    </View>
+                    <TouchableOpacity onPress={() => handleDeleteReview(rev.id)}>
+                      <Trash2 size={16} color={Colors.light.secondary} />
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.reviewText}>{rev.text}</Text>
+                </View>
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No reviews yet</Text>
+              </View>
+            )}
+
+            <View style={{ paddingVertical: 12 }}>
+              <TextInput
+                placeholder="Write a review..."
+                placeholderTextColor={Colors.light.secondary}
+                value={newReview}
+                onChangeText={setNewReview}
+                style={{ borderWidth: 1, borderColor: Colors.light.border, borderRadius: 8, padding: 12, color: Colors.light.text }}
+              />
+              <View style={{ height: 10 }} />
+              <TouchableOpacity onPress={submitReview} style={{ backgroundColor: Colors.light.tint, paddingVertical: 12, borderRadius: 8, alignItems: 'center' }}>
+                <Text style={{ color: 'white', fontWeight: '700' }}>Submit Review</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -357,41 +413,6 @@ const styles = StyleSheet.create({
   menuContainer: {
     padding: 16,
   },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
-  },
-  menuImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    backgroundColor: Colors.light.border,
-  },
-  menuInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  menuName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.light.text,
-  },
-  menuDesc: {
-    marginTop: 4,
-    fontSize: 14,
-    color: Colors.light.secondary,
-    lineHeight: 20,
-  },
-  menuPrice: {
-    marginTop: 8,
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.light.tint,
-  },
   reviewsContainer: {
     padding: 16,
   },
@@ -429,11 +450,6 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     lineHeight: 20,
     marginBottom: 8,
-  },
-  reviewImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
   },
   emptyState: {
     alignItems: 'center',
