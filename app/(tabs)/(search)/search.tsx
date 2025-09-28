@@ -238,9 +238,12 @@ export default function SearchScreen() {
     }
   }, [doualaQuery, yaoundeQuery, bueaQuery, limbeQuery, importedOneTimeQuery, needsImportQuery, getItem]);
 
-  const updateFilter = useCallback(<K extends keyof SearchFilters>(key: K, value: SearchFilters[K]) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  }, []);
+  const updateFilter = useCallback(
+    (key: keyof SearchFilters, value: SearchFilters[keyof SearchFilters]) => {
+      setFilters(prev => ({ ...prev, [key]: value } as SearchFilters));
+    },
+    []
+  );
 
   const clearFilters = useCallback(() => {
     setFilters({
