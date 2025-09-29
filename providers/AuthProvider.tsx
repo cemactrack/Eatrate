@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import createContextHook from '@nkzw/create-context-hook';
 import { Alert } from 'react-native';
-import { supabase } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 export interface AuthContextUser {
   id: string;
@@ -23,39 +23,76 @@ export const [AuthProvider, useAuthInternal] = createContextHook<AuthContextValu
   const [loading, setLoading] = useState<boolean>(true);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    if (!supabase) {
-      Alert.alert('Auth not configured', 'Supabase client is not initialized.');
+    if (!isSupabaseConfigured()) {
+      const message = 'Authentication is not configured. Please check your environment variables.';
+      console.error('[Auth] signIn failed:', message);
+      Alert.alert('Auth not configured', message);
       return;
     }
-    const { error, data } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      console.error('[Auth] signIn error', error);
-      Alert.alert('Sign in failed', error.message);
-      return;
+    
+    try {
+      setLoading(true);
+      const { error, data } = await supabase!.auth.signInWithPassword({ email, password });
+      if (error) {
+        console.error('[Auth] signIn error:', error.message);
+        Alert.alert('Sign in failed', error.message);
+        return;
+      }
+      console.log('[Auth] signIn successful:', Boolean(data.session));
+    } catch (err) {
+      console.error('[Auth] signIn unexpected error:', err);
+      Alert.alert('Sign in failed', 'An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    console.log('[Auth] signIn ok', Boolean(data.session));
   }, []);
 
   const signUp = useCallback(async (email: string, password: string) => {
-    if (!supabase) {
-      Alert.alert('Auth not configured', 'Supabase client is not initialized.');
+    if (!isSupabaseConfigured()) {
+      const message = 'Authentication is not configured. Please check your environment variables.';
+      console.error('[Auth] signUp failed:', message);
+      Alert.alert('Auth not configured', message);
       return;
     }
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error) {
-      console.error('[Auth] signUp error', error);
-      Alert.alert('Sign up failed', error.message);
-      return;
+    
+    try {
+      setLoading(true);
+      const { error } = await supabase!.auth.signUp({ email, password });
+      if (error) {
+        console.error('[Auth] signUp error:', error.message);
+        Alert.alert('Sign up failed', error.message);
+        return;
+      }
+      console.log('[Auth] signUp successful - check email for confirmation');
+      Alert.alert('Check your email', 'We sent you a confirmation link.');
+    } catch (err) {
+      console.error('[Auth] signUp unexpected error:', err);
+      Alert.alert('Sign up failed', 'An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    Alert.alert('Check your email', 'We sent you a confirmation link.');
   }, []);
 
   const signOut = useCallback(async () => {
-    if (!supabase) return;
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('[Auth] signOut error', error);
-      Alert.alert('Sign out failed', error.message);
+    if (!isSupabaseConfigured()) {
+      console.error('[Auth] signOut failed: Supabase not configured');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const { error } = await supabase!.auth.signOut();
+      if (error) {
+        console.error('[Auth] signOut error:', error.message);
+        Alert.alert('Sign out failed', error.message);
+        return;
+      }
+      console.log('[Auth] signOut successful');
+    } catch (err) {
+      console.error('[Auth] signOut unexpected error:', err);
+      Alert.alert('Sign out failed', 'An unexpected error occurred.');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -63,21 +100,33 @@ export const [AuthProvider, useAuthInternal] = createContextHook<AuthContextValu
     let active = true;
     const init = async () => {
       try {
-        if (!supabase) return;
-        const { data } = await supabase.auth.getSession();
+        if (!isSupabaseConfigured()) {
+          console.warn('[Auth] Supabase not configured - skipping session restore');
+          return;
+        }
+        
+        console.log('[Auth] Restoring session...');
+        const { data, error } = await supabase!.auth.getSession();
+        
+        if (error) {
+          console.error('[Auth] getSession error:', error.message);
+          return;
+        }
+        
         const sessUser = data.session?.user;
-        setUser(
-          sessUser
-            ? {
-                id: sessUser.id,
-                email: sessUser.email ?? undefined,
-                displayName: sessUser.user_metadata?.full_name ?? sessUser.email ?? undefined,
-                avatar: sessUser.user_metadata?.avatar_url ?? undefined,
-              }
-            : null
-        );
+        const authUser = sessUser
+          ? {
+              id: sessUser.id,
+              email: sessUser.email ?? undefined,
+              displayName: sessUser.user_metadata?.full_name ?? sessUser.email ?? undefined,
+              avatar: sessUser.user_metadata?.avatar_url ?? undefined,
+            }
+          : null;
+          
+        console.log('[Auth] Session restored:', { hasUser: Boolean(authUser) });
+        setUser(authUser);
       } catch (e) {
-        console.error('[Auth] getSession error', e);
+        console.error('[Auth] getSession unexpected error:', e);
       } finally {
         if (active) setLoading(false);
       }
@@ -85,8 +134,14 @@ export const [AuthProvider, useAuthInternal] = createContextHook<AuthContextValu
 
     init();
 
-    if (!supabase) return () => {};
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    if (!isSupabaseConfigured()) {
+      return () => {
+        active = false;
+      };
+    }
+    
+    const { data: sub } = supabase!.auth.onAuthStateChange((event, session) => {
+      console.log('[Auth] Auth state changed:', event);
       const next = session?.user
         ? {
             id: session.user.id,
@@ -95,7 +150,7 @@ export const [AuthProvider, useAuthInternal] = createContextHook<AuthContextValu
             avatar: session.user.user_metadata?.avatar_url ?? undefined,
           }
         : null;
-      console.log('[Auth] onAuthStateChange', { hasUser: Boolean(next) });
+      console.log('[Auth] onAuthStateChange', { event, hasUser: Boolean(next) });
       setUser(next);
     });
 

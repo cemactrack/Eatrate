@@ -1,14 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Mail, Lock, User, ArrowRight } from 'lucide-react-native';
+import { Mail, Lock, ArrowRight } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useAuth } from '@/providers/AuthProvider';
-import { Link, useRouter } from 'expo-router';
+import { Link } from 'expo-router';
 
 export default function AuthSignupScreen() {
-  const { signUp, signIn } = useAuth();
-  const router = useRouter();
+  const { signUp } = useAuth();
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
@@ -16,15 +15,15 @@ export default function AuthSignupScreen() {
   const canSubmit = useMemo(() => email.length > 3 && password.length >= 6, [email, password]);
 
   const onSubmit = async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || loading) return;
     setLoading(true);
     try {
       await signUp(email.trim(), password);
-      await signIn(email.trim(), password);
-      router.replace('/profile' as const);
+      // Don't auto-sign in after signup - user needs to confirm email first
+      // Navigation will be handled by auth state change if auto-login happens
     } catch (e) {
       console.error('[AuthSignup] error', e);
-      Alert.alert('Signup failed', 'Please try again.');
+      // Error handling is done in the signUp method
     } finally {
       setLoading(false);
     }

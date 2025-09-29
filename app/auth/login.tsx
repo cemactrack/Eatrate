@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Lock, ArrowRight } from 'lucide-react-native';
 import Colors from '@/constants/colors';
@@ -16,14 +16,15 @@ export default function AuthLoginScreen() {
   const canSubmit = useMemo(() => email.length > 3 && password.length >= 6, [email, password]);
 
   const onSubmit = async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || loading) return;
     setLoading(true);
     try {
       await signIn(email.trim(), password);
-      router.replace('/profile' as const);
+      // Navigation will be handled by auth state change
+      router.replace('/(tabs)/(home)/home' as const);
     } catch (e) {
       console.error('[AuthLogin] error', e);
-      Alert.alert('Login failed', 'Please check your credentials.');
+      // Error handling is done in the signIn method
     } finally {
       setLoading(false);
     }

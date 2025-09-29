@@ -9,7 +9,7 @@ import { AppProviders } from "@/providers/AppProviders";
 import Colors from "@/constants/colors";
 import { APP_CONFIG } from "@/constants/app-config";
 import CustomSplashScreen from "@/components/SplashScreen";
-import { getApiBase, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/config";
+import { getApiBase } from "@/lib/config";
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync();
@@ -251,8 +251,8 @@ export default function RootLayout() {
     console.info('[API Config] Final API URL:', apiBase);
     console.info('[Config] Environment:', {
       API_URL: process.env.EXPO_PUBLIC_API_URL,
-      SUPABASE_URL: Boolean(SUPABASE_URL),
-      anonKey: Boolean(SUPABASE_ANON_KEY),
+      SUPABASE_URL: Boolean(process.env.EXPO_PUBLIC_SUPABASE_URL),
+      SUPABASE_ANON_KEY: Boolean(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY),
       NODE_ENV: process.env.NODE_ENV
     });
     
