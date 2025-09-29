@@ -15,92 +15,8 @@ import { Bookmark, Heart, MapPin, Star, Trash2 } from 'lucide-react-native';
 import { useSettings } from '@/providers/SettingsProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { trpc } from '@/lib/trpc';
 import { Bookmark as BookmarkType, Restaurant, Dish, Post } from '@/types/restaurant';
-
-const MOCK_BOOKMARKS: BookmarkType[] = [
-  {
-    id: '1',
-    userId: 'user1',
-    type: 'restaurant',
-    itemId: 'rest1',
-    item: {
-      id: 'rest1',
-      name: 'Le Beau Restaurant',
-      cuisine: 'French',
-      rating: 4.8,
-      reviewCount: 245,
-      image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&h=300&fit=crop',
-      address: 'Douala, Cameroon',
-      priceRange: '$$$',
-      isOpen: true,
-      tags: ['Fine Dining', 'Romantic'],
-    } as Restaurant,
-    createdAt: '2024-01-15T10:30:00Z',
-  },
-  {
-    id: '2',
-    userId: 'user1',
-    type: 'dish',
-    itemId: 'dish1',
-    item: {
-      id: 'dish1',
-      name: 'Ndolé Traditionnel',
-      restaurant: 'Chez Mama',
-      rating: 4.9,
-      reviewCount: 89,
-      image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop',
-      price: 3500,
-      description: 'Traditional Cameroonian dish with groundnuts and vegetables',
-      category: 'Traditional',
-      tags: ['Spicy', 'Traditional', 'Vegetarian Option'],
-    } as Dish,
-    createdAt: '2024-01-14T15:20:00Z',
-  },
-  {
-    id: '3',
-    userId: 'user1',
-    type: 'post',
-    itemId: 'post1',
-    item: {
-      id: 'post1',
-      userId: 'user2',
-      user: {
-        id: 'user2',
-        username: 'foodie_cam',
-        displayName: 'Marie Foodie',
-        avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop',
-        bio: 'Food lover from Yaoundé',
-        followersCount: 1250,
-        followingCount: 340,
-        postsCount: 89,
-        badges: ['Top Reviewer'],
-        preferences: {
-          cuisines: ['African', 'French'],
-          dietaryRestrictions: [],
-          priceRange: ['$$', '$$$'],
-        },
-      },
-      type: 'review',
-      content: {
-        text: 'Amazing experience at this hidden gem! The flavors were incredible and the service was top-notch. Highly recommend the grilled fish with plantains! 🐟🍌',
-        images: ['https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=300&fit=crop'],
-      },
-      restaurant: {
-        id: 'rest2',
-        name: 'Ocean View Restaurant',
-        location: 'Limbe, Cameroon',
-      },
-      tags: ['Seafood', 'Local', 'Recommended'],
-      likesCount: 45,
-      commentsCount: 12,
-      sharesCount: 8,
-      isLiked: false,
-      isBookmarked: true,
-      createdAt: '2024-01-13T18:45:00Z',
-    } as Post,
-    createdAt: '2024-01-13T19:00:00Z',
-  },
-];
 
 interface BookmarkItemProps {
   bookmark: BookmarkType;
@@ -242,9 +158,22 @@ export default function BookmarksScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   
-  const [bookmarks, setBookmarks] = useState<BookmarkType[]>(MOCK_BOOKMARKS);
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'restaurant' | 'dish' | 'post'>('all');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  
+  // Fetch bookmarks from server
+  const bookmarksQuery = trpc.bookmarks.list.useQuery({
+    staleTime: 1000 * 60 * 5
+  });
+  
+  // Remove bookmark mutation
+  const removeBookmarkMutation = trpc.bookmarks.remove.useMutation({
+    onSuccess: () => {
+      bookmarksQuery.refetch();
+    },
+  });
+  
+  const bookmarks = bookmarksQuery.data?.bookmarks ?? [];
+  const isLoading = bookmarksQuery.isLoading;
   
   const filteredBookmarks = bookmarks.filter(bookmark => 
     selectedFilter === 'all' || bookmark.type === selectedFilter
@@ -266,12 +195,12 @@ export default function BookmarksScreen() {
   
   const handleRemoveBookmark = useCallback(async (bookmarkId: string) => {
     try {
-      setBookmarks(prev => prev.filter(b => b.id !== bookmarkId));
+      await removeBookmarkMutation.mutateAsync({ bookmarkId });
       console.log('[Bookmarks] Removed bookmark:', bookmarkId);
     } catch (error) {
       console.error('[Bookmarks] Failed to remove bookmark:', error);
     }
-  }, []);
+  }, [removeBookmarkMutation]);
   
   const filterButtons = [
     { key: 'all' as const, label: 'All', count: bookmarks.length },
