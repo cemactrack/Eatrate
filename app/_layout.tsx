@@ -241,7 +241,7 @@ export default function RootLayout() {
   useEffect(() => {
     // Log API configuration on startup
     const apiBase = getApiBase();
-    console.info('[API Config] Runtime API URL:', apiBase);
+    console.info('[API Config] Final API URL:', apiBase);
     console.info('[Config] Environment:', {
       API_URL: process.env.EXPO_PUBLIC_API_URL,
       SUPABASE_URL: Boolean(SUPABASE_URL),

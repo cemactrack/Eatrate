@@ -2,6 +2,7 @@ import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tansta
 import { useMemo, useCallback } from 'react';
 import { trpc } from '@/lib/trpc';
 import { useDebounce } from '@/hooks/useDebounce';
+import { getApiBase } from '@/lib/config';
 
 // Optimized restaurant queries with better caching
 export function useOptimizedRestaurants(city?: string, limit = 10) {
@@ -157,12 +158,12 @@ export function useBackgroundSync() {
       await Promise.allSettled([
         queryClient.prefetchQuery({
           queryKey: [['restaurants', 'douala'], { type: 'query' }],
-          queryFn: () => fetch('/api/trpc/restaurants.douala').then(res => res.json()),
+          queryFn: () => fetch(`${getApiBase()}/api/trpc/restaurants.douala`).then(res => res.json()),
           staleTime: 1000 * 60 * 10,
         }),
         queryClient.prefetchQuery({
           queryKey: [['posts', 'feed'], { input: { type: 'trending', limit: 10 }, type: 'query' }],
-          queryFn: () => fetch('/api/trpc/posts.feed?input=%7B%22type%22%3A%22trending%22%2C%22limit%22%3A10%7D').then(res => res.json()),
+          queryFn: () => fetch(`${getApiBase()}/api/trpc/posts.feed?input=%7B%22type%22%3A%22trending%22%2C%22limit%22%3A10%7D`).then(res => res.json()),
           staleTime: 1000 * 60 * 5,
         }),
       ]);

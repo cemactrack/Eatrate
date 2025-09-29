@@ -45,8 +45,8 @@ export const healthCheck = {
   // Check API connectivity
   async checkAPI(): Promise<boolean> {
     try {
-      const config = getEnvConfig();
-      const response = await fetch(`${config.apiUrl}/health`, {
+      const apiBase = getApiBase();
+      const response = await fetch(`${apiBase}/api/health`, {
         method: 'GET',
         timeout: 5000,
       });

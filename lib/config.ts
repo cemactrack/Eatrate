@@ -38,8 +38,26 @@ export function getApiBase(): string {
 
   const finalUrl = stripTrailingSlash(resolved);
   
-  // Log the final API URL once on startup
-  console.info('[API Config] Final API URL:', finalUrl);
-  
   return finalUrl;
+}
+
+// Get allowed origins for CORS configuration
+export function getAllowedOrigins(): string[] {
+  const baseOrigins = [
+    API_URL?.replace(/\/$/, ''), // Remove trailing slash
+    'exp://127.0.0.1:8081',
+    'https://localhost:3000'
+  ].filter(Boolean); // Remove undefined values
+  
+  // Add development origins if in development
+  if (process.env.NODE_ENV === 'development') {
+    baseOrigins.push(
+      'http://localhost:8081',
+      'http://localhost:3000',
+      'http://localhost:19006', // Expo web dev server
+      'http://127.0.0.1:19006'
+    );
+  }
+  
+  return baseOrigins;
 }
