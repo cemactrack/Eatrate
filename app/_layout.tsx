@@ -9,7 +9,7 @@ import { AppProviders } from "@/providers/AppProviders";
 import Colors from "@/constants/colors";
 import { APP_CONFIG } from "@/constants/app-config";
 import CustomSplashScreen from "@/components/SplashScreen";
-import { API_URL, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/config";
+import { getApiBase, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/config";
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync();
@@ -239,7 +239,16 @@ export default function RootLayout() {
   const [showCustomSplash, setShowCustomSplash] = useState<boolean>(true);
 
   useEffect(() => {
-    console.info('[Config]', { API_URL, SUPABASE_URL: Boolean(SUPABASE_URL), anonKey: Boolean(SUPABASE_ANON_KEY) });
+    // Log API configuration on startup
+    const apiBase = getApiBase();
+    console.info('[API Config] Runtime API URL:', apiBase);
+    console.info('[Config] Environment:', {
+      API_URL: process.env.EXPO_PUBLIC_API_URL,
+      SUPABASE_URL: Boolean(SUPABASE_URL),
+      anonKey: Boolean(SUPABASE_ANON_KEY),
+      NODE_ENV: process.env.NODE_ENV
+    });
+    
     const prepare = async () => {
       try {
         if (Platform.OS !== 'web') {

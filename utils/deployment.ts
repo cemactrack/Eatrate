@@ -4,23 +4,24 @@
  */
 
 import { Platform } from 'react-native';
+import { getApiBase } from '@/lib/config';
 
 // Environment configuration
 export const ENV_CONFIG = {
   development: {
-    apiUrl: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000',
+    apiUrl: getApiBase(),
     enableDebug: true,
     enablePerformanceMonitoring: true,
     logLevel: 'debug' as const,
   },
   staging: {
-    apiUrl: process.env.EXPO_PUBLIC_API_URL || 'https://staging-api.eatrate.app',
+    apiUrl: getApiBase(),
     enableDebug: false,
     enablePerformanceMonitoring: true,
     logLevel: 'info' as const,
   },
   production: {
-    apiUrl: process.env.EXPO_PUBLIC_API_URL || 'https://api.eatrate.app',
+    apiUrl: getApiBase(),
     enableDebug: false,
     enablePerformanceMonitoring: true,
     logLevel: 'error' as const,

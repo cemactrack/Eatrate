@@ -1,10 +1,24 @@
-const ALLOWED_ORIGINS: readonly string[] = [
-  'https://eatrate.vercel.app',
-  'https://eatrate-api.vercel.app',
-  'exp://127.0.0.1:8081',
-  'http://localhost:8081',
-  'https://eatrate.co',
-];
+const getAllowedOrigins = (): readonly string[] => {
+  const baseOrigins = [
+    process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, ''), // Remove trailing slash
+    'exp://127.0.0.1:8081',
+    'http://localhost:8081',
+    'http://localhost:3000',
+    'https://localhost:3000'
+  ].filter(Boolean); // Remove undefined values
+  
+  // Add development origins if in development
+  if (process.env.NODE_ENV === 'development') {
+    baseOrigins.push(
+      'http://localhost:19006', // Expo web dev server
+      'http://127.0.0.1:19006'
+    );
+  }
+  
+  return baseOrigins as readonly string[];
+};
+
+const ALLOWED_ORIGINS = getAllowedOrigins();
 
 const ALLOWED_METHODS = 'GET, POST, PUT, PATCH, DELETE, OPTIONS';
 const ALLOWED_HEADERS = 'Content-Type, Authorization, X-Requested-With';

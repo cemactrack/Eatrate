@@ -9,15 +9,30 @@ import { writeOperationsLimiter, readOperationsLimiter, isWriteOperation } from 
 // Create the main app
 const app = new Hono();
 
-// Enable CORS with strict configuration
-app.use("*", cors({
-  origin: [
-    'https://eatrate.vercel.app',
-    'https://eatrate-api.vercel.app',
+// Enable CORS with dynamic configuration
+const getAllowedOrigins = () => {
+  const baseOrigins = [
+    process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, ''), // Remove trailing slash
     'exp://127.0.0.1:8081',
     'http://localhost:8081',
-    'https://eatrate.co'
-  ],
+    'http://localhost:3000',
+    'https://localhost:3000'
+  ].filter(Boolean); // Remove undefined values
+  
+  // Add development origins if in development
+  if (process.env.NODE_ENV === 'development') {
+    baseOrigins.push(
+      'http://localhost:19006', // Expo web dev server
+      'http://127.0.0.1:19006'
+    );
+  }
+  
+  console.log('[CORS] Allowed origins:', baseOrigins);
+  return baseOrigins;
+};
+
+app.use("*", cors({
+  origin: getAllowedOrigins(),
   credentials: false,
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],

@@ -36,5 +36,10 @@ export function getApiBase(): string {
     // allow relative base values
   }
 
-  return stripTrailingSlash(resolved);
+  const finalUrl = stripTrailingSlash(resolved);
+  
+  // Log the final API URL once on startup
+  console.info('[API Config] Final API URL:', finalUrl);
+  
+  return finalUrl;
 }
