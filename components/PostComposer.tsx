@@ -420,19 +420,27 @@ export default function PostComposer({ onClose }: PostComposerProps = {}) {
                 </View>
               ))}
             </ScrollView>
-
+            <Text style={styles.imageCountText}>{selectedImages.length}/4 images</Text>
           </View>
         )}
 
         <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.actionButton} onPress={pickImage}>
-            <ImageIcon size={20} color={Colors.light.tint} />
-            <Text style={styles.actionButtonText}>Photos</Text>
+          <TouchableOpacity 
+            style={[styles.actionButton, selectedImages.length >= 4 && styles.actionButtonDisabled]} 
+            onPress={pickImage}
+            disabled={selectedImages.length >= 4}
+          >
+            <ImageIcon size={20} color={selectedImages.length >= 4 ? Colors.light.secondary : Colors.light.tint} />
+            <Text style={[styles.actionButtonText, selectedImages.length >= 4 && styles.actionButtonTextDisabled]}>Photos</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionButton} onPress={takePhoto}>
-            <Camera size={20} color={Colors.light.tint} />
-            <Text style={styles.actionButtonText}>Camera</Text>
+          <TouchableOpacity 
+            style={[styles.actionButton, selectedImages.length >= 4 && styles.actionButtonDisabled]} 
+            onPress={takePhoto}
+            disabled={selectedImages.length >= 4}
+          >
+            <Camera size={20} color={selectedImages.length >= 4 ? Colors.light.secondary : Colors.light.tint} />
+            <Text style={[styles.actionButtonText, selectedImages.length >= 4 && styles.actionButtonTextDisabled]}>Camera</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionButton} onPress={handleLocationPress}>
@@ -690,6 +698,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.light.border,
   },
+  imageCountText: {
+    fontSize: 12,
+    color: Colors.light.secondary,
+    marginTop: 8,
+    marginLeft: 16,
+  },
   imageWrapper: {
     position: 'relative',
     marginRight: 12,
@@ -723,11 +737,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 24,
   },
+  actionButtonDisabled: {
+    opacity: 0.5,
+  },
   actionButtonText: {
     fontSize: 16,
     color: Colors.light.tint,
     marginLeft: 8,
     fontWeight: '500',
+  },
+  actionButtonTextDisabled: {
+    color: Colors.light.secondary,
   },
   section: {
     padding: 16,

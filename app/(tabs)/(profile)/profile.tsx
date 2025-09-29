@@ -9,6 +9,8 @@ import {
   FlatList,
   useWindowDimensions,
   ActivityIndicator,
+  Alert,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -36,6 +38,7 @@ import {
   Edit3,
   Users,
   Zap,
+  Upload,
 } from 'lucide-react-native';
 import { Stack, useRouter } from 'expo-router';
 import Colors from '@/constants/colors';
@@ -43,6 +46,8 @@ import { Post } from '@/types/restaurant';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAdmin } from '@/providers/AdminProvider';
 import { trpc } from '@/lib/trpc';
+import { uploadImageAsync } from '@/utils/supabaseUpload';
+import * as ImagePicker from 'expo-image-picker';
 
 interface TabButtonProps {
   icon: React.ReactNode;
@@ -107,6 +112,7 @@ export default function ProfileScreen() {
   const [activeTab, setActiveTab] = useState<'posts' | 'liked' | 'saved' | 'reviews' | 'photos'>('posts');
   const [showFullBio, setShowFullBio] = useState<boolean>(false);
   const [selectedStatsPeriod] = useState<'week' | 'month' | 'year'>('month');
+  const [uploadingAvatar, setUploadingAvatar] = useState<boolean>(false);
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { isAdmin } = useAdmin();
@@ -124,10 +130,21 @@ export default function ProfileScreen() {
     }
   );
 
-  const { data: userProfile } = trpc.users.getProfile.useQuery(
+  const { data: userProfile, refetch: refetchProfile } = trpc.users.getProfile.useQuery(
     { userId: user?.id ?? '' },
     { enabled: !!user?.id }
   );
+
+  const updateProfileMutation = trpc.auth.updateProfile.useMutation({
+    onSuccess: () => {
+      console.log('[Profile] Avatar updated successfully');
+      refetchProfile();
+    },
+    onError: (error) => {
+      console.error('[Profile] Failed to update avatar:', error);
+      Alert.alert('Error', 'Failed to update avatar. Please try again.');
+    },
+  });
 
   const { data: followStats } = trpc.users.followStats.useQuery(
     { userId: user?.id ?? '' },
@@ -255,6 +272,46 @@ export default function ProfileScreen() {
     router.push('/settings');
   }, [router]);
 
+  const handleChangeAvatar = useCallback(async () => {
+    try {
+      if (Platform.OS === 'web') {
+        Alert.alert('Not supported', 'Avatar upload is not supported on web. Please use the mobile app.');
+        return;
+      }
+
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please grant camera roll permissions to change your avatar.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.9,
+      });
+
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        setUploadingAvatar(true);
+        
+        try {
+          const { url } = await uploadImageAsync(result.assets[0].uri, 'avatars');
+          await updateProfileMutation.mutateAsync({ avatar_url: url });
+        } catch (error) {
+          console.error('[Profile] Avatar upload failed:', error);
+          Alert.alert('Upload failed', 'Failed to upload avatar. Please try again.');
+        } finally {
+          setUploadingAvatar(false);
+        }
+      }
+    } catch (error) {
+      console.error('[Profile] Change avatar error:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+      setUploadingAvatar(false);
+    }
+  }, [updateProfileMutation]);
+
   // Removed unused handleLogout function
 
   const handleAdminPanel = useCallback(() => {
@@ -317,6 +374,18 @@ export default function ProfileScreen() {
           <View style={styles.profileSection}>
             <View style={styles.avatarContainer}>
               <Image source={{ uri: currentUser.avatar }} style={styles.modernAvatar} />
+              <TouchableOpacity 
+                style={styles.changeAvatarButton} 
+                onPress={handleChangeAvatar}
+                disabled={uploadingAvatar}
+                testID="change-avatar-button"
+              >
+                {uploadingAvatar ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Upload size={16} color="white" />
+                )}
+              </TouchableOpacity>
               <View style={styles.statusIndicator} />
             </View>
             
@@ -768,6 +837,19 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
+  },
+  changeAvatarButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
   },
   statusIndicator: {
     position: 'absolute',
