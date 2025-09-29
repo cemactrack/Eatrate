@@ -3,31 +3,26 @@ import { createTRPCClient, httpLink } from "@trpc/client";
 import type { AppRouter } from "@/backend/trpc/app-router";
 import superjson from "superjson";
 import { Platform } from "react-native";
-import { API_URL } from "@/lib/config";
+import { getApiBase } from "@/lib/config";
 import { APP_CONFIG } from "@/constants/app-config";
 
 // React tRPC client for use in components
 export const trpc = createTRPCReact<AppRouter>();
 
-const normalizeBaseUrl = (url: string): string => {
-  if (!url) return '';
-  return url.endsWith('/') ? url.slice(0, -1) : url;
-};
-
 // Use centralized API_URL configuration
-const base = normalizeBaseUrl(API_URL || 'http://localhost:3000');
+const apiBase = getApiBase();
 const trpcPath = '/api/trpc';
-const trpcUrl = `${base}${trpcPath}`;
+const trpcUrl = `${apiBase}${trpcPath}`;
 
 // Log API configuration on startup
 console.info('[tRPC] Final API URL:', trpcUrl);
-console.info('[tRPC] Base URL from EXPO_PUBLIC_API_URL:', API_URL);
+console.info('[tRPC] Base URL from getApiBase():', apiBase);
 if (Platform.OS === 'web') {
   const href = typeof window !== 'undefined' ? window.location.href : 'unknown';
   console.info('[tRPC] Web page:', href);
 }
 
-// Shared HTTP link configuration
+// Shared HTTP link configuration with React Native optimizations
 const createHttpLink = () => httpLink({
   url: trpcUrl,
   transformer: superjson,
@@ -51,11 +46,14 @@ const createHttpLink = () => httpLink({
       const response = await fetch(url, {
         ...options,
         signal: controller.signal,
+        // React Native Web compatibility
         credentials: Platform.OS === 'web' ? 'same-origin' : 'omit',
+        // Ensure proper headers for React Native
         headers: {
           'Content-Type': 'application/json',
           accept: 'application/json',
           'x-trpc-source': Platform.OS === 'web' ? 'web' : 'react-native',
+          'x-platform': Platform.OS,
           ...options?.headers,
         },
       } as RequestInit);
@@ -81,6 +79,7 @@ const createHttpLink = () => httpLink({
 });
 
 // React Query tRPC client for use with React hooks
+// Optimized for React Native with proper suspense handling
 export const trpcClient = trpc.createClient({
   links: [createHttpLink()],
 });
@@ -91,5 +90,16 @@ export const trpcStandaloneClient = createTRPCClient<AppRouter>({
 });
 
 // Export both clients for different use cases
-// Use `trpc` for React hooks: trpc.restaurants.list.useQuery()
-// Use `trpcStandaloneClient` for imperative calls: await trpcStandaloneClient.restaurants.list.query()
+// Use `trpc` for React hooks: trpc.restaurants.list.useQuery({ city: 'douala' })
+// Use `trpcStandaloneClient` for imperative calls: await trpcStandaloneClient.restaurants.list.query({ city: 'douala' })
+
+// Typed hooks examples for common operations:
+// - trpc.restaurantsMain.list.useQuery({ city, limit: 10 })
+// - trpc.restaurantsMain.search.useQuery({ query: 'pizza', city: 'yaounde' })
+// - trpc.reviews.create.useMutation()
+// - trpc.postsMain.feed.useQuery({ limit: 20, cursor: undefined })
+// - trpc.auth.getCurrentProfile.useQuery()
+// - trpc.bookmarks.toggleRestaurant.useMutation()
+// - trpc.follows.toggleUser.useMutation()
+// - trpc.notifications.getAll.useQuery()
+// - trpc.messaging.getConversations.useQuery()

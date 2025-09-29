@@ -1,8 +1,8 @@
-import React, { useMemo, Suspense } from 'react';
+import React, { useMemo, Suspense, useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { StyleSheet, View, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, ActivityIndicator, Platform } from 'react-native';
 
 import { trpc, trpcClient } from '@/lib/trpc';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -33,6 +33,23 @@ interface CoreProvidersProps {
 const CoreProviders: React.FC<CoreProvidersProps> = ({ children, queryClient }) => {
   // Memoize the tRPC client to prevent unnecessary re-renders
   const memoizedTrpcClient = useMemo(() => trpcClient, []);
+  
+  // Handle React Native Web rehydration safely
+  const [isHydrated, setIsHydrated] = useState<boolean>(() => {
+    // On web, we need to wait for hydration to prevent SSR mismatches
+    return Platform.OS !== 'web';
+  });
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      // Ensure client-side hydration is complete
+      setIsHydrated(true);
+    }
+  }, []);
+
+  if (!isHydrated) {
+    return <LoadingFallback />;
+  }
   
   return (
     <QueryClientProvider client={queryClient}>
@@ -65,16 +82,18 @@ interface FeatureProvidersProps {
 
 const FeatureProviders: React.FC<FeatureProvidersProps> = ({ children }) => (
   <Suspense fallback={<LoadingFallback />}>
-    <NotificationProvider>
-      <ForegroundNotificationHost />
-      <GamificationProvider>
-        <MessagingProvider>
-          <AdminProvider>
-            {children}
-          </AdminProvider>
-        </MessagingProvider>
-      </GamificationProvider>
-    </NotificationProvider>
+    <ErrorBoundary>
+      <NotificationProvider>
+        <ForegroundNotificationHost />
+        <GamificationProvider>
+          <MessagingProvider>
+            <AdminProvider>
+              {children}
+            </AdminProvider>
+          </MessagingProvider>
+        </GamificationProvider>
+      </NotificationProvider>
+    </ErrorBoundary>
   </Suspense>
 );
 
