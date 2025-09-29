@@ -13,6 +13,7 @@ import { LocalizationProvider } from '@/providers/LocalizationProvider';
 import { AdminProvider } from '@/providers/AdminProvider';
 import { GamificationProvider } from '@/providers/GamificationProvider';
 import { NotificationProvider } from '@/providers/NotificationProvider';
+import { PushNotificationProvider, usePushNotifications } from '@/providers/PushNotificationProvider';
 import ForegroundNotificationHost from '@/components/ForegroundNotificationHost';
 import { MessagingProvider } from '@/providers/MessagingProvider';
 import { ThemeProvider } from '@/providers/ThemeProvider';
@@ -24,6 +25,17 @@ const LoadingFallback: React.FC = () => (
     <ActivityIndicator size="large" color={Colors.light.tint} />
   </View>
 );
+
+const PushNotificationToastHost: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { ToastComponent } = usePushNotifications();
+  
+  return (
+    <>
+      {children}
+      {ToastComponent}
+    </>
+  );
+};
 
 interface CoreProvidersProps {
   children: React.ReactNode;
@@ -62,7 +74,11 @@ const CoreProviders: React.FC<CoreProvidersProps> = ({ children, queryClient }) 
                   <ThemeProvider>
                     <SettingsProvider>
                       <AuthProvider>
-                        {children}
+                        <PushNotificationProvider>
+                          <PushNotificationToastHost>
+                            {children}
+                          </PushNotificationToastHost>
+                        </PushNotificationProvider>
                       </AuthProvider>
                     </SettingsProvider>
                   </ThemeProvider>

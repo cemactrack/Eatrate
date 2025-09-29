@@ -2,15 +2,16 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, TextInput, Alert } from 'react-native';
 import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Send, Bell, Smartphone } from 'lucide-react-native';
-import { useNotifications } from '@/providers/NotificationProvider';
+import { Send, Bell, Smartphone, CheckCircle, XCircle, AlertCircle } from 'lucide-react-native';
+import { usePushNotifications, usePushNotificationPermission } from '@/providers/PushNotificationProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import Colors from '@/constants/colors';
 
 export default function PushNotificationDemoScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { expoPushToken, permissionStatus } = useNotifications();
+  const { expoPushToken, notification } = usePushNotifications();
+  const { permissionStatus, requestPermission, isLoading } = usePushNotificationPermission();
   const [title, setTitle] = useState<string>('Test Notification');
   const [body, setBody] = useState<string>('This is a test push notification!');
   const [sending, setSending] = useState<boolean>(false);
@@ -64,6 +65,28 @@ export default function PushNotificationDemoScreen() {
 
   const canSendNotification = expoPushToken && permissionStatus === 'granted' && Platform.OS !== 'web';
 
+  const getPermissionStatusIcon = () => {
+    switch (permissionStatus) {
+      case 'granted':
+        return <CheckCircle size={20} color={Colors.light.success} />;
+      case 'denied':
+        return <XCircle size={20} color={Colors.light.error} />;
+      default:
+        return <AlertCircle size={20} color={Colors.light.warning} />;
+    }
+  };
+
+  const getPermissionStatusColor = () => {
+    switch (permissionStatus) {
+      case 'granted':
+        return Colors.light.success;
+      case 'denied':
+        return Colors.light.error;
+      default:
+        return Colors.light.warning;
+    }
+  };
+
   return (
     <>
       <Stack.Screen 
@@ -86,13 +109,69 @@ export default function PushNotificationDemoScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Status</Text>
           <View style={styles.statusCard}>
-            <Text style={styles.statusText}>
-              User: {user ? user.email : 'Not logged in'}{"\n"}
-              Permission: {permissionStatus || 'Unknown'}{"\n"}
-              Token: {expoPushToken ? 'Available' : 'Not available'}
-            </Text>
+            <View style={styles.statusRow}>
+              <Text style={styles.statusLabel}>User:</Text>
+              <Text style={styles.statusValue}>{user ? user.email : 'Not logged in'}</Text>
+            </View>
+            <View style={styles.statusRow}>
+              <Text style={styles.statusLabel}>Permission:</Text>
+              <View style={styles.permissionStatus}>
+                {getPermissionStatusIcon()}
+                <Text style={[styles.statusValue, { color: getPermissionStatusColor() }]}>
+                  {permissionStatus || 'Unknown'}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.statusRow}>
+              <Text style={styles.statusLabel}>Token:</Text>
+              <Text style={styles.statusValue}>{expoPushToken ? '✅ Available' : '❌ Not available'}</Text>
+            </View>
           </View>
         </View>
+
+        {!user && (
+          <View style={styles.section}>
+            <TouchableOpacity 
+              style={[styles.sendButton, { backgroundColor: Colors.light.warning }]}
+              onPress={() => Alert.alert('Authentication Required', 'Please log in to test push notifications')}
+            >
+              <Bell size={20} color="white" />
+              <Text style={styles.buttonText}>Log In Required</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {user && permissionStatus !== 'granted' && (
+          <View style={styles.section}>
+            <TouchableOpacity 
+              style={[styles.sendButton, isLoading && styles.buttonDisabled]}
+              onPress={requestPermission}
+              disabled={isLoading}
+            >
+              <Bell size={20} color="white" />
+              <Text style={styles.buttonText}>
+                {isLoading ? 'Requesting...' : 'Request Push Permission'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {notification && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Last Notification</Text>
+            <View style={styles.notificationCard}>
+              <Text style={styles.notificationTitle}>
+                {notification.request.content.title || 'No Title'}
+              </Text>
+              <Text style={styles.notificationBody}>
+                {notification.request.content.body || 'No Body'}
+              </Text>
+              <Text style={styles.notificationTime}>
+                Received: {new Date(notification.date).toLocaleTimeString()}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {canSendNotification ? (
           <>
@@ -142,11 +221,7 @@ export default function PushNotificationDemoScreen() {
               <Text style={styles.warningText}>
                 {Platform.OS === 'web' 
                   ? 'Push notifications are not supported on web. Please test on a mobile device.'
-                  : !user 
-                  ? 'Please log in to test push notifications.'
-                  : !expoPushToken 
-                  ? 'Push token not available. Please enable notifications.'
-                  : 'Notifications permission not granted.'}
+                  : 'Push notifications are not available. Please check the status above.'}
               </Text>
             </View>
           </View>
@@ -214,10 +289,53 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  statusText: {
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statusLabel: {
     fontSize: 14,
+    fontWeight: '600',
     color: Colors.light.text,
-    lineHeight: 20,
+  },
+  statusValue: {
+    fontSize: 14,
+    color: Colors.light.secondary,
+  },
+  permissionStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  notificationCard: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.light.tint,
+  },
+  notificationTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.light.text,
+    marginBottom: 4,
+  },
+  notificationBody: {
+    fontSize: 14,
+    color: Colors.light.secondary,
+    marginBottom: 8,
+  },
+  notificationTime: {
+    fontSize: 12,
+    color: Colors.light.tabIconDefault,
+    fontStyle: 'italic',
   },
   inputContainer: {
     marginBottom: 16,
