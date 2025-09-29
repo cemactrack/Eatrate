@@ -30,29 +30,34 @@ interface CoreProvidersProps {
   queryClient: QueryClient;
 }
 
-const CoreProviders: React.FC<CoreProvidersProps> = ({ children, queryClient }) => (
-  <QueryClientProvider client={queryClient}>
-    <trpc.Provider client={trpcClient} queryClient={queryClient}>
-      <GestureHandlerRootView style={styles.container}>
-        <SafeAreaProvider>
-          <ErrorBoundary>
-            <StorageProvider>
-              <LocalizationProvider>
-                <ThemeProvider>
-                  <SettingsProvider>
-                    <AuthProvider>
-                      {children}
-                    </AuthProvider>
-                  </SettingsProvider>
-                </ThemeProvider>
-              </LocalizationProvider>
-            </StorageProvider>
-          </ErrorBoundary>
-        </SafeAreaProvider>
-      </GestureHandlerRootView>
-    </trpc.Provider>
-  </QueryClientProvider>
-);
+const CoreProviders: React.FC<CoreProvidersProps> = ({ children, queryClient }) => {
+  // Memoize the tRPC client to prevent unnecessary re-renders
+  const memoizedTrpcClient = useMemo(() => trpcClient, []);
+  
+  return (
+    <QueryClientProvider client={queryClient}>
+      <trpc.Provider client={memoizedTrpcClient} queryClient={queryClient}>
+        <GestureHandlerRootView style={styles.container}>
+          <SafeAreaProvider>
+            <ErrorBoundary>
+              <StorageProvider>
+                <LocalizationProvider>
+                  <ThemeProvider>
+                    <SettingsProvider>
+                      <AuthProvider>
+                        {children}
+                      </AuthProvider>
+                    </SettingsProvider>
+                  </ThemeProvider>
+                </LocalizationProvider>
+              </StorageProvider>
+            </ErrorBoundary>
+          </SafeAreaProvider>
+        </GestureHandlerRootView>
+      </trpc.Provider>
+    </QueryClientProvider>
+  );
+};
 
 interface FeatureProvidersProps {
   children: React.ReactNode;

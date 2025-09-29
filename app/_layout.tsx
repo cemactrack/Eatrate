@@ -209,6 +209,13 @@ function ThemedStack() {
           headerShown: true,
         }} 
       />
+      <Stack.Screen 
+        name="trpc-demo" 
+        options={{ 
+          title: "tRPC Demo",
+          headerShown: true,
+        }} 
+      />
     </Stack>
   );
 }
