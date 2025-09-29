@@ -17,6 +17,7 @@ import { PushNotificationProvider, usePushNotifications } from '@/providers/Push
 import ForegroundNotificationHost from '@/components/ForegroundNotificationHost';
 import { MessagingProvider } from '@/providers/MessagingProvider';
 import { ThemeProvider } from '@/providers/ThemeProvider';
+import { ErrorProvider } from '@/providers/ErrorProvider';
 
 import Colors from '@/constants/colors';
 
@@ -73,13 +74,15 @@ const CoreProviders: React.FC<CoreProvidersProps> = ({ children, queryClient }) 
                 <LocalizationProvider>
                   <ThemeProvider>
                     <SettingsProvider>
-                      <AuthProvider>
-                        <PushNotificationProvider>
-                          <PushNotificationToastHost>
-                            {children}
-                          </PushNotificationToastHost>
-                        </PushNotificationProvider>
-                      </AuthProvider>
+                      <ErrorProvider>
+                        <AuthProvider>
+                          <PushNotificationProvider>
+                            <PushNotificationToastHost>
+                              {children}
+                            </PushNotificationToastHost>
+                          </PushNotificationProvider>
+                        </AuthProvider>
+                      </ErrorProvider>
                     </SettingsProvider>
                   </ThemeProvider>
                 </LocalizationProvider>

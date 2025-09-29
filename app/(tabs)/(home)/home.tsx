@@ -10,11 +10,14 @@ import {
   Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Award, MapPin, Users, Flame, Plus, UserPlus, Heart, MessageSquare, Shield } from 'lucide-react-native';
+import { Award, MapPin, Users, Flame, Plus, UserPlus, Heart, MessageSquare, Shield, UtensilsCrossed, Coffee, Star } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { RestaurantCardSkeleton, PostCardSkeleton, UserCardSkeleton } from '@/components/SkeletonLoader';
+import EmptyState from '@/components/EmptyState';
+import { useError } from '@/providers/ErrorProvider';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { Restaurant, Post } from '@/types/restaurant';
 import OptimizedRestaurantCard from '@/components/OptimizedRestaurantCard';
@@ -113,6 +116,7 @@ function HomeScreenContent() {
   const { user } = useAuth();
   const { isAdmin, unreadCount } = useAdmin();
   const { colors } = useSettings();
+  const { showError } = useError();
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showComposer, setShowComposer] = useState<boolean>(false);
 
@@ -231,14 +235,15 @@ function HomeScreenContent() {
 
 
 
-  // Only show loading for critical data
-  if (isLoadingRestaurants) {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <LoadingSpinner text="Loading restaurants..." showGradient />
-      </View>
-    );
-  }
+  // Show API errors via toast
+  React.useEffect(() => {
+    if (restaurantsError) {
+      showError('Failed to load restaurants. Please try again.', 'error');
+    }
+    if (postsError) {
+      showError('Failed to load posts. Please try again.', 'error');
+    }
+  }, [restaurantsError, postsError, showError]);
 
   return (
     <ErrorBoundary>
@@ -350,13 +355,20 @@ function HomeScreenContent() {
             </TouchableOpacity>
           </View>
           
-          {featuredRestaurants.length === 0 ? (
-            <View style={styles.emptySection}>
-              <Text style={styles.emptySectionText}>No restaurants available</Text>
-              <Text style={styles.emptySectionSubtext}>
-                {isLoadingRestaurants ? 'Loading...' : 'Try refreshing the app'}
-              </Text>
-            </View>
+          {isLoadingRestaurants ? (
+            <>
+              <RestaurantCardSkeleton />
+              <RestaurantCardSkeleton />
+            </>
+          ) : featuredRestaurants.length === 0 ? (
+            <EmptyState
+              icon={UtensilsCrossed}
+              title="No restaurants yet"
+              subtitle="Be the first to discover amazing restaurants in your area!"
+              actionText="Explore Restaurants"
+              onAction={handleSeeAllRestaurants}
+              testId="empty-restaurants"
+            />
           ) : (
             featuredRestaurants.map((restaurant: Restaurant) => (
               <OptimizedRestaurantCard
@@ -390,24 +402,19 @@ function HomeScreenContent() {
           </View>
           
           {isLoadingPosts ? (
-            <View style={styles.loadingSection}>
-              <Text style={[styles.loadingSectionText, { color: colors.secondary }]}>Loading posts...</Text>
-            </View>
-          ) : postsError ? (
-            <View style={styles.errorSection}>
-              <Text style={[styles.errorSectionText, { color: '#EF4444' }]}>Failed to load posts</Text>
-              <TouchableOpacity onPress={handleRefreshFeed} style={styles.retryButton}>
-                <Text style={[styles.retryButtonText, { color: 'white', backgroundColor: 'transparent' }]}>Try Again</Text>
-              </TouchableOpacity>
-            </View>
+            <>
+              <PostCardSkeleton />
+              <PostCardSkeleton />
+            </>
           ) : trendingPosts.length === 0 ? (
-            <View style={styles.emptySection}>
-              <Text style={[styles.emptySectionText, { color: colors.secondary }]}>No trending posts</Text>
-              <Text style={[styles.emptySectionSubtext, { color: colors.secondary }]}>Be the first to share your food experience!</Text>
-              <TouchableOpacity onPress={() => setShowComposer(true)} style={styles.createFirstPostButton}>
-                <Text style={[styles.createFirstPostButtonText, { color: 'white' }]}>Create Post</Text>
-              </TouchableOpacity>
-            </View>
+            <EmptyState
+              icon={Coffee}
+              title="No posts yet"
+              subtitle="Be the first to share your food experience!"
+              actionText="Create Post"
+              onAction={() => setShowComposer(true)}
+              testId="empty-posts"
+            />
           ) : (
             <>
               {trendingPosts.map((post) => (
@@ -433,14 +440,21 @@ function HomeScreenContent() {
           </View>
           
           {isLoadingUsers ? (
-            <View style={styles.loadingSection}>
-              <Text style={[styles.loadingSectionText, { color: colors.secondary }]}>Loading foodies...</Text>
-            </View>
+            <FlatList
+              data={[1, 2, 3]}
+              renderItem={() => <UserCardSkeleton />}
+              keyExtractor={(item) => item.toString()}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.foodieList}
+            />
           ) : topFoodies.length === 0 ? (
-            <View style={styles.emptySection}>
-              <Text style={styles.emptySectionText}>No top foodies</Text>
-              <Text style={styles.emptySectionSubtext}>Start following food enthusiasts!</Text>
-            </View>
+            <EmptyState
+              icon={Star}
+              title="No foodies yet"
+              subtitle="Start following food enthusiasts to see them here!"
+              testId="empty-foodies"
+            />
           ) : (
             <FlatList
               data={topFoodies}
@@ -502,14 +516,27 @@ function HomeScreenContent() {
           </View>
           
           {!shouldLoadDeferred ? (
-            <View style={styles.loadingSection}>
-              <Text style={[styles.loadingSectionText, { color: colors.secondary }]}>Loading dishes...</Text>
-            </View>
+            <FlatList
+              data={[1, 2, 3, 4]}
+              renderItem={() => (
+                <View style={styles.dishSkeleton}>
+                  <RestaurantCardSkeleton />
+                </View>
+              )}
+              keyExtractor={(item) => item.toString()}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.dishList}
+            />
           ) : trendingDishes.length === 0 ? (
-            <View style={styles.emptySection}>
-              <Text style={styles.emptySectionText}>No trending dishes</Text>
-              <Text style={styles.emptySectionSubtext}>Discover amazing dishes from local restaurants!</Text>
-            </View>
+            <EmptyState
+              icon={UtensilsCrossed}
+              title="No trending dishes"
+              subtitle="Discover amazing dishes from local restaurants!"
+              actionText="Explore Dishes"
+              onAction={handleSeeAllSearch}
+              testId="empty-dishes"
+            />
           ) : (
             <FlatList
               data={trendingDishes}
@@ -905,6 +932,10 @@ const styles = StyleSheet.create({
   },
   rootBg: {
     flex: 1,
+  },
+  dishSkeleton: {
+    width: 200,
+    marginRight: 12,
   },
 });
 
