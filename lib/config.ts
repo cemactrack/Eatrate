@@ -1,4 +1,6 @@
-export const API_URL = process.env.EXPO_PUBLIC_API_URL!;
+// Force production URL to fix ngrok issue
+const FORCED_API_URL = 'https://eatrate.vercel.app';
+export const API_URL = process.env.EXPO_PUBLIC_API_URL || FORCED_API_URL;
 export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
@@ -10,33 +12,45 @@ export function getApiBase(): string {
   const envBase = (API_URL ?? '').trim();
   const isBrowser = typeof window !== 'undefined' && typeof window.location !== 'undefined';
 
+  console.log('[Config] Raw EXPO_PUBLIC_API_URL:', process.env.EXPO_PUBLIC_API_URL);
+  console.log('[Config] Processed API_URL:', envBase);
+  console.log('[Config] Forced fallback URL:', FORCED_API_URL);
+
   let resolved = envBase;
 
-  if (!resolved) {
-    if (isBrowser) {
-      resolved = window.location.origin;
-      console.warn('[Config] EXPO_PUBLIC_API_URL is not set. Falling back to window.origin:', resolved);
-    } else {
-      resolved = 'http://localhost:3000';
-      console.warn('[Config] EXPO_PUBLIC_API_URL is not set. Falling back to localhost:', resolved);
+  // CRITICAL: Force production URL if we detect ANY dev tunnel URLs
+  if (!resolved || resolved.includes('exp.direct') || resolved.includes('ngrok') || resolved.includes('localhost')) {
+    if (resolved) {
+      console.warn('[Config] Detected problematic URL:', resolved);
     }
+    resolved = FORCED_API_URL;
+    console.warn('[Config] FORCING production URL:', resolved);
   }
 
-  try {
-    const url = new URL(resolved);
-    const host = url.host.toLowerCase();
-    if (host.includes('exp.direct') || host.includes('ngrok')) {
-      if (isBrowser) {
+  // Additional safety check for web
+  if (isBrowser) {
+    try {
+      const url = new URL(resolved);
+      const host = url.host.toLowerCase();
+      if (host.includes('exp.direct') || host.includes('ngrok')) {
         const origin = window.location.origin;
-        console.warn('[Config] Detected dev tunnel in API_URL. Using window.origin instead:', origin);
-        return stripTrailingSlash(origin);
+        console.warn('[Config] Web: Detected dev tunnel, using window.origin:', origin);
+        resolved = origin;
       }
+    } catch {
+      // Invalid URL, use forced URL
+      resolved = FORCED_API_URL;
     }
-  } catch {
-    // allow relative base values
   }
 
   const finalUrl = stripTrailingSlash(resolved);
+  console.log('[Config] FINAL API base URL:', finalUrl);
+  
+  // Last safety check
+  if (finalUrl.includes('exp.direct') || finalUrl.includes('ngrok')) {
+    console.error('[Config] CRITICAL ERROR: Still have dev tunnel URL after all fixes!');
+    return stripTrailingSlash(FORCED_API_URL);
+  }
   
   return finalUrl;
 }

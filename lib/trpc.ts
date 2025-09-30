@@ -9,17 +9,31 @@ import { APP_CONFIG } from "@/constants/app-config";
 // React tRPC client for use in components
 export const trpc = createTRPCReact<AppRouter>();
 
-// Use centralized API_URL configuration
-const apiBase = getApiBase();
+// Use centralized API_URL configuration with fallback
+let apiBase: string;
+try {
+  apiBase = getApiBase();
+} catch (error) {
+  console.error('[tRPC] Error getting API base, using fallback:', error);
+  apiBase = 'https://eatrate.vercel.app';
+}
+
 const trpcPath = '/api/trpc';
 const trpcUrl = `${apiBase}${trpcPath}`;
 
 // Log API configuration on startup
 console.info('[tRPC] Final API URL:', trpcUrl);
 console.info('[tRPC] Base URL from getApiBase():', apiBase);
+console.info('[tRPC] Environment API_URL:', process.env.EXPO_PUBLIC_API_URL);
 if (Platform.OS === 'web') {
   const href = typeof window !== 'undefined' ? window.location.href : 'unknown';
   console.info('[tRPC] Web page:', href);
+}
+
+// Validate URL before proceeding
+if (trpcUrl.includes('exp.direct') || trpcUrl.includes('ngrok')) {
+  console.error('[tRPC] CRITICAL: Still using dev tunnel URL after config fix:', trpcUrl);
+  console.error('[tRPC] This indicates a caching issue. Please restart your development server.');
 }
 
 // Shared HTTP link configuration with React Native optimizations
@@ -42,6 +56,12 @@ const createHttpLink = () => httpLink({
 
     try {
       console.log('[tRPC] Making request to:', url);
+      
+      // Additional validation before making request
+      if (url.includes('exp.direct') || url.includes('ngrok')) {
+        console.error('[tRPC] BLOCKING request to dev tunnel URL:', url);
+        throw new Error('Dev tunnel URL detected. Please restart the app to use production URL.');
+      }
 
       const response = await fetch(url, {
         ...options,
