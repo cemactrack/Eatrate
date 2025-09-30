@@ -3,39 +3,23 @@ import { createTRPCClient, httpLink } from "@trpc/client";
 import type { AppRouter } from "@/backend/trpc/app-router";
 import superjson from "superjson";
 import { Platform } from "react-native";
-import { getApiBase } from "@/lib/config";
+import { API_URL } from "@/lib/config";
 import { APP_CONFIG } from "@/constants/app-config";
 
 // React tRPC client for use in components
 export const trpc = createTRPCReact<AppRouter>();
 
-// Use centralized API_URL configuration with fallback
-let apiBase: string;
-try {
-  apiBase = getApiBase();
-} catch (error) {
-  console.error('[tRPC] Error getting API base, using fallback:', error);
-  apiBase = 'https://eatrate.vercel.app';
-}
-
 const trpcPath = '/api/trpc';
-// On web, always use relative path to hit Expo Router API routes during development and Vercel at runtime
-const trpcUrl = Platform.OS === 'web' ? trpcPath : `${apiBase}${trpcPath}`;
+const base = (API_URL ?? '').trim();
+const trpcUrl = Platform.OS === 'web' ? trpcPath : `${base}${trpcPath}`;
 
-// Log API configuration on startup
+console.info('[Config]', { API_URL: base, SUPABASE_URL: undefined, HAS_ANON: undefined });
 console.info('[tRPC] Final API URL:', trpcUrl);
-console.info('[tRPC] Base URL from getApiBase():', apiBase);
-console.info('[tRPC] Environment API_URL:', process.env.EXPO_PUBLIC_API_URL);
 if (Platform.OS === 'web') {
   const href = typeof window !== 'undefined' ? window.location.href : 'unknown';
   console.info('[tRPC] Web page:', href);
 }
 
-// Validate URL before proceeding (native only)
-if (Platform.OS !== 'web' && (trpcUrl.includes('exp.direct') || trpcUrl.includes('ngrok'))) {
-  console.error('[tRPC] CRITICAL: Still using dev tunnel URL after config fix (native):', trpcUrl);
-  console.error('[tRPC] This indicates a caching issue. Please restart your development server.');
-}
 
 // Shared HTTP link configuration with React Native optimizations
 const createHttpLink = () => httpLink({
@@ -57,12 +41,6 @@ const createHttpLink = () => httpLink({
 
     try {
       console.log('[tRPC] Making request to:', url);
-      
-      // Additional validation before making request (native only)
-      if (Platform.OS !== 'web' && (url.includes('exp.direct') || url.includes('ngrok'))) {
-        console.error('[tRPC] BLOCKING request to dev tunnel URL:', url);
-        throw new Error('Dev tunnel URL detected. Please restart the app to use production URL.');
-      }
 
       const response = await fetch(url, {
         ...options,

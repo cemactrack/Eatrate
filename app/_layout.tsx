@@ -9,7 +9,8 @@ import { AppProviders } from "@/providers/AppProviders";
 import Colors from "@/constants/colors";
 import { APP_CONFIG } from "@/constants/app-config";
 import CustomSplashScreen from "@/components/SplashScreen";
-import { getApiBase } from "@/lib/config";
+import { API_URL, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/config";
+import NotificationToast from "@/components/NotificationToast";
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync();
@@ -244,18 +245,15 @@ function MobileBlockedScreen() {
 export default function RootLayout() {
   const [isReady, setIsReady] = useState<boolean>(false);
   const [showCustomSplash, setShowCustomSplash] = useState<boolean>(true);
+  const [missingEnvVisible, setMissingEnvVisible] = useState<boolean>(false);
 
   useEffect(() => {
-    // Log API configuration on startup
-    const apiBase = getApiBase();
-    console.info('[API Config] Final API URL:', apiBase);
-    console.info('[Config] Environment:', {
-      API_URL: process.env.EXPO_PUBLIC_API_URL,
-      SUPABASE_URL: Boolean(process.env.EXPO_PUBLIC_SUPABASE_URL),
-      SUPABASE_ANON_KEY: Boolean(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY),
-      NODE_ENV: process.env.NODE_ENV
-    });
-    
+    console.info("[Config]", { API_URL, SUPABASE_URL, HAS_ANON: Boolean(SUPABASE_ANON_KEY) });
+    const anyMissing = !API_URL || !SUPABASE_URL || !SUPABASE_ANON_KEY;
+    if (anyMissing) {
+      setMissingEnvVisible(true);
+    }
+
     const prepare = async () => {
       try {
         if (Platform.OS !== 'web') {
@@ -298,6 +296,14 @@ export default function RootLayout() {
   return (
     <AppProviders queryClient={queryClient} enableFeatures={true}>
       <RootLayoutNav />
+      <NotificationToast
+        type="error"
+        title="Missing env vars — check Expo EXPO_PUBLIC_*"
+        visible={missingEnvVisible}
+        onDismiss={() => setMissingEnvVisible(false)}
+        duration={5000}
+        testID="missing-env-toast"
+      />
     </AppProviders>
   );
 }
