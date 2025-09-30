@@ -19,7 +19,8 @@ try {
 }
 
 const trpcPath = '/api/trpc';
-const trpcUrl = `${apiBase}${trpcPath}`;
+// On web, always use relative path to hit Expo Router API routes during development and Vercel at runtime
+const trpcUrl = Platform.OS === 'web' ? trpcPath : `${apiBase}${trpcPath}`;
 
 // Log API configuration on startup
 console.info('[tRPC] Final API URL:', trpcUrl);
@@ -30,9 +31,9 @@ if (Platform.OS === 'web') {
   console.info('[tRPC] Web page:', href);
 }
 
-// Validate URL before proceeding
-if (trpcUrl.includes('exp.direct') || trpcUrl.includes('ngrok')) {
-  console.error('[tRPC] CRITICAL: Still using dev tunnel URL after config fix:', trpcUrl);
+// Validate URL before proceeding (native only)
+if (Platform.OS !== 'web' && (trpcUrl.includes('exp.direct') || trpcUrl.includes('ngrok'))) {
+  console.error('[tRPC] CRITICAL: Still using dev tunnel URL after config fix (native):', trpcUrl);
   console.error('[tRPC] This indicates a caching issue. Please restart your development server.');
 }
 
@@ -57,8 +58,8 @@ const createHttpLink = () => httpLink({
     try {
       console.log('[tRPC] Making request to:', url);
       
-      // Additional validation before making request
-      if (url.includes('exp.direct') || url.includes('ngrok')) {
+      // Additional validation before making request (native only)
+      if (Platform.OS !== 'web' && (url.includes('exp.direct') || url.includes('ngrok'))) {
         console.error('[tRPC] BLOCKING request to dev tunnel URL:', url);
         throw new Error('Dev tunnel URL detected. Please restart the app to use production URL.');
       }

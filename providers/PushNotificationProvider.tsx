@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import createContextHook from '@nkzw/create-context-hook';
 import { useAuth } from './AuthProvider';
 import { trpc } from '@/lib/trpc';
@@ -53,6 +54,14 @@ export const [PushNotificationProvider, usePushNotifications] = createContextHoo
       return null;
     }
 
+    const isExpoGo = (Constants.appOwnership === 'expo') || (Constants.executionEnvironment === 'storeClient');
+
+    if (isExpoGo) {
+      console.warn('[Push Notifications] Expo Go detected (SDK 53): remote push is not supported in Expo Go. Use a development build.');
+      showToast('Push not supported in Expo Go', 'Use a development build to test push notifications', 'warning');
+      return null;
+    }
+
     if (!Device.isDevice) {
       console.log('[Push Notifications] Must use physical device for Push Notifications');
       return null;
@@ -74,6 +83,7 @@ export const [PushNotificationProvider, usePushNotifications] = createContextHoo
 
       if (finalStatus !== 'granted') {
         console.log('[Push Notifications] Permission denied');
+        showToast('Notifications permission denied', 'Enable in Settings to receive notifications', 'warning');
         return null;
       }
 
@@ -85,9 +95,10 @@ export const [PushNotificationProvider, usePushNotifications] = createContextHoo
       return token.data;
     } catch (error) {
       console.error('[Push Notifications] Error getting push token:', error);
+      showToast('Failed to register for push', 'Please try again later', 'error');
       return null;
     }
-  }, []);
+  }, [showToast]);
 
   const requestPermission = useCallback(async () => {
     if (!user) {
