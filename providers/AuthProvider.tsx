@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import createContextHook from '@nkzw/create-context-hook';
 import { Alert } from 'react-native';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { useError } from '@/providers/ErrorProvider';
 
 export interface AuthContextUser {
   id: string;
@@ -21,13 +22,14 @@ interface AuthContextValue {
 export const [AuthProvider, useAuthInternal] = createContextHook<AuthContextValue>(() => {
   const [user, setUser] = useState<AuthContextUser | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const { showError } = useError();
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (!isSupabaseConfigured()) {
       const message = 'Authentication is not configured. Please check your environment variables.';
       console.error('[Auth] signIn failed:', message);
-      Alert.alert('Auth not configured', message);
-      return;
+      showError(message, 'error');
+      throw new Error(message);
     }
     
     try {
@@ -45,14 +47,14 @@ export const [AuthProvider, useAuthInternal] = createContextHook<AuthContextValu
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showError]);
 
   const signUp = useCallback(async (email: string, password: string) => {
     if (!isSupabaseConfigured()) {
       const message = 'Authentication is not configured. Please check your environment variables.';
       console.error('[Auth] signUp failed:', message);
-      Alert.alert('Auth not configured', message);
-      return;
+      showError(message, 'error');
+      throw new Error(message);
     }
     
     try {
@@ -71,7 +73,7 @@ export const [AuthProvider, useAuthInternal] = createContextHook<AuthContextValu
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showError]);
 
   const signOut = useCallback(async () => {
     if (!isSupabaseConfigured()) {
