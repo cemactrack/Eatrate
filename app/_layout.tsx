@@ -9,7 +9,7 @@ import { AppProviders } from "@/providers/AppProviders";
 import Colors from "@/constants/colors";
 import { APP_CONFIG } from "@/constants/app-config";
 import CustomSplashScreen from "@/components/SplashScreen";
-import { API_URL, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/config";
+import { API_URL, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/env";
 import NotificationToast from "@/components/NotificationToast";
 
 if (Platform.OS !== 'web') {
