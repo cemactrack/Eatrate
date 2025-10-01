@@ -1,18 +1,40 @@
-import { API_URL, SUPABASE_URL, SUPABASE_ANON_KEY } from '@/lib/config';
+import { getAPI_URL, getSUPABASE_URL, getSUPABASE_ANON_KEY } from '@/lib/config';
+
+function getBaseUrl() {
+  try {
+    return getAPI_URL();
+  } catch {
+    return '';
+  }
+}
+
+function getSupabaseConfig() {
+  try {
+    return {
+      url: getSUPABASE_URL(),
+      anonKey: getSUPABASE_ANON_KEY(),
+    };
+  } catch {
+    return {
+      url: '',
+      anonKey: '',
+    };
+  }
+}
 
 export const APP_CONFIG = {
   name: 'EatRate',
   version: '1.0.0',
   api: {
-    baseUrl: API_URL,
+    get baseUrl() { return getBaseUrl(); },
     timeout: 45000,
     retryAttempts: 2,
     staleTime: 30 * 60 * 1000,
     cacheTime: 45 * 60 * 1000,
   },
   supabase: {
-    url: SUPABASE_URL ?? '',
-    anonKey: SUPABASE_ANON_KEY ?? '',
+    get url() { return getSupabaseConfig().url; },
+    get anonKey() { return getSupabaseConfig().anonKey; },
   },
   features: {
     enablePerformanceMonitoring: __DEV__,

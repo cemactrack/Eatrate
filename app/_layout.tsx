@@ -7,7 +7,7 @@ import { AppProviders } from "@/providers/AppProviders";
 import Colors from "@/constants/colors";
 import { APP_CONFIG } from "@/constants/app-config";
 import CustomSplashScreen from "@/components/SplashScreen";
-import { API_URL, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/env";
+import { getEnv } from "@/lib/env";
 import NotificationToast from "@/components/NotificationToast";
 
 if (Platform.OS !== 'web') {
@@ -225,9 +225,11 @@ export default function RootLayout() {
   const [missingEnvVisible, setMissingEnvVisible] = useState<boolean>(false);
 
   useEffect(() => {
-    console.info("[Config]", { API_URL, SUPABASE_URL, HAS_ANON: Boolean(SUPABASE_ANON_KEY) });
-    const anyMissing = !API_URL || !SUPABASE_URL || !SUPABASE_ANON_KEY;
-    if (anyMissing) {
+    try {
+      const env = getEnv();
+      console.info("[Config]", { API_URL: env.API_URL, SUPABASE_URL: env.SUPABASE_URL, HAS_ANON: Boolean(env.SUPABASE_ANON_KEY) });
+    } catch (error) {
+      console.error('[Config] Failed to load env vars:', error);
       setMissingEnvVisible(true);
     }
 

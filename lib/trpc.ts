@@ -3,17 +3,24 @@ import { createTRPCClient, httpLink } from "@trpc/client";
 import type { AppRouter } from "@/backend/trpc/app-router";
 import superjson from "superjson";
 import { Platform } from "react-native";
-import { API_URL } from "@/lib/config";
+import { getAPI_URL } from "@/lib/config";
 import { APP_CONFIG } from "@/constants/app-config";
 
 // React tRPC client for use in components
 export const trpc = createTRPCReact<AppRouter>();
 
-const trpcPath = '/api/trpc';
-const base = (API_URL ?? '').trim();
-const trpcUrl = Platform.OS === 'web' ? trpcPath : `${base}${trpcPath}`;
+function getTrpcUrl() {
+  const trpcPath = '/api/trpc';
+  try {
+    const base = getAPI_URL().trim();
+    return Platform.OS === 'web' ? trpcPath : `${base}${trpcPath}`;
+  } catch (error) {
+    console.error('[tRPC] Failed to get API URL:', error);
+    return trpcPath;
+  }
+}
 
-console.info('[Config]', { API_URL: base, SUPABASE_URL: undefined, HAS_ANON: undefined });
+const trpcUrl = getTrpcUrl();
 console.info('[tRPC] Final API URL:', trpcUrl);
 if (Platform.OS === 'web') {
   const href = typeof window !== 'undefined' ? window.location.href : 'unknown';
