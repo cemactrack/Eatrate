@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView, KeyboardAvoidingView, Platform, Animated } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView, KeyboardAvoidingView, Platform, Animated, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Phone, ArrowRight, Eye, EyeOff, Shield, Sparkles } from 'lucide-react-native';
 import Colors, { gradients } from '@/constants/colors';
 import { useAuth } from '@/providers/AuthProvider';
 import { useRouter } from 'expo-router';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmallScreen = SCREEN_WIDTH < 375;
+const isMediumScreen = SCREEN_WIDTH >= 375 && SCREEN_WIDTH < 768;
+const isLargeScreen = SCREEN_WIDTH >= 768;
 
 // Cross-platform alert function
 const showAlert = (title: string, message: string, onPress?: () => void) => {
@@ -244,12 +249,16 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: isLargeScreen ? 48 : isSmallScreen ? 16 : 24,
     paddingBottom: 40,
+    maxWidth: isLargeScreen ? 600 : '100%',
+    width: '100%',
+    alignSelf: 'center',
   },
   content: {
     flex: 1,
     justifyContent: 'center',
+    minHeight: isSmallScreen ? 500 : 600,
   },
   header: {
     alignItems: 'center',
