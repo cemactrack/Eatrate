@@ -1,10 +1,8 @@
 import { QueryClient } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { Platform } from "react-native";
+import { Platform, StyleSheet, View, ActivityIndicator } from "react-native";
 import React, { useEffect, useState, useMemo } from "react";
-import { StyleSheet, View, ActivityIndicator, Text } from "react-native";
-import { useSettings } from "@/providers/SettingsProvider";
 import { AppProviders } from "@/providers/AppProviders";
 import Colors from "@/constants/colors";
 import { APP_CONFIG } from "@/constants/app-config";
@@ -36,15 +34,11 @@ const queryClient = new QueryClient({
 });
 
 function ThemedStack() {
-  const { colors } = useSettings();
-  
   const screenOptions = useMemo(() => ({
     headerBackTitle: "Back",
-    headerStyle: { backgroundColor: colors.background },
-    headerTintColor: colors.text,
     headerTitleStyle: { fontWeight: '700' as const },
     animation: 'slide_from_right' as const,
-  }), [colors]);
+  }), []);
   
   return (
     <Stack screenOptions={screenOptions}>
@@ -225,23 +219,6 @@ function RootLayoutNav() {
   return <ThemedStack />;
 }
 
-function MobileBlockedScreen() {
-  return (
-    <View style={[styles.container, styles.blocked]} testID="web-blocked">
-      <View style={styles.blockedCard}>
-        <ActivityIndicator size="large" color={Colors.light.tint} />
-        <Text style={styles.blockedTitle}>📱 Mobile Experience</Text>
-        <Text style={styles.blockedSubtitle}>
-          {APP_CONFIG.name} is optimized for mobile devices. Scan the QR code to open in Expo Go on your phone.
-        </Text>
-        <Text style={styles.blockedHint}>
-          For the best experience, use your mobile device.
-        </Text>
-      </View>
-    </View>
-  );
-}
-
 export default function RootLayout() {
   const [isReady, setIsReady] = useState<boolean>(false);
   const [showCustomSplash, setShowCustomSplash] = useState<boolean>(true);
@@ -316,44 +293,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: Colors.light.background,
-  },
-  blocked: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.light.background,
-    paddingHorizontal: 24,
-  },
-  blockedCard: {
-    width: '100%',
-    maxWidth: 420,
-    borderRadius: 16,
-    padding: 20,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
-    gap: 12,
-  },
-  blockedTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.light.text,
-  },
-  blockedSubtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6b7280',
-    lineHeight: 20,
-    textAlign: 'center',
-  },
-  blockedHint: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: '#9ca3af',
-    lineHeight: 16,
-    textAlign: 'center',
-    marginTop: 8,
   },
 });
