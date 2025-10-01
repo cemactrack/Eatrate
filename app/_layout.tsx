@@ -9,6 +9,7 @@ import { APP_CONFIG } from "@/constants/app-config";
 import CustomSplashScreen from "@/components/SplashScreen";
 import { getEnv } from "@/lib/env";
 import NotificationToast from "@/components/NotificationToast";
+import EnvBanner from "@/components/EnvBanner";
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync();
@@ -274,6 +275,7 @@ export default function RootLayout() {
 
   return (
     <AppProviders queryClient={queryClient} enableFeatures={true}>
+      <EnvBanner />
       <RootLayoutNav />
       <NotificationToast
         type="error"
