@@ -11,7 +11,7 @@ export default function EnvBanner() {
   let error: string | null = null;
 
   try {
-    env = getEnv();
+    env = getEnv(false);
   } catch (e) {
     error = e instanceof Error ? e.message : 'Unknown error';
   }
@@ -27,15 +27,15 @@ export default function EnvBanner() {
   if (!env) return null;
 
   const maskKey = (key: string) => {
-    if (key.length < 20) return '***';
+    if (!key || key.length < 20) return '***';
     return key.slice(0, 10) + '...' + key.slice(-10);
   };
 
   return (
     <View style={styles.banner}>
-      <Text style={styles.text}>🔧 API: {env.API_URL}</Text>
-      <Text style={styles.text}>🗄️ Supabase: {env.SUPABASE_URL}</Text>
-      <Text style={styles.text}>🔑 Anon Key: {maskKey(env.SUPABASE_ANON_KEY)}</Text>
+      <Text style={styles.text}>🔧 API: {env.API_URL || 'NOT SET'}</Text>
+      <Text style={styles.text}>🗄️ Supabase: {env.SUPABASE_URL || 'NOT SET'}</Text>
+      <Text style={styles.text}>🔑 Anon Key: {env.SUPABASE_ANON_KEY ? maskKey(env.SUPABASE_ANON_KEY) : 'NOT SET'}</Text>
     </View>
   );
 }

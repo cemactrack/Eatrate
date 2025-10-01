@@ -15,9 +15,17 @@ let supabaseClient: ReturnType<typeof createClient> | null = null;
 
 export const getSupabase = () => {
   if (!supabaseClient) {
-    supabaseClient = createClient(getSUPABASE_URL(), getSUPABASE_ANON_KEY());
+    const url = getSUPABASE_URL();
+    const key = getSUPABASE_ANON_KEY();
+    console.log('[supabase] Initializing client with URL:', url?.substring(0, 30) + '...');
+    supabaseClient = createClient(url, key);
   }
   return supabaseClient;
 };
 
-export const supabase = getSupabase();
+export const supabase = new Proxy({} as ReturnType<typeof createClient>, {
+  get(target, prop) {
+    const client = getSupabase();
+    return (client as any)[prop];
+  }
+});

@@ -227,8 +227,17 @@ export default function RootLayout() {
 
   useEffect(() => {
     try {
-      const env = getEnv();
-      console.info("[Config]", { API_URL: env.API_URL, SUPABASE_URL: env.SUPABASE_URL, HAS_ANON: Boolean(env.SUPABASE_ANON_KEY) });
+      const env = getEnv(false);
+      console.info("[Config]", { 
+        API_URL: env.API_URL || 'NOT SET', 
+        SUPABASE_URL: env.SUPABASE_URL || 'NOT SET', 
+        HAS_ANON: Boolean(env.SUPABASE_ANON_KEY) 
+      });
+      
+      if (!env.API_URL || !env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) {
+        console.warn('[Config] Some env vars are missing');
+        setMissingEnvVisible(true);
+      }
     } catch (error) {
       console.error('[Config] Failed to load env vars:', error);
       setMissingEnvVisible(true);
