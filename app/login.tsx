@@ -7,8 +7,18 @@ import Colors, { gradients } from '@/constants/colors';
 import { useAuth } from '@/providers/AuthProvider';
 import { useRouter } from 'expo-router';
 
+// Cross-platform alert function
+const showAlert = (title: string, message: string, onPress?: () => void) => {
+  if (Platform.OS === 'web') {
+    alert(`${title}\n\n${message}`);
+    if (onPress) onPress();
+  } else {
+    Alert.alert(title, message, onPress ? [{ text: 'OK', onPress }] : undefined);
+  }
+};
+
 export default function LoginScreen() {
-  const { loginWithEmail, loginWithPhone } = useAuth();
+  const { signIn } = useAuth();
   const [mode, setMode] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
@@ -31,18 +41,40 @@ export default function LoginScreen() {
   const onSubmit = async () => {
     const value = mode === 'email' ? email : phone;
     console.log('[LoginScreen] submit', { mode, hasValue: !!value });
+    
     if (!value || !password) {
-      Alert.alert('Missing Information', 'Please fill in all fields.');
+      showAlert('Missing Information', 'Please fill in all fields.');
       return;
     }
+    
+    if (mode === 'phone') {
+      showAlert('Not Supported', 'Phone login is not yet supported. Please use email login.');
+      return;
+    }
+    
     setIsLoading(true);
     try {
-      if (mode === 'email') await loginWithEmail(email);
-      else await loginWithPhone(phone);
-      router.replace('/(tabs)/home' as const);
-    } catch (e) {
+      console.log('[LoginScreen] Calling signIn with email:', email);
+      await signIn(email, password);
+      
+      // Show success message
+      showAlert(
+        'Welcome Back!', 
+        'You have successfully signed in.',
+        () => router.replace('/(tabs)/home' as any)
+      );
+    } catch (e: any) {
       console.error('[LoginScreen] login error', e);
-      Alert.alert('Login Error', 'Invalid credentials. Please try again.');
+      let errorMessage = e?.message || 'Invalid credentials. Please try again.';
+      
+      // Handle specific error cases
+      if (errorMessage.includes('Email not confirmed')) {
+        errorMessage = 'Please verify your email address before signing in. Check your inbox for the verification link.';
+      } else if (errorMessage.includes('Invalid login credentials')) {
+        errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+      }
+      
+      showAlert('Sign In Failed', errorMessage);
     } finally {
       setIsLoading(false);
     }

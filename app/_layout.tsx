@@ -9,7 +9,6 @@ import { APP_CONFIG } from "@/constants/app-config";
 import CustomSplashScreen from "@/components/SplashScreen";
 import { getEnv } from "@/lib/env";
 import NotificationToast from "@/components/NotificationToast";
-import EnvBanner from "@/components/EnvBanner";
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync();
@@ -60,6 +59,22 @@ function ThemedStack() {
       />
       <Stack.Screen 
         name="welcome" 
+        options={{ 
+          headerShown: false,
+          gestureEnabled: false,
+          animation: 'fade',
+        }} 
+      />
+      <Stack.Screen 
+        name="login" 
+        options={{ 
+          headerShown: false,
+          gestureEnabled: false,
+          animation: 'fade',
+        }} 
+      />
+      <Stack.Screen 
+        name="signup" 
         options={{ 
           headerShown: false,
           gestureEnabled: false,
@@ -284,7 +299,6 @@ export default function RootLayout() {
 
   return (
     <AppProviders queryClient={queryClient} enableFeatures={true}>
-      <EnvBanner />
       <RootLayoutNav />
       <NotificationToast
         type="error"

@@ -7,9 +7,19 @@ import Colors, { gradients } from '@/constants/colors';
 import { useAuth } from '@/providers/AuthProvider';
 import { useRouter } from 'expo-router';
 
+// Cross-platform alert function
+const showAlert = (title: string, message: string, onPress?: () => void) => {
+  if (Platform.OS === 'web') {
+    alert(`${title}\n\n${message}`);
+    if (onPress) onPress();
+  } else {
+    Alert.alert(title, message, onPress ? [{ text: 'OK', onPress }] : undefined);
+  }
+};
+
 export default function SignupScreen() {
   const authContext = useAuth();
-  const { loginWithEmail, loginWithPhone } = authContext || { loginWithEmail: async () => {}, loginWithPhone: async () => {} };
+  const { signUp } = authContext || { signUp: async () => {} };
   const [mode, setMode] = useState<'email' | 'phone'>('email');
   const [firstName, setFirstName] = useState<string>('');
   const [lastName, setLastName] = useState<string>('');
@@ -36,33 +46,33 @@ export default function SignupScreen() {
 
   const validateForm = () => {
     if (!firstName.trim() || !lastName.trim()) {
-      Alert.alert('Missing Information', 'Please enter your first and last name.');
+      showAlert('Missing Information', 'Please enter your first and last name.');
       return false;
     }
     
     const value = mode === 'email' ? email : phone;
     if (!value.trim()) {
-      Alert.alert('Missing Information', `Please enter your ${mode}.`);
+      showAlert('Missing Information', `Please enter your ${mode}.`);
       return false;
     }
     
     if (mode === 'email' && !email.includes('@')) {
-      Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      showAlert('Invalid Email', 'Please enter a valid email address.');
       return false;
     }
     
     if (password.length < 6) {
-      Alert.alert('Weak Password', 'Password must be at least 6 characters long.');
+      showAlert('Weak Password', 'Password must be at least 6 characters long.');
       return false;
     }
     
     if (password !== confirmPassword) {
-      Alert.alert('Password Mismatch', 'Passwords do not match.');
+      showAlert('Password Mismatch', 'Passwords do not match.');
       return false;
     }
     
     if (!agreedToTerms) {
-      Alert.alert('Terms Required', 'Please agree to the Terms of Service and Privacy Policy.');
+      showAlert('Terms Required', 'Please agree to the Terms of Service and Privacy Policy.');
       return false;
     }
     
@@ -70,30 +80,48 @@ export default function SignupScreen() {
   };
 
   const onSubmit = async () => {
-    console.log('[SignupScreen] submit', { mode, hasValue: !!(mode === 'email' ? email : phone) });
+    console.log('[SignupScreen] submit', { mode, email, firstName, lastName });
     
     if (!validateForm()) return;
     
+    if (mode === 'phone') {
+      showAlert('Not Supported', 'Phone signup is not yet supported. Please use email signup.');
+      return;
+    }
+    
     setIsLoading(true);
     try {
-      // In a real app, you'd call a signup API here
-      // For now, we'll just simulate the signup and then login
-      await new Promise<void>(resolve => setTimeout(() => resolve(), 1500)); // Simulate API call
+      const fullName = `${firstName.trim()} ${lastName.trim()}`;
+      console.log('[SignupScreen] Calling signUp with email:', email, 'name:', fullName);
+      await signUp(email, password, fullName);
       
-      if (mode === 'email') await loginWithEmail(email);
-      else await loginWithPhone(phone);
-      
-      router.replace('/(tabs)/home' as const);
-    } catch (e) {
+      // Show success message
+      showAlert(
+        'Account Created!', 
+        'Please check your email to verify your account before signing in.',
+        () => router.replace('/login')
+      );
+    } catch (e: any) {
       console.error('[SignupScreen] signup error', e);
-      Alert.alert('Signup Error', 'Something went wrong. Please try again.');
+      let errorMessage = e?.message || 'Something went wrong. Please try again.';
+      
+      // Handle specific error cases
+      if (errorMessage.includes('User already registered')) {
+        errorMessage = 'An account with this email already exists. Please sign in or use a different email.';
+      } else if (errorMessage.includes('Password should be at least')) {
+        errorMessage = 'Password is too weak. Please use at least 6 characters.';
+      } else if (errorMessage.includes('Invalid email')) {
+        errorMessage = 'Please enter a valid email address.';
+      }
+      
+      showAlert('Signup Failed', errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
   const navigateToLogin = () => {
-    router.back();
+    router.push('/login');
   };
 
   const isFormValid = () => {

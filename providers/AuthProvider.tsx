@@ -15,7 +15,7 @@ interface AuthContextValue {
   user: AuthContextUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, fullName?: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -49,7 +49,7 @@ export const [AuthProvider, useAuthInternal] = createContextHook<AuthContextValu
     }
   }, [showError]);
 
-  const signUp = useCallback(async (email: string, password: string) => {
+  const signUp = useCallback(async (email: string, password: string, fullName?: string) => {
     if (!isSupabaseConfigured()) {
       const message = 'Authentication is not configured. Please check your environment variables.';
       console.error('[Auth] signUp failed:', message);
@@ -59,17 +59,23 @@ export const [AuthProvider, useAuthInternal] = createContextHook<AuthContextValu
     
     try {
       setLoading(true);
-      const { error } = await supabase!.auth.signUp({ email, password });
+      const { error, data } = await supabase!.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          data: {
+            full_name: fullName || email.split('@')[0],
+          }
+        }
+      });
       if (error) {
         console.error('[Auth] signUp error:', error.message);
-        Alert.alert('Sign up failed', error.message);
-        return;
+        throw error;
       }
-      console.log('[Auth] signUp successful - check email for confirmation');
-      Alert.alert('Check your email', 'We sent you a confirmation link.');
-    } catch (err) {
+      console.log('[Auth] signUp successful - check email for confirmation', { userId: data.user?.id });
+    } catch (err: any) {
       console.error('[Auth] signUp unexpected error:', err);
-      Alert.alert('Sign up failed', 'An unexpected error occurred. Please try again.');
+      throw err;
     } finally {
       setLoading(false);
     }
