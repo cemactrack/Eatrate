@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
@@ -7,7 +7,6 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useAuth } from './AuthProvider';
 import { trpc } from '@/lib/trpc';
 import NotificationToast, { ToastType } from '@/components/NotificationToast';
-import React from "react";
 
 interface PushNotificationContextValue {
   expoPushToken: string | null;
@@ -18,14 +17,30 @@ interface PushNotificationContextValue {
   ToastComponent: React.ReactNode;
 }
 
-// Configure notification handler for foreground notifications
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+const isExpoGo = () => {
+  return (Constants.appOwnership === 'expo') || (Constants.executionEnvironment === 'storeClient');
+};
+
+const canUseNotifications = () => {
+  if (Platform.OS === 'web') return false;
+  if (isExpoGo()) return false;
+  if (!Device.isDevice) return false;
+  return true;
+};
+
+if (canUseNotifications()) {
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    });
+  } catch (error) {
+    console.warn('[Push Notifications] Failed to set notification handler:', error);
+  }
+}
 
 export const [PushNotificationProvider, usePushNotifications] = createContextHook<PushNotificationContextValue>(() => {
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
@@ -49,21 +64,14 @@ export const [PushNotificationProvider, usePushNotifications] = createContextHoo
   }, []);
 
   const registerForPushNotificationsAsync = useCallback(async (): Promise<string | null> => {
-    if (Platform.OS === 'web') {
-      console.log('[Push Notifications] Web platform - push notifications not supported');
-      return null;
-    }
-
-    const isExpoGo = (Constants.appOwnership === 'expo') || (Constants.executionEnvironment === 'storeClient');
-
-    if (isExpoGo) {
-      console.warn('[Push Notifications] Expo Go detected (SDK 53): remote push is not supported in Expo Go. Use a development build.');
-      showToast('Push not supported in Expo Go', 'Use a development build to test push notifications', 'warning');
-      return null;
-    }
-
-    if (!Device.isDevice) {
-      console.log('[Push Notifications] Must use physical device for Push Notifications');
+    if (!canUseNotifications()) {
+      if (Platform.OS === 'web') {
+        console.log('[Push Notifications] Web platform - push notifications not supported');
+      } else if (isExpoGo()) {
+        console.warn('[Push Notifications] Expo Go detected (SDK 53): remote push is not supported in Expo Go. Use a development build.');
+      } else if (!Device.isDevice) {
+        console.log('[Push Notifications] Must use physical device for Push Notifications');
+      }
       return null;
     }
 
@@ -125,7 +133,7 @@ export const [PushNotificationProvider, usePushNotifications] = createContextHoo
 
   // Initialize push notifications when user logs in
   useEffect(() => {
-    if (user && !expoPushToken && Platform.OS !== 'web') {
+    if (user && !expoPushToken && canUseNotifications()) {
       console.log('[Push Notifications] User authenticated - requesting push notification permission');
       requestPermission();
     }
@@ -133,7 +141,7 @@ export const [PushNotificationProvider, usePushNotifications] = createContextHoo
 
   // Set up notification listeners
   useEffect(() => {
-    if (Platform.OS === 'web') {
+    if (!canUseNotifications()) {
       return;
     }
 
