@@ -34,16 +34,9 @@ export const getPostsProcedure = publicProcedure.query(async () => {
         profiles!posts_user_id_fkey (
           id,
           display_name,
-          avatar_url,
-          bio
-        ),
-        restaurants (
-          id,
-          name,
-          address
+          avatar_url
         )
       `)
-      .eq('status', 'published')
       .order('created_at', { ascending: false })
       .limit(20);
 
@@ -52,45 +45,41 @@ export const getPostsProcedure = publicProcedure.query(async () => {
       return { posts: [], message: 'Failed to fetch posts' };
     }
 
-    const mapped = (posts || []).map((p) => {
+    const mapped = (posts || []).map((p: any) => {
       const profile = p.profiles;
       return {
-        id: p.id,
+        id: p.id || p.user_id,
         userId: p.user_id,
         user: {
           id: p.user_id,
           username: profile?.display_name?.toLowerCase().replace(/\s+/g, '_') || `user_${p.user_id.slice(-6)}`,
           displayName: profile?.display_name || `User ${p.user_id.slice(-6)}`,
           avatar: profile?.avatar_url || avatarFor(parseInt(p.user_id.slice(-6), 36) || 0),
-          bio: profile?.bio || '',
-          followersCount: 0, // TODO: Calculate from follows table
-          followingCount: 0, // TODO: Calculate from follows table
-          postsCount: 0, // TODO: Calculate from posts table
+          bio: '',
+          followersCount: 0,
+          followingCount: 0,
+          postsCount: 0,
           badges: [],
           preferences: { cuisines: [], dietaryRestrictions: [], priceRange: [] },
         },
         type: p.type || 'review' as const,
         content: {
-          text: p.content || '',
-          images: p.images || [],
+          text: p.text || '',
+          images: [],
         },
-        restaurant: p.restaurants ? {
-          id: p.restaurants.id,
-          name: p.restaurants.name,
-          location: p.restaurants.address,
-        } : undefined,
+        restaurant: undefined,
         ratings: {
-          food: p.rating_food || 0,
-          service: p.rating_service || 0,
-          ambiance: p.rating_ambiance || 0,
-          cleanliness: p.rating_cleanliness || 0,
-          overall: p.rating_overall || 0,
+          food: 0,
+          service: 0,
+          ambiance: 0,
+          cleanliness: 0,
+          overall: 0,
         },
-        tags: p.tags || [],
-        likesCount: p.likes_count || 0,
-        commentsCount: p.comments_count || 0,
-        sharesCount: p.shares_count || 0,
-        isLiked: false, // TODO: Check if current user liked this post
+        tags: [],
+        likesCount: 0,
+        commentsCount: 0,
+        sharesCount: 0,
+        isLiked: false,
         createdAt: p.created_at,
       };
     });
@@ -122,26 +111,13 @@ export const createPostProcedure = protectedProcedure
         throw new Error('Supabase admin client not configured');
       }
 
-      const overall = Math.round((input.ratings.food * 0.4 + input.ratings.service * 0.3 + input.ratings.ambiance * 0.2 + input.ratings.cleanliness * 0.1) * 10) / 10;
-
+      // Note: Actual schema only has: user_id, text, type, created_at
       const { data: post, error } = await supabaseAdmin
         .from('posts')
         .insert({
           user_id: ctx.user!.id,
-          content: input.text,
-          restaurant_id: input.restaurantId || null,
-          images: input.images || [],
-          rating_food: input.ratings.food,
-          rating_service: input.ratings.service,
-          rating_ambiance: input.ratings.ambiance,
-          rating_cleanliness: input.ratings.cleanliness,
-          rating_overall: overall,
-          tags: input.tags || [],
+          text: input.text,
           type: 'review',
-          status: 'published',
-          likes_count: 0,
-          comments_count: 0,
-          shares_count: 0,
         })
         .select('id')
         .single();
@@ -170,17 +146,13 @@ export const createStatusProcedure = protectedProcedure
         throw new Error('Supabase admin client not configured');
       }
 
+      // Note: Actual schema only has: user_id, text, type, created_at
       const { data: post, error } = await supabaseAdmin
         .from('posts')
         .insert({
           user_id: ctx.user!.id,
-          content: input.text || '',
-          images: input.image ? [input.image] : [],
+          text: input.text || '',
           type: 'story',
-          status: 'published',
-          likes_count: 0,
-          comments_count: 0,
-          shares_count: 0,
         })
         .select('id')
         .single();
@@ -214,7 +186,7 @@ export const getRestaurantsProcedure = publicProcedure.query(async () => {
       return { restaurants: [], message: 'Failed to fetch restaurants' };
     }
 
-    const mapped = (restaurants || []).map((r) => ({
+    const mapped = (restaurants || []).map((r: any) => ({
       id: r.id,
       name: r.name,
       cuisine: r.cuisine || 'International',
@@ -222,11 +194,12 @@ export const getRestaurantsProcedure = publicProcedure.query(async () => {
       reviewCount: r.review_count || 0,
       image: r.image_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop',
       address: r.address || '',
+      city: r.city || '',
       priceRange: r.price_range || '$' as const,
       isOpen: r.is_open ?? true,
       tags: r.tags || [],
-      verified: r.verified || false,
-      claimed: r.claimed || false,
+      verified: r.verified ?? false,
+      claimed: r.claimed ?? false,
     }));
 
     return { restaurants: mapped, message: 'Restaurants fetched successfully' };
@@ -253,8 +226,7 @@ export const getCommentsProcedure = publicProcedure
           profiles!comments_user_id_fkey (
             id,
             display_name,
-            avatar_url,
-            bio
+            avatar_url
           )
         `)
         .eq('post_id', input.postId)
@@ -277,7 +249,7 @@ export const getCommentsProcedure = publicProcedure
             username: profile?.display_name?.toLowerCase().replace(/\s+/g, '_') || `user_${c.user_id.slice(-6)}`,
             displayName: profile?.display_name || `User ${c.user_id.slice(-6)}`,
             avatar: profile?.avatar_url || avatarFor(parseInt(c.user_id.slice(-6), 36) || 0),
-            bio: profile?.bio || '',
+            bio: '',
             followersCount: 0,
             followingCount: 0,
             postsCount: 0,
@@ -383,7 +355,7 @@ export const getUsersProcedure = publicProcedure.query(async () => {
       username: p.display_name?.toLowerCase().replace(/\s+/g, '_') || `user_${p.id.slice(-6)}`,
       displayName: p.display_name || `User ${p.id.slice(-6)}`,
       avatar: p.avatar_url || avatarFor(parseInt(p.id.slice(-6), 36) || 0),
-      bio: p.bio || '',
+      bio: '',
       followersCount: 0, // TODO: Calculate from follows table
       followingCount: 0, // TODO: Calculate from follows table
       postsCount: 0, // TODO: Calculate from posts table

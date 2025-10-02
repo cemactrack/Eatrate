@@ -46,10 +46,20 @@ export const listRestaurantsProcedure = publicProcedure
     const { data: restaurants, error } = await query.order('rating', { ascending: false });
 
     if (error) {
-      console.error('Error fetching restaurants:', error);
-      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to fetch restaurants' });
+      console.error('[tRPC] restaurants.list error:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        filters: { city: input.city, cuisine: input.cuisine }
+      });
+      throw new TRPCError({ 
+        code: 'INTERNAL_SERVER_ERROR', 
+        message: `Failed to fetch restaurants: ${error.message}` 
+      });
     }
 
+    console.log(`[tRPC] restaurants.list: Found ${restaurants?.length || 0} restaurants`);
     return restaurants || [];
   });
 

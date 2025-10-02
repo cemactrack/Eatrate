@@ -2,6 +2,7 @@ import { z } from "zod";
 import { publicProcedure, protectedProcedure } from "@/backend/trpc/create-context";
 import { observable } from '@trpc/server/observable';
 import { EventEmitter } from 'events';
+import { supabaseAdmin } from "@/backend/supabase-admin";
 
 // Real-time events emitter
 const feedEvents = new EventEmitter();
@@ -15,6 +16,16 @@ export const emitNewPost = (post: any) => {
   feedEvents.emit('newPost', post);
 };
 
+function avatarFor(id: number): string {
+  const pool = [
+    'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=200&h=200&fit=crop',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop',
+    'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop',
+    'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop',
+  ];
+  return pool[id % pool.length] ?? pool[0];
+}
+
 export const getPostFeedProcedure = publicProcedure
   .input(z.object({
     type: z.enum(['trending', 'recent', 'following', 'local']).default('recent'),
@@ -23,90 +34,121 @@ export const getPostFeedProcedure = publicProcedure
     limit: z.number().min(1).max(50).default(20),
     cursor: z.string().optional(),
   }))
-  .query(async ({ input }) => {
+  .query(async ({ input, ctx }) => {
     console.log('[tRPC] getPostFeedProcedure called with:', input);
     
-    const offset = input.cursor ? parseInt(input.cursor) : 0;
-    
-    // Ensure we don't exceed reasonable limits
-    const maxPosts = 1000;
-    const actualLimit = Math.min(input.limit, 50);
-    
-    // Mock feed data
-    const mockPosts = Array.from({ length: actualLimit }, (_, i) => {
-      const postId = offset + i + 1;
-      return {
-        id: String(postId),
-        userId: String((postId % 10) + 1),
-        user: {
-          id: String((postId % 10) + 1),
-          username: `foodie_${(postId % 10) + 1}`,
-          displayName: `Food Lover ${(postId % 10) + 1}`,
-          avatar: `https://images.unsplash.com/photo-${1494790108755 + (postId % 10)}?w=200&h=200&fit=crop`,
-          bio: 'Passionate about great food and experiences',
-          followersCount: 100 + (postId % 1000),
-          followingCount: 50 + (postId % 500),
-          postsCount: 10 + (postId % 100),
-          badges: postId % 5 === 0 ? ['Top Reviewer'] : [],
-          preferences: { cuisines: ['Italian', 'Asian'], dietaryRestrictions: [], priceRange: ['$$', '$$$'] },
-        },
-        type: ['review', 'photo', 'video', 'story'][postId % 4] as 'review' | 'photo' | 'video' | 'story',
-        content: {
-          text: `Amazing food experience at this place! Post ${postId}. The flavors were incredible and the service was top-notch. Highly recommend trying their signature dishes.`,
-          images: [
-            `https://picsum.photos/seed/food${postId}/800/600`,
-            ...(postId % 3 === 0 ? [`https://picsum.photos/seed/food${postId}b/800/600`] : []),
-          ],
-          videos: postId % 7 === 0 ? [`https://sample-videos.com/zip/10/mp4/SampleVideo_${postId % 3 + 1}280x720_1mb.mp4`] : [],
-        },
-        restaurant: postId % 2 === 0 ? {
-          id: String((postId % 20) + 1),
-          name: `Restaurant ${(postId % 20) + 1}`,
-          location: ['Douala', 'Yaoundé', 'Buea', 'Limbe'][postId % 4],
-        } : undefined,
-        dish: postId % 3 === 0 ? {
-          id: String((postId % 30) + 1),
-          name: `Delicious Dish ${(postId % 30) + 1}`,
-        } : undefined,
-        ratings: {
-          food: 3 + (postId % 3),
-          service: 3 + ((postId + 1) % 3),
-          ambiance: 3 + ((postId + 2) % 3),
-          cleanliness: 4 + (postId % 2),
-          overall: 3.5 + ((postId % 3) * 0.5),
-        },
-        tags: [
-          'delicious',
-          ['italian', 'asian', 'african', 'french'][postId % 4],
-          ...(postId % 5 === 0 ? ['must-try', 'recommended'] : []),
-        ],
-        location: postId % 4 === 0 ? {
-          latitude: 4.0511 + (postId % 100) * 0.001,
-          longitude: 9.7679 + (postId % 100) * 0.001,
-          address: `${postId} Food Street, Douala`,
-        } : undefined,
-        likesCount: 10 + (postId % 200),
-        commentsCount: 2 + (postId % 50),
-        sharesCount: 1 + (postId % 20),
-        viewsCount: 50 + (postId % 500),
-        isLiked: postId % 7 === 0,
-        isBookmarked: postId % 11 === 0,
-        createdAt: new Date(Date.now() - postId * 3600000).toISOString(),
-        updatedAt: new Date(Date.now() - postId * 3600000).toISOString(),
-      };
-    });
+    try {
+      if (!supabaseAdmin) {
+        console.error('[tRPC] Supabase admin client not configured');
+        throw new Error('Database not available');
+      }
 
-    const hasMore = offset + actualLimit < maxPosts;
-    const nextCursor = hasMore ? String(offset + actualLimit) : undefined;
-    
-    return {
-      posts: mockPosts,
-      total: maxPosts,
-      hasMore,
-      nextCursor,
-      type: input.type,
-      category: input.category,
-    };
+      const offset = input.cursor ? parseInt(input.cursor) : 0;
+      const actualLimit = Math.min(input.limit, 50);
+
+      // Build query based on type
+      // Note: Only select columns that exist in the actual table
+      let query = supabaseAdmin
+        .from('posts')
+        .select(`
+          *,
+          profiles!posts_user_id_fkey (
+            id,
+            display_name,
+            avatar_url
+          )
+        `, { count: 'exact' })
+        .range(offset, offset + actualLimit - 1);
+
+      // Apply filters based on type
+      if (input.type === 'trending') {
+        query = query.order('likes_count', { ascending: false });
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+
+      // Apply category filter
+      if (input.category !== 'all') {
+        query = query.eq('type', input.category);
+      }
+
+      const { data: posts, error: postsError, count } = await query;
+
+      if (postsError) {
+        console.error('[tRPC] posts feed error', postsError);
+        throw new Error('Failed to fetch posts');
+      }
+
+      // Map posts to expected format
+      // Note: Actual schema only has: user_id, text, type, created_at
+      const mappedPosts = (posts || []).map((p: any) => {
+        const profile = p.profiles;
+        return {
+          id: p.id || p.user_id, // Fallback if id doesn't exist
+          userId: p.user_id,
+          user: {
+            id: p.user_id,
+            username: profile?.display_name?.toLowerCase().replace(/\s+/g, '_') || `user_${p.user_id?.slice(-6) || 'unknown'}`,
+            displayName: profile?.display_name || `User ${p.user_id?.slice(-6) || 'Unknown'}`,
+            avatar: profile?.avatar_url || avatarFor(parseInt(p.user_id?.slice(-6) || '0', 36) || 0),
+            bio: '',
+            followersCount: 0,
+            followingCount: 0,
+            postsCount: 0,
+            badges: [],
+            preferences: { cuisines: [], dietaryRestrictions: [], priceRange: [] },
+          },
+          type: (p.type || 'review') as 'review' | 'photo' | 'video' | 'story',
+          content: {
+            text: p.text || '',
+            images: [],
+            videos: [],
+          },
+          restaurant: undefined,
+          dish: undefined,
+          ratings: {
+            food: 0,
+            service: 0,
+            ambiance: 0,
+            cleanliness: 0,
+            overall: 0,
+          },
+          tags: [],
+          location: undefined,
+          likesCount: 0,
+          commentsCount: 0,
+          sharesCount: 0,
+          viewsCount: 0,
+          isLiked: false,
+          isBookmarked: false,
+          createdAt: p.created_at,
+          updatedAt: p.created_at,
+        };
+      });
+
+      const hasMore = (posts?.length || 0) >= actualLimit;
+      const nextCursor = hasMore ? String(offset + actualLimit) : undefined;
+
+      return {
+        posts: mappedPosts,
+        total: count || mappedPosts.length,
+        hasMore,
+        nextCursor,
+        type: input.type,
+        category: input.category,
+      };
+    } catch (error: any) {
+      console.error('[tRPC] getPostFeedProcedure error:', error);
+      // Return empty feed instead of throwing to prevent UI errors
+      return {
+        posts: [],
+        total: 0,
+        hasMore: false,
+        nextCursor: undefined,
+        type: input.type,
+        category: input.category,
+      };
+    }
   });
 
 export const getPostDetailsProcedure = publicProcedure

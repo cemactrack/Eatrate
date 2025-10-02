@@ -134,6 +134,63 @@ app.get("/debug/server-status", (c) => {
   });
 });
 
+// Debug endpoint for environment variables
+app.get("/api/debug/env", (c) => {
+  return c.json({
+    api: true,
+    SUPABASE_URL: !!process.env.SUPABASE_URL || !!process.env.EXPO_PUBLIC_SUPABASE_URL,
+    HAS_ANON: !!process.env.SUPABASE_ANON_KEY || !!process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+    HAS_SERVICE: !!process.env.SUPABASE_SERVICE_KEY,
+    NODE_ENV: process.env.NODE_ENV || 'development',
+    supabaseConfigured: !!supabaseAdmin,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Debug endpoint for restaurants data
+app.get("/api/debug/restaurants", async (c) => {
+  try {
+    if (!supabaseAdmin) {
+      return c.json({ 
+        error: 'Supabase admin client not configured',
+        count: 0,
+        sample: []
+      }, 500);
+    }
+
+    const { data: restaurants, error, count } = await supabaseAdmin
+      .from('restaurants')
+      .select('*', { count: 'exact' })
+      .limit(3);
+
+    if (error) {
+      console.error('[Debug] Restaurants query error:', error);
+      return c.json({
+        error: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        count: 0,
+        sample: []
+      }, 500);
+    }
+
+    return c.json({
+      success: true,
+      count: count || 0,
+      sample: restaurants || [],
+      timestamp: new Date().toISOString()
+    });
+  } catch (e: any) {
+    console.error('[Debug] Restaurants endpoint error:', e);
+    return c.json({
+      error: e.message || 'Unknown error',
+      count: 0,
+      sample: []
+    }, 500);
+  }
+});
+
 // Auth session endpoint: verifies Supabase access token and ensures profile row exists
 app.post('/api/auth/session', writeOperationsLimiter, async (c) => {
   try {
@@ -178,11 +235,11 @@ app.post('/api/auth/session', writeOperationsLimiter, async (c) => {
     const defaultDisplayName = emailLocal || `user-${userId.slice(0, 6)}`;
 
     // Try to insert profile if not exists (id is PK)
+    // Note: profiles table only has: id, display_name, avatar_url, created_at
     const insertPayload: Record<string, unknown> = {
       id: userId,
-      email: email || null,
       display_name: defaultDisplayName,
-      created_at: new Date().toISOString(),
+      avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`,
     };
 
     const { error: upsertError } = await supabaseAdmin
@@ -192,13 +249,12 @@ app.post('/api/auth/session', writeOperationsLimiter, async (c) => {
       .ignore();
 
     if (upsertError) {
-      console.error('[AuthSession] Upsert error', upsertError);
+      console.error('[AuthSession] upsert error', upsertError);
     }
-
     // Ensure display_name is set if null
     const { data: profile, error: selectErr } = await supabaseAdmin
       .from('profiles')
-      .select('id, email, display_name')
+      .select('id, display_name, avatar_url')
       .eq('id', userId)
       .single();
 

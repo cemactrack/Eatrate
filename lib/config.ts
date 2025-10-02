@@ -15,7 +15,11 @@ export function getApiBase(): string {
 export function getAllowedOrigins(): string[] {
   return [
     'https://eatrate.vercel.app',
+    'https://eatrate-api.vercel.app',
     'http://localhost:8081',
+    'http://localhost:8083',
     'http://localhost:19006',
+    'exp://127.0.0.1:8081',
+    'exp://127.0.0.1:8083',
   ];
 }
