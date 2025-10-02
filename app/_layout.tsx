@@ -1,7 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { Platform, StyleSheet, View, ActivityIndicator } from "react-native";
+import { Platform, StyleSheet, View, ActivityIndicator, StatusBar } from "react-native";
 import React, { useEffect, useState, useMemo } from "react";
 import { AppProviders } from "@/providers/AppProviders";
 import Colors from "@/constants/colors";
@@ -9,6 +9,10 @@ import { APP_CONFIG } from "@/constants/app-config";
 import CustomSplashScreen from "@/components/SplashScreen";
 import { getEnv } from "@/lib/env";
 import NotificationToast from "@/components/NotificationToast";
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useFonts } from 'expo-font';
+import { Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
+import { tokens } from '@/src/theme';
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync();
@@ -36,7 +40,16 @@ const queryClient = new QueryClient({
 function ThemedStack() {
   const screenOptions = useMemo(() => ({
     headerBackTitle: "Back",
-    headerTitleStyle: { fontWeight: '700' as const },
+    headerStyle: {
+      height: 56,
+      backgroundColor: tokens.colors.bg,
+    },
+    headerTitleStyle: {
+      fontFamily: 'Inter',
+      fontSize: tokens.font.size.lg,
+      fontWeight: '700' as const,
+    },
+    headerShadowVisible: false,
     animation: 'slide_from_right' as const,
   }), []);
   

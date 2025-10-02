@@ -12,7 +12,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
-
   Bell,
   Shield,
   HelpCircle,
@@ -25,6 +24,8 @@ import {
   Trash2,
   ChevronRight,
 } from 'lucide-react-native';
+import * as StoreReview from 'expo-store-review';
+import * as Linking from 'expo-linking';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSettings } from '@/providers/SettingsProvider';
 
@@ -132,15 +133,10 @@ export default function SettingsScreen() {
     updateSettings({ locationEnabled: value });
   };
 
-  const handleRateApp = () => {
-    Alert.alert(
-      'Rate EatRate',
-      'Would you like to rate our app on the App Store?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Rate Now', onPress: () => console.log('Opening App Store') },
-      ]
-    );
+  const handleRateApp = async () => {
+    if (await StoreReview.hasAction()) {
+      await StoreReview.requestReview();
+    }
   };
 
   const handleShareApp = async () => {
@@ -155,19 +151,11 @@ export default function SettingsScreen() {
   };
 
   const handleHelp = () => {
-    Alert.alert(
-      'Help & Support',
-      'Need help? Contact us at support@eatrate.com or visit our FAQ section.',
-      [{ text: 'OK' }]
-    );
+    router.push('/help');
   };
 
   const handlePrivacy = () => {
-    Alert.alert(
-      'Privacy Policy',
-      'Your privacy is important to us. We collect minimal data and never share your personal information.',
-      [{ text: 'OK' }]
-    );
+    router.push('/privacy');
   };
 
   const handleDeleteAccount = () => {
@@ -291,7 +279,7 @@ export default function SettingsScreen() {
             icon={<Camera size={20} color={colors.tint} />}
             title="Photo Permissions"
             subtitle="Manage camera and photo library access"
-            onPress={() => Alert.alert('Photo Permissions', 'Manage your photo permissions in device settings.')}
+            onPress={() => Linking.openSettings()}
             chevronColor={colors.secondary}
           />
         </SettingSection>
