@@ -90,7 +90,7 @@ function SettingSection({ title, children }: SettingSectionProps) {
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const authContext = useAuth();
-  const { user, logout } = authContext || { user: null, logout: async () => {} };
+  const { user, signOut } = authContext || { user: null, signOut: async () => {} };
   const { settings, updateSettings, colors, setTheme } = useSettings();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -106,7 +106,7 @@ export default function SettingsScreen() {
           onPress: async () => {
             setIsLoggingOut(true);
             try {
-              await logout();
+              await signOut();
               router.replace('/login');
             } catch (error) {
               console.error('Logout error:', error);
@@ -169,7 +169,7 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: () => {
             Alert.alert('Account Deleted', 'Your account has been deleted.');
-            logout();
+            signOut();
             router.replace('/login');
           },
         },
@@ -187,7 +187,7 @@ export default function SettingsScreen() {
               {user?.displayName || 'User'}
             </Text>
             <Text style={[styles.userContact, { color: colors.secondary }]}>
-              {user?.email || user?.phone || 'No contact info'}
+              {user?.email || 'No contact info'}
             </Text>
           </View>
         </SettingSection>

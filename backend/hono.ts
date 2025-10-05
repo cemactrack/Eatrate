@@ -5,7 +5,7 @@ import { appRouter } from "./trpc/app-router";
 import { createContext } from "./trpc/create-context";
 import { supabaseAdmin } from "./supabase-admin";
 import { writeOperationsLimiter, readOperationsLimiter, isWriteOperation } from "./middleware/rate-limiter";
-import { getAllowedOrigins } from "../lib/config";
+import { getAllowedOrigins } from "./server-config";
 
 // Create the main app
 const app = new Hono();
@@ -244,9 +244,10 @@ app.post('/api/auth/session', writeOperationsLimiter, async (c) => {
 
     const { error: upsertError } = await supabaseAdmin
       .from('profiles')
-      .insert(insertPayload)
-      .onConflict('id')
-      .ignore();
+      .upsert(insertPayload, { 
+        onConflict: 'id',
+        ignoreDuplicates: true 
+      });
 
     if (upsertError) {
       console.error('[AuthSession] upsert error', upsertError);

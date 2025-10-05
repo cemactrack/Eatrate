@@ -4,16 +4,16 @@ import { router } from 'expo-router';
 import { useAuth } from '@/providers/AuthProvider';
 
 export default function SignOutScreen() {
-  const { logout } = useAuth();
+  const { signOut } = useAuth();
 
   useEffect(() => {
     const performSignOut = async () => {
-      await logout();
+      await signOut();
       router.replace('/login');
     };
 
     performSignOut();
-  }, [logout]);
+  }, [signOut]);
 
   return (
     <View style={styles.container}>

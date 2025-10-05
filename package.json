@@ -3,9 +3,14 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "bunx rork start -p xpwqdc41xc47biu2xqpo4 --tunnel",
-    "start-web": "bunx rork start -p xpwqdc41xc47biu2xqpo4 --web --tunnel",
+    "start": "bunx rork start -p xpwqdc41xc47biu2xqpo4",
+    "start:tunnel": "bunx rork start -p xpwqdc41xc47biu2xqpo4 --tunnel",
+    "start-web": "bunx rork start -p xpwqdc41xc47biu2xqpo4 --web",
     "start-web-dev": "DEBUG=expo* bunx rork start -p xpwqdc41xc47biu2xqpo4 --web --tunnel",
+    "server": "bun run start-server.ts",
+    "server:dev": "bun --watch start-server.ts",
+    "test:api": "bun run test-api-endpoints.ts",
+    "test:supabase": "bun run test-supabase.ts",
     "build": "expo export -p web",
     "build:web": "expo export -p web",
     "lint": "expo lint"
@@ -62,6 +67,7 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@expo/ngrok": "^4.1.0",
+    "@types/bun": "latest",
     "@types/react": "~19.0.10",
     "eslint": "^9.31.0",
     "eslint-config-expo": "^9.2.0",

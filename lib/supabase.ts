@@ -18,7 +18,22 @@ export const getSupabase = () => {
     const url = getSUPABASE_URL();
     const key = getSUPABASE_ANON_KEY();
     console.log('[supabase] Initializing client with URL:', url?.substring(0, 30) + '...');
-    supabaseClient = createClient(url, key);
+    console.log('[supabase] Key length:', key?.length);
+    console.log('[supabase] Adding apikey header to global config');
+    supabaseClient = createClient(url, key, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false,
+      },
+      global: {
+        headers: {
+          'apikey': key,
+          'Authorization': `Bearer ${key}`,
+        },
+      },
+    });
+    console.log('[supabase] Client initialized successfully');
   }
   return supabaseClient;
 };

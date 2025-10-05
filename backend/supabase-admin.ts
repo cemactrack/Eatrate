@@ -15,12 +15,22 @@ if (supabaseUrl && supabaseServiceKey) {
   console.log('[Supabase] Creating admin client with service key');
   supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
+    global: {
+      headers: {
+        'apikey': supabaseServiceKey,
+      },
+    },
   });
 } else if (supabaseUrl && supabaseAnonKey) {
   console.log('[Supabase] Creating client with anon key (fallback)');
   // Fallback with anon client (reduced privileges) to avoid hard crash in non-prod envs
   supabaseAdmin = createClient(supabaseUrl, supabaseAnonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
+    global: {
+      headers: {
+        'apikey': supabaseAnonKey,
+      },
+    },
   });
 } else {
   console.error('[Supabase] CRITICAL: No Supabase credentials found!');

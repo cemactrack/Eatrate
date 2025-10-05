@@ -5,7 +5,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import { Button } from '@/src/ui';
 
 export default function DeleteAccountScreen() {
-  const { logout } = useAuth();
+  const { signOut } = useAuth();
 
   const handleDelete = () => {
     Alert.alert(
@@ -19,7 +19,7 @@ export default function DeleteAccountScreen() {
           onPress: async () => {
             // In a real app, you would call your backend to delete the user's data.
             // For this demo, we'll just log them out.
-            await logout();
+            await signOut();
             router.replace('/login');
             Alert.alert('Account Deleted', 'Your account and all associated data have been permanently deleted.');
           },
