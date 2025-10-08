@@ -10,10 +10,11 @@ import { APP_CONFIG } from "@/constants/app-config";
 export const trpc = createTRPCReact<AppRouter>();
 
 function getTrpcUrl() {
-  const trpcPath = '/api/trpc';
+  const trpcPath = '/trpc';
   try {
-    const base = getAPI_URL().trim();
-    return Platform.OS === 'web' ? trpcPath : `${base}${trpcPath}`;
+    const base = getAPI_URL().trim().replace(/\/$/, '');
+    // Always use absolute API base; relative path breaks on web (served by Expo dev server)
+    return `${base}${trpcPath}`;
   } catch (error) {
     console.error('[tRPC] Failed to get API URL:', error);
     return trpcPath;
@@ -49,6 +50,19 @@ const createHttpLink = () => httpLink({
     try {
       console.log('[tRPC] Making request to:', url);
 
+      // Attach Supabase session token if available
+      let authHeader: string | undefined;
+      try {
+        const { getSupabase } = require('@/lib/supabase');
+        const supabase = getSupabase();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          authHeader = `Bearer ${session.access_token}`;
+        }
+      } catch (e) {
+        console.warn('[tRPC] Could not read Supabase session token:', e);
+      }
+
       const response = await fetch(url, {
         ...options,
         signal: controller.signal,
@@ -60,6 +74,7 @@ const createHttpLink = () => httpLink({
           accept: 'application/json',
           'x-trpc-source': Platform.OS === 'web' ? 'web' : 'react-native',
           'x-platform': Platform.OS,
+          ...(authHeader ? { authorization: authHeader } : {}),
           ...options?.headers,
         },
       } as RequestInit);

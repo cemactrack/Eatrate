@@ -68,7 +68,9 @@ export function getEnv(throwOnMissing = true): Env {
   
   const fromProcess = readFromProcess();
   const fromExtra = readFromExpoExtra();
-  const merged: Partial<Env> = { ...fromExtra, ...fromProcess };
+  // Prefer values from Expo app config (app.json -> extra) over process env for Expo/Web dev
+  // This avoids stale global envs forcing production URLs during local development
+  const merged: Partial<Env> = { ...fromProcess, ...fromExtra };
   
   console.log('[env] Loading environment variables...');
   console.log('[env] From process:', Object.keys(fromProcess));

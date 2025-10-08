@@ -21,14 +21,16 @@ export function useFeaturedRestaurants(limit = 3) {
 
 // Posts hooks
 export function usePostsFeed(type: 'recent' | 'trending' = 'recent', limit = 10) {
-  return trpc.posts.feed.useInfiniteQuery({
-    input: { type, limit },
-    getNextPageParam: (lastPage) => lastPage?.nextCursor,
-    staleTime: APP_CONFIG.api.staleTime * 0.7, // Shorter for feed
-    retry: 1,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-  });
+  return trpc.posts.feed.useInfiniteQuery(
+    { type, limit },
+    {
+      getNextPageParam: (lastPage) => lastPage?.nextCursor,
+      staleTime: APP_CONFIG.api.staleTime * 0.7, // Shorter for feed
+      retry: 1,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+    }
+  );
 }
 
 export function useTrendingPosts(limit = 2) {
@@ -49,11 +51,14 @@ export function useTrendingPosts(limit = 2) {
 
 // Dishes hooks
 export function useTrendingDishes(limit = 10, enabled = true) {
-  const query = trpc.dishes.list.useQuery({
-    staleTime: APP_CONFIG.cache.dishes,
-    enabled,
-    retry: 0,
-  });
+  const query = trpc.dishes.list.useQuery(
+    undefined,
+    {
+      staleTime: APP_CONFIG.cache.dishes,
+      enabled,
+      retry: 0,
+    }
+  );
 
   const dishes = useMemo(() => 
     (query.data?.dishes ?? []).slice(0, limit) as Dish[], 
@@ -69,11 +74,14 @@ export function useTrendingDishes(limit = 10, enabled = true) {
 
 // Users hooks
 export function useTopFoodies(limit = 10, enabled = true) {
-  const query = trpc.users.list.useQuery({
-    staleTime: APP_CONFIG.cache.userProfile,
-    enabled,
-    retry: 0,
-  });
+  const query = trpc.users.list.useQuery(
+    undefined,
+    {
+      staleTime: APP_CONFIG.cache.userProfile,
+      enabled,
+      retry: 0,
+    }
+  );
 
   const users = useMemo(() => 
     (query.data?.users ?? []).slice(0, limit) as User[], 
@@ -219,25 +227,29 @@ export function useSearchRestaurants(query: string, filters?: {
 }) {
   const enabled = query.trim().length > 0;
   
-  return trpc.restaurants.search.useQuery({
-    input: { query: query.trim(), ...filters },
-    enabled,
-    staleTime: APP_CONFIG.api.staleTime * 0.5, // Shorter for search
-    retry: 1,
-    refetchOnWindowFocus: false,
-  });
+  return trpc.restaurants.search.useQuery(
+    { query: query.trim(), ...filters },
+    {
+      enabled,
+      staleTime: APP_CONFIG.api.staleTime * 0.5, // Shorter for search
+      retry: 1,
+      refetchOnWindowFocus: false,
+    }
+  );
 }
 
 // New hook for infinite scroll posts
 export function useInfinitePostsFeed(type: 'recent' | 'trending' = 'recent') {
-  return trpc.posts.feed.useInfiniteQuery({
-    input: { type, limit: APP_CONFIG.pagination.defaultPageSize },
-    getNextPageParam: (lastPage) => lastPage?.nextCursor,
-    staleTime: APP_CONFIG.cache.posts,
-    retry: 1,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-  });
+  return trpc.posts.feed.useInfiniteQuery(
+    { type, limit: APP_CONFIG.pagination.defaultPageSize },
+    {
+      getNextPageParam: (lastPage) => lastPage?.nextCursor,
+      staleTime: APP_CONFIG.cache.posts,
+      retry: 1,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+    }
+  );
 }
 
 export function useDebouncedValue<T>(value: T, delay: number): T {
@@ -251,18 +263,23 @@ export function useDebouncedValue<T>(value: T, delay: number): T {
 
 // Performance optimized restaurant hook with fallback
 export function useRestaurantsWithFallback(city?: string) {
-  const primaryQuery = trpc.restaurants.list.useQuery({
-    staleTime: APP_CONFIG.cache.restaurants,
-    retry: 1,
-    refetchOnMount: false,
-  });
+  const primaryQuery = trpc.restaurants.list.useQuery(
+    undefined,
+    {
+      staleTime: APP_CONFIG.cache.restaurants,
+      retry: 1,
+      refetchOnMount: false,
+    }
+  );
 
-  const fallbackQuery = trpc.restaurants.yaounde.useQuery({
-    input: { page: 1 },
-    enabled: !primaryQuery.data?.restaurants?.length && !primaryQuery.isLoading && !!primaryQuery.error,
-    staleTime: APP_CONFIG.cache.restaurants,
-    retry: 0,
-  });
+  const fallbackQuery = trpc.restaurants.yaounde.useQuery(
+    { page: 1 },
+    {
+      enabled: !primaryQuery.data?.restaurants?.length && !primaryQuery.isLoading && !!primaryQuery.error,
+      staleTime: APP_CONFIG.cache.restaurants,
+      retry: 0,
+    }
+  );
 
   const restaurants = useMemo(() => {
     const mainList = primaryQuery.data?.restaurants ?? [];

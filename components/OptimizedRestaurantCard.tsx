@@ -31,7 +31,11 @@ const OptimizedRestaurantCard: React.FC<OptimizedRestaurantCardProps> = ({
     rating: restaurant.rating?.toFixed(1) || '0.0',
     priceRange: '$'.repeat(restaurant.priceRange || 1),
     distance: restaurant.distance ? `${restaurant.distance.toFixed(1)}km` : null,
-    cuisineText: restaurant.cuisine?.slice(0, 2).join(', ') || 'Restaurant',
+    cuisineText: Array.isArray(restaurant.cuisine)
+      ? restaurant.cuisine.slice(0, 2).join(', ')
+      : (typeof restaurant.cuisine === 'string' && restaurant.cuisine.trim().length > 0
+          ? restaurant.cuisine
+          : 'Restaurant'),
     imageUri: restaurant.images?.[0] || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&h=300&fit=crop',
   }), [restaurant]);
   

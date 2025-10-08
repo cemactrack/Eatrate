@@ -18,7 +18,14 @@ app.use("*", cors({
   origin: corsOrigins,
   credentials: false,
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'x-platform',
+    'x-trpc-source',
+    'accept'
+  ],
 }));
 
 // Add request logging middleware

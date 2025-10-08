@@ -35,22 +35,51 @@ const supabaseClient = supabaseUrl && supabaseAnonKey && !supabaseAdmin
 
 // Context creation function
 export const createContext = async (opts: FetchCreateContextFnOptions) => {
-  // In a real app, you would extract the user from the request headers/cookies
-  // For now, we'll simulate a user based on a simple header
-  const authHeader = opts.req.headers.get('authorization');
-  const user = authHeader ? { 
-    id: 'user_123', 
-    email: 'user@example.com',
-    username: 'user123',
-    displayName: 'Test User',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=user123',
-    bio: 'Test user bio'
-  } : null;
-  
+  let user: {
+    id: string;
+    email?: string | null;
+    username?: string;
+    displayName?: string;
+    avatar?: string;
+    bio?: string;
+  } | null = null;
+
+  try {
+    const authHeader = opts.req.headers.get('authorization') || '';
+    const bearerPrefix = 'bearer ';
+    let accessToken = '';
+
+    if (authHeader.toLowerCase().startsWith(bearerPrefix)) {
+      accessToken = authHeader.slice(bearerPrefix.length).trim();
+    }
+
+    if (accessToken && supabaseAdmin) {
+      const { data: userResult, error } = await supabaseAdmin.auth.getUser(accessToken);
+      if (!error && userResult?.user) {
+        const authUser = userResult.user;
+        const { data: profile } = await supabaseAdmin
+          .from('profiles')
+          .select('*')
+          .eq('id', authUser.id)
+          .single();
+
+        user = {
+          id: authUser.id,
+          email: authUser.email,
+          username: profile?.display_name?.toLowerCase().replace(/\s+/g, '_') || `user_${authUser.id.slice(-6)}`,
+          displayName: profile?.display_name || authUser.email?.split('@')[0] || 'User',
+          avatar: profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${authUser.id}`,
+          bio: profile?.bio || '',
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('[tRPC Context] auth parse/verify error:', e);
+  }
+
   return {
     req: opts.req,
     user,
-    // Provide Supabase clients to the context
     supabase: supabaseAdmin || supabaseClient,
     supabaseAdmin,
   };

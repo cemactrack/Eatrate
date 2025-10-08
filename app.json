@@ -13,7 +13,7 @@
       "backgroundColor": "#ffffff"
     },
     "extra": {
-      "EXPO_PUBLIC_API_URL": "http://localhost:3000",
+      "EXPO_PUBLIC_API_URL": "http://localhost:3001",
       "EXPO_PUBLIC_SUPABASE_URL": "https://wdfukmxvpvytvxrogqiu.supabase.co",
       "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkZnVrbXh2cHZ5dHZ4cm9ncWl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg5NDMyMzYsImV4cCI6MjA3NDUxOTIzNn0.3KFy9y6YbDrD5--IOPLfshpb-tjraPDdkYYQBubONzo"
     },
