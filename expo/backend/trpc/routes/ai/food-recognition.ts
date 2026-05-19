@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { protectedProcedure } from '@/backend/trpc/create-context';
-import { generateObject } from '@rork/toolkit-sdk';
+import { generateObject } from '@rork-ai/toolkit-sdk';
 import type { FoodRecognition } from '@/types/advanced-features';
 
 const mockFoodDatabase = [

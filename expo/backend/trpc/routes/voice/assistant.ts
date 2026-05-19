@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { protectedProcedure } from '@/backend/trpc/create-context';
-import { generateText } from '@rork/toolkit-sdk';
+import { generateText } from '@rork-ai/toolkit-sdk';
 import type { VoiceCommand } from '@/types/advanced-features';
 
 const mockVoiceHistory: Record<string, VoiceCommand[]> = {};

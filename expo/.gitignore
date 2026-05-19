@@ -39,3 +39,9 @@ yarn-error.*
 
 # Database files
 data/
+
+ios/
+android/
+core
+node_modules
+.expo

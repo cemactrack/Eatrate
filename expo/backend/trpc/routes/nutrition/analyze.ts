@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { protectedProcedure } from '../../create-context';
-import { generateText } from '@rork/toolkit-sdk';
+import { generateText } from '@rork-ai/toolkit-sdk';
 
 export const estimateCaloriesProcedure = protectedProcedure
   .input(z.object({
