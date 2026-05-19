@@ -1,7 +1,7 @@
-import { Tabs, router } from "expo-router";
+import { Tabs } from "expo-router";
 import { Home, Search, User, Truck } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef } from "react";
-import { View, ActivityIndicator, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { useSettings } from "@/providers/SettingsProvider";
 import { useAuth } from "@/providers/AuthProvider";
 
@@ -32,28 +32,10 @@ export default function TabsLayout() {
     [colors]
   );
 
+  // Login disabled: skip auth redirect and render tabs regardless of user
   useEffect(() => {
-    if (!isLoading && !user && !redirectedRef.current) {
-      redirectedRef.current = true;
-      try {
-        router.replace('/auth/login' as const);
-      } catch (e) {
-        console.log('[Tabs/_layout] redirect error', e);
-      }
-    }
+    redirectedRef.current = true;
   }, [isLoading, user]);
-
-  if (isLoading) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]} testID="tabs-auth-loading">
-        <ActivityIndicator size="large" color={colors.tint} />
-      </View>
-    );
-  }
-
-  if (!user) {
-    return <View style={[styles.loadingContainer, { backgroundColor: colors.background }]} testID="tabs-no-user" />;
-  }
 
   return (
     <View style={styles.tabsRoot} testID="main-tabs">
@@ -92,11 +74,6 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   tabsRoot: {
     flex: 1,
   },
